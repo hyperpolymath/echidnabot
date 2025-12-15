@@ -35,7 +35,7 @@
 
 (define development-practices
   '((code-style
-     (languages . ("Just" "Rust" "Scheme"))
+     (languages . ("Dockerfile" "Just" "Rust" "Scheme" "Shell"))
      (formatter . "auto-detect")
      (linter . "auto-detect")
      (line-length . 100)
