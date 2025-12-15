@@ -1,7 +1,6 @@
 //! GitHub platform adapter using Octocrab
 
 use async_trait::async_trait;
-use octocrab::params::checks::{CheckRunConclusion, CheckRunStatus};
 use std::path::PathBuf;
 
 use super::{
@@ -96,19 +95,19 @@ impl PlatformAdapter for GitHubAdapter {
         let checks = self.client.checks(&repo.owner, &repo.name);
 
         let (status, conclusion) = match check.status {
-            CheckStatus::Queued => (CheckRunStatus::Queued, None),
-            CheckStatus::InProgress => (CheckRunStatus::InProgress, None),
+            CheckStatus::Queued => ("queued", None),
+            CheckStatus::InProgress => ("in_progress", None),
             CheckStatus::Completed { conclusion, .. } => {
                 let c = match conclusion {
-                    CheckConclusion::Success => CheckRunConclusion::Success,
-                    CheckConclusion::Failure => CheckRunConclusion::Failure,
-                    CheckConclusion::Neutral => CheckRunConclusion::Neutral,
-                    CheckConclusion::Cancelled => CheckRunConclusion::Cancelled,
-                    CheckConclusion::Skipped => CheckRunConclusion::Skipped,
-                    CheckConclusion::TimedOut => CheckRunConclusion::TimedOut,
-                    CheckConclusion::ActionRequired => CheckRunConclusion::ActionRequired,
+                    CheckConclusion::Success => "success",
+                    CheckConclusion::Failure => "failure",
+                    CheckConclusion::Neutral => "neutral",
+                    CheckConclusion::Cancelled => "cancelled",
+                    CheckConclusion::Skipped => "skipped",
+                    CheckConclusion::TimedOut => "timed_out",
+                    CheckConclusion::ActionRequired => "action_required",
                 };
-                (CheckRunStatus::Completed, Some(c))
+                ("completed", Some(c))
             }
         };
 

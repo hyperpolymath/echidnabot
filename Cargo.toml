@@ -23,9 +23,9 @@ path = "src/main.rs"
 tokio = { version = "1", features = ["full"] }
 
 # HTTP framework
-axum = { version = "0.8", features = ["macros"] }
-tower = "0.5"
-tower-http = { version = "0.6", features = ["cors", "trace", "request-id"] }
+axum = { version = "0.7", features = ["macros"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "trace", "request-id"] }
 
 # GraphQL
 async-graphql = { version = "7", features = ["uuid", "chrono"] }
@@ -37,7 +37,7 @@ serde_json = "1"
 toml = "0.8"
 
 # Database
-sqlx = { version = "0.7", features = ["runtime-tokio", "sqlite", "postgres", "uuid", "chrono"] }
+sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "postgres", "uuid", "chrono"] }
 
 # GitHub API
 octocrab = "0.38"
@@ -64,19 +64,11 @@ clap = { version = "4", features = ["derive", "env"] }
 # Config
 config = "0.14"
 
-# URL encoding (for GitLab API)
-urlencoding = "2"
-
-# Async trait support
-async-trait = "0.1"
-
-# Temp directories (for repo cloning)
-tempfile = "3"
-
 [dev-dependencies]
 tokio-test = "0.4"
 axum-test = "14"
 mockall = "0.12"
+tempfile = "3"
 wiremock = "0.5"
 
 [profile.release]

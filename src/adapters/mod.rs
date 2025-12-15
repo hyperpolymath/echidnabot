@@ -1,12 +1,8 @@
 //! Platform adapters for GitHub, GitLab, Bitbucket
 
-pub mod bitbucket;
 pub mod github;
-pub mod gitlab;
-
-pub use bitbucket::BitbucketAdapter;
-pub use github::GitHubAdapter;
-pub use gitlab::GitLabAdapter;
+// pub mod gitlab;    // TODO: Implement
+// pub mod bitbucket; // TODO: Implement
 
 use async_trait::async_trait;
 use std::path::PathBuf;
@@ -36,7 +32,7 @@ impl RepoId {
 }
 
 /// Platform enum
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Platform {
     GitHub,
     GitLab,

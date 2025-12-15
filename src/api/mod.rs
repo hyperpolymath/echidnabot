@@ -3,5 +3,5 @@
 pub mod graphql;
 pub mod webhooks;
 
-pub use graphql::{create_schema, AppContext, EchidnabotSchema};
-pub use webhooks::{webhook_router, WebhookState};
+pub use graphql::create_schema;
+pub use webhooks::webhook_router;
