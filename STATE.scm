@@ -7,9 +7,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (metadata
-  (format-version . "1.0")
+  (format-version . "1.1")
   (created . "2025-12-08")
-  (last-updated . "2025-12-08")
+  (last-updated . "2025-12-15")
   (generator . "claude-opus-4"))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -18,226 +18,298 @@
 
 (project
   (name . "echidnabot")
-  (description . "UNDEFINED - awaiting user input")
+  (description . "Proof-aware CI bot that monitors repositories for theorem proof changes and delegates verification to ECHIDNA Core")
   (repository . "hyperpolymath/echidnabot")
-  (category . "bot/automation")  ; assumed from name
-  (status . "ideation")
-  (completion . 0))
+  (category . "bot/automation/formal-verification")
+  (status . "architecture-defined")
+  (completion . 5)
+  (relationship . ("orchestrator-for" "ECHIDNA Core")))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; CORE CONCEPT
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(concept
+  (tagline . "Dependabot for theorem provers")
+
+  (what-it-is
+    "An orchestration layer that:"
+    "- Receives webhooks from GitHub/GitLab/Bitbucket"
+    "- Detects proof files (.agda, .v, .lean, .mm, etc.)"
+    "- Delegates verification to ECHIDNA Core"
+    "- Reports results via Check Runs, comments, issues"
+    "- Optionally requests ML-powered tactic suggestions")
+
+  (what-it-is-not
+    "- NOT a theorem prover (ECHIDNA does that)"
+    "- NOT a replacement for CI (complements it)"
+    "- NOT a code quality tool (proof verification only)")
+
+  (value-proposition
+    "Maintainers of formal verification projects get:"
+    "- Automatic proof regression detection"
+    "- Clear failure reports on PRs"
+    "- ML-assisted fix suggestions"
+    "- Multi-prover support (9+ backends via ECHIDNA)"))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; TECHNOLOGY STACK
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(technology
+  (language . "Rust")
+  (language-rationale . "RSR-mandated for systems; matches ECHIDNA Core")
+
+  (runtime . "tokio")
+  (http-framework . "axum")
+  (graphql . "async-graphql")
+  (database . ("SQLite" "PostgreSQL"))
+  (serialization . "serde")
+  (config-format . "TOML")
+  (packaging . ("Guix" "Nix"))
+
+  (platform-clients
+    (github . "octocrab")
+    (gitlab . "gitlab crate")
+    (bitbucket . "custom"))
+
+  (forbidden
+    ("Python" . "RSR policy")
+    ("npm/node" . "RSR policy - use Deno if TS needed")
+    ("Ruby" . "RSR policy")
+    ("Chapel" . "Not in approved list despite AI suggestion")))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; CURRENT POSITION
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (current-position
-  (phase . "pre-development")
-  (state . "empty-repository")
-  (branch . "claude/create-state-scm-013QGU2z6VAUvPXb7VabscwU")
+  (phase . "phase-0-foundation")
+  (state . "architecture-defined")
+  (branch . "claude/echidnabot-architecture-3op9d")
 
   (what-exists
     (git-repo . #t)
     (remote-configured . #t)
+    (architecture-doc . #t)
     (source-code . #f)
-    (documentation . #f)
     (tests . #f)
-    (ci-cd . #f)
-    (dependencies . #f))
+    (ci-cd . #t)
+    (guix-package . "stub-only"))
+
+  (completed-this-session
+    ("Analyzed two AI architecture proposals")
+    ("Identified RSR policy conflicts")
+    ("Synthesized proper Rust-based architecture")
+    ("Created docs/ARCHITECTURE.adoc")
+    ("Updated STATE.scm with project definition"))
 
   (blockers
-    ("Project scope and purpose undefined")
-    ("Tech stack not selected")
-    ("No requirements documented")))
+    ("Cargo project not initialized")
+    ("ECHIDNA Core API not yet defined")
+    ("No test repository with proof files")))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; ROUTE TO MVP v1
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (mvp-v1
-  (status . "not-started")
-  (target-completion . "TBD")
+  (status . "planning-complete")
+  (scope . "GitHub + Metamath + single repo")
+  (rationale . "Metamath is ECHIDNA's easiest prover (complexity 2/5)")
 
-  ;; MVP definition pending answers to questions below
   (core-features
-    ("PLACEHOLDER: Define core bot functionality")
-    ("PLACEHOLDER: Define integration targets")
-    ("PLACEHOLDER: Define user interaction model"))
+    ("Receive GitHub push/PR webhooks")
+    ("Detect .mm (Metamath) files in commits")
+    ("Delegate to ECHIDNA Core for verification")
+    ("Create GitHub Check Runs with pass/fail")
+    ("Store job history in SQLite"))
 
   (milestones
-    (m0 (name . "Project Setup")
+    (m0 (name . "Foundation")
         (status . "in-progress")
         (tasks
-          ("Create STATE.scm" . "in-progress")
-          ("Define project scope" . "blocked")
-          ("Select tech stack" . "blocked")
-          ("Initialize project structure" . "pending")
-          ("Set up development environment" . "pending")))
+          ("Create STATE.scm" . "complete")
+          ("Define architecture" . "complete")
+          ("Initialize Cargo project" . "pending")
+          ("Set up guix.scm with Rust deps" . "pending")
+          ("Create basic project structure" . "pending")))
 
-    (m1 (name . "Core Bot Infrastructure")
+    (m1 (name . "Webhook Infrastructure")
         (status . "pending")
         (tasks
-          ("PLACEHOLDER: depends on project definition")))
+          ("Implement axum webhook server" . "pending")
+          ("Add GitHub signature verification" . "pending")
+          ("Parse push/PR events" . "pending")
+          ("Test with ngrok" . "pending")))
 
-    (m2 (name . "Primary Feature Set")
+    (m2 (name . "Job Scheduling")
         (status . "pending")
         (tasks
-          ("PLACEHOLDER: depends on project definition")))
+          ("Implement job queue" . "pending")
+          ("Add SQLite state store" . "pending")
+          ("Implement deduplication" . "pending")
+          ("Add concurrent job limits" . "pending")))
 
-    (m3 (name . "MVP Release")
+    (m3 (name . "ECHIDNA Integration")
         (status . "pending")
         (tasks
-          ("Integration testing" . "pending")
+          ("Define ECHIDNA client interface" . "pending")
+          ("Implement Metamath dispatcher" . "pending")
+          ("Parse verification results" . "pending")
+          ("Handle timeouts gracefully" . "pending")))
+
+    (m4 (name . "Result Reporting")
+        (status . "pending")
+        (tasks
+          ("Create GitHub Check Runs" . "pending")
+          ("Update check status on completion" . "pending")
+          ("Add failure annotations" . "pending")
+          ("Test end-to-end flow" . "pending")))
+
+    (m5 (name . "MVP Release")
+        (status . "pending")
+        (tasks
+          ("GraphQL API for manual triggers" . "pending")
+          ("CLI tool" . "pending")
           ("Documentation" . "pending")
-          ("Initial deployment" . "pending")))))
+          ("Deploy to test environment" . "pending")))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; KNOWN ISSUES
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (issues
-  (critical
-    (issue-001
-      (title . "Project purpose undefined")
-      (description . "Cannot proceed without knowing what echidnabot should do")
-      (blocking . ("all development work"))))
+  (critical)
 
   (high
+    (issue-001
+      (title . "ECHIDNA Core API not defined")
+      (description . "echidnabot needs to call ECHIDNA; API contract must be established")
+      (impact . "Cannot implement prover dispatcher without this")
+      (resolution . "Define GraphQL/gRPC interface in ECHIDNA Core"))
+
     (issue-002
-      (title . "Tech stack not selected")
-      (description . "Need to choose language, framework, and hosting approach")
-      (options . ("Python + discord.py/telegram-bot"
-                  "TypeScript + discord.js"
-                  "Rust + serenity"
-                  "Elixir + nostrum"
-                  "Other - user specified"))))
+      (title . "No test repository with proof files")
+      (description . "Need a repo with .mm files to test webhook flow")
+      (resolution . "Create test-echidnabot repo with sample Metamath proofs")))
 
   (medium
     (issue-003
-      (title . "No CI/CD pipeline")
-      (description . "Need to set up automated testing and deployment"))
+      (title . "Guix Rust tooling")
+      (description . "guix.scm needs proper Rust build system inputs")
+      (resolution . "Add rust, cargo, rust-src to guix.scm inputs")))
 
+  (low
     (issue-004
-      (title . "No contribution guidelines")
-      (description . "Need CONTRIBUTING.md if open source")))
-
-  (low))
+      (title . "ReScript UI deferred")
+      (description . "Dashboard is phase 3, not blocking MVP")
+      (resolution . "Implement after core functionality works"))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; QUESTIONS FOR USER
+;;; QUESTIONS RESOLVED
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(questions
-  (priority-1-blocking
-    (q1 (question . "What is echidnabot?")
-        (context . "I need to understand the core purpose and functionality")
-        (examples . ("Discord bot for moderation?"
-                     "Telegram bot for notifications?"
-                     "GitHub bot for automation?"
-                     "IRC bot?"
-                     "Multi-platform bot?"
-                     "Something else entirely?")))
+(questions-resolved
+  (q1 (question . "What is echidnabot?")
+      (answer . "A proof-aware CI bot that orchestrates ECHIDNA for proof verification"))
 
-    (q2 (question . "What platform(s) should it target?")
-        (context . "This determines dependencies and architecture")
-        (options . ("Discord" "Telegram" "Slack" "IRC" "Matrix" "GitHub" "Multiple")))
+  (q2 (question . "What platform(s) should it target?")
+      (answer . "GitHub first, then GitLab, Bitbucket, Codeberg"))
 
-    (q3 (question . "What are the 3-5 core features for MVP?")
-        (context . "Need to scope the minimum viable product")
-        (format . "List the essential functionality without which the bot is useless")))
+  (q3 (question . "What are the core features for MVP?")
+      (answer . "Webhook receiver, Metamath dispatcher, GitHub Check Runs"))
 
-  (priority-2-important
-    (q4 (question . "What programming language/tech stack do you prefer?")
-        (context . "Your preferences from state.scm suggest Rust, Elixir, or Haskell")
-        (my-recommendation . "Rust with serenity for Discord, or Elixir for high concurrency"))
+  (q4 (question . "What tech stack?")
+      (answer . "Rust (axum + async-graphql + tokio + SQLite)"))
 
-    (q5 (question . "Should this be self-hosted or cloud-deployed?")
-        (options . ("Self-hosted (VPS/home server)"
-                    "Cloud functions (AWS Lambda, Cloudflare Workers)"
-                    "Container-based (Docker/Podman on K8s)"
-                    "Managed bot hosting platform")))
-
-    (q6 (question . "What's the expected scale?")
-        (context . "Affects architecture decisions")
-        (options . ("Personal/small server (<100 users)"
-                    "Medium (100-10k users)"
-                    "Large (10k+ users)"))))
-
-  (priority-3-nice-to-know
-    (q7 (question . "Any existing bots or projects to draw inspiration from?")
-        (context . "Helps understand desired UX and feature set"))
-
-    (q8 (question . "Is this open source? What license?")
-        (context . "Affects documentation and contribution setup"))
-
-    (q9 (question . "Any specific integrations needed?")
-        (examples . ("Database" "External APIs" "Webhooks" "OAuth providers")))))
+  (q5 (question . "Deployment model?")
+      (answer . "Container-based (Docker/Podman) or Guix service")))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; LONG-TERM ROADMAP
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (roadmap
-  (disclaimer . "Speculative until project scope is defined")
-
   (phase-0
     (name . "Foundation")
-    (status . "current")
+    (status . "in-progress")
     (goals
-      ("Define project scope and requirements")
-      ("Select technology stack")
-      ("Set up repository structure")
-      ("Create development environment")
-      ("Document architecture decisions")))
+      ("Architecture document" . "complete")
+      ("Cargo project setup" . "pending")
+      ("Basic project structure" . "pending")))
 
   (phase-1
-    (name . "MVP Development")
+    (name . "MVP")
     (status . "pending")
+    (scope . "GitHub + Metamath")
     (goals
-      ("Implement core bot infrastructure")
-      ("Build primary feature set")
-      ("Basic error handling and logging")
-      ("Initial test suite")
-      ("Local deployment capability")))
+      ("Webhook infrastructure")
+      ("Job scheduling")
+      ("ECHIDNA integration")
+      ("Check run reporting")))
 
   (phase-2
-    (name . "Hardening")
+    (name . "Multi-Prover")
     (status . "future")
+    (scope . "+Z3, CVC5, Lean; +GitLab")
     (goals
-      ("Comprehensive test coverage")
-      ("CI/CD pipeline")
-      ("Production deployment")
-      ("Monitoring and alerting")
-      ("Performance optimization")))
+      ("Auto-detect proof type")
+      ("Parallel prover execution")
+      ("GitLab adapter")))
 
   (phase-3
-    (name . "Enhancement")
+    (name . "Intelligence")
     (status . "future")
+    (scope . "+ML suggestions; +dashboard")
     (goals
-      ("Extended feature set")
-      ("Plugin/extension system")
-      ("Admin dashboard/web UI")
-      ("Multi-instance support")
-      ("Advanced integrations")))
+      ("Tactic suggestion via ECHIDNA Julia ML")
+      ("Auto-fix PR generation")
+      ("ReScript web dashboard")))
 
   (phase-4
-    (name . "Maturity")
+    (name . "Production")
     (status . "future")
     (goals
-      ("Community contributions")
-      ("Comprehensive documentation")
-      ("Stable API")
-      ("Long-term maintenance plan"))))
+      ("PostgreSQL for scale")
+      ("Horizontal worker scaling")
+      ("Monitoring (Prometheus/Grafana)")
+      ("Complete documentation"))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; ECHIDNA DEPENDENCY
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(echidna-dependency
+  (relationship . "echidnabot orchestrates ECHIDNA Core")
+
+  (required-endpoints
+    ("verifyProof mutation" . "Submit proof content, get verification result")
+    ("suggestTactics mutation" . "Get ML-powered suggestions for failed proofs")
+    ("proverStatus query" . "Check if prover backend is available"))
+
+  (echidna-status
+    (provers-complete . 9)
+    (provers-total . 12)
+    (tier-1 . ("Agda" "Coq" "Lean" "Isabelle" "Z3" "CVC5"))
+    (tier-2 . ("Metamath" "HOL Light" "Mizar"))
+    (tier-3 . ("PVS" "ACL2" "HOL4"))
+    (mvp-prover . "Metamath")
+    (mvp-prover-rationale . "Complexity 2/5, easiest to implement")))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; SESSION TRACKING
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (session
-  (id . "013QGU2z6VAUvPXb7VabscwU")
-  (started . "2025-12-08")
+  (id . "3op9d")
+  (started . "2025-12-15")
   (actions-taken
-    ("Explored repository structure")
-    ("Found repository is empty/new")
-    ("Fetched STATE.scm format guidance")
-    ("Created initial STATE.scm")))
+    ("Reviewed two AI architecture proposals")
+    ("Identified Chapel/npm/Python policy violations")
+    ("Designed Rust-based architecture")
+    ("Created docs/ARCHITECTURE.adoc")
+    ("Updated STATE.scm with complete project definition")))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; FILES CREATED/MODIFIED THIS SESSION
@@ -245,19 +317,32 @@
 
 (files
   (created
-    ("STATE.scm" . "2025-12-08"))
-  (modified))
+    ("docs/ARCHITECTURE.adoc" . "2025-12-15"))
+  (modified
+    ("STATE.scm" . "2025-12-15")))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; NEXT ACTIONS
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (critical-next
-  (action-1 . "User to answer blocking questions (q1-q3)")
-  (action-2 . "Define MVP feature set based on answers")
-  (action-3 . "Select tech stack")
-  (action-4 . "Initialize project with chosen stack")
-  (action-5 . "Create README.md with project description"))
+  (action-1 . "Initialize Cargo project: cargo init --lib")
+  (action-2 . "Add dependencies to Cargo.toml")
+  (action-3 . "Create src/ directory structure per ARCHITECTURE.adoc")
+  (action-4 . "Update guix.scm with Rust build inputs")
+  (action-5 . "Implement stub axum server that accepts webhooks")
+  (action-6 . "Define ECHIDNA API contract (in ECHIDNA repo)"))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; STATISTICS
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(statistics
+  (lines-of-code . 0)
+  (files-source . 0)
+  (files-docs . 1)
+  (completion-percentage . 5)
+  (architecture-defined . #t)
+  (tech-stack-selected . #t))
 
 ;;; END STATE.scm
-;;; Download this file at end of session, upload at start of next conversation
