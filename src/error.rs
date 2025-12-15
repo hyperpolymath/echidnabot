@@ -26,6 +26,12 @@ pub enum Error {
     #[error("GitHub API error: {0}")]
     GitHub(String),
 
+    #[error("GitLab API error: {0}")]
+    GitLab(String),
+
+    #[error("Bitbucket API error: {0}")]
+    Bitbucket(String),
+
     #[error("ECHIDNA communication error: {0}")]
     Echidna(String),
 
