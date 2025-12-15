@@ -13,11 +13,12 @@ When asked to add npm packages, use Deno alternatives:
 ## Language & Security Policy (RSR)
 
 ### Allowed Languages (Primary → Fallback)
-- **Systems/ML**: Rust
+- **Systems/ML**: Rust → Chapel (for HPC/parallel workloads)
 - **Web/Scripts**: ReScript → TypeScript (legacy only)
 - **TUI**: Ada/SPARK
 - **WordPress**: PHP (with security CI)
 - **LSP**: Java (exception for IDE compatibility)
+- **HPC/Parallel**: Chapel (native parallelism, good for prover orchestration)
 
 ### Banned Languages
 - Python (except SaltStack)
