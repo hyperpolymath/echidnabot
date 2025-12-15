@@ -131,3 +131,19 @@ credentials.json
 *.bak
 *.orig
 .justfile.bak
+
+# === echidnabot specific ===
+# Database files
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Config (may contain secrets)
+echidnabot.toml
+!echidnabot.example.toml
+
+# Coverage
+tarpaulin-report.html
+*.profraw
+*.profdata

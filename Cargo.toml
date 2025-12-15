@@ -1,0 +1,77 @@
+[package]
+name = "echidnabot"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+description = "Proof-aware CI bot that orchestrates ECHIDNA for theorem proof verification"
+repository = "https://github.com/hyperpolymath/echidnabot"
+keywords = ["theorem-prover", "formal-verification", "ci", "bot", "echidna"]
+categories = ["development-tools", "science"]
+authors = ["Jonathan D.A. Jewell <jonathan.jewell@gmail.com>"]
+readme = "README.adoc"
+
+[lib]
+name = "echidnabot"
+path = "src/lib.rs"
+
+[[bin]]
+name = "echidnabot"
+path = "src/main.rs"
+
+[dependencies]
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# HTTP framework
+axum = { version = "0.7", features = ["macros"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "trace", "request-id"] }
+
+# GraphQL
+async-graphql = { version = "7", features = ["uuid", "chrono"] }
+async-graphql-axum = "7"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+
+# Database
+sqlx = { version = "0.7", features = ["runtime-tokio", "sqlite", "postgres", "uuid", "chrono"] }
+
+# GitHub API
+octocrab = "0.38"
+
+# HTTP client (for ECHIDNA communication)
+reqwest = { version = "0.11", features = ["json"] }
+
+# Utilities
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+thiserror = "1"
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# Crypto for webhook verification
+hmac = "0.12"
+sha2 = "0.10"
+hex = "0.4"
+
+# CLI
+clap = { version = "4", features = ["derive", "env"] }
+
+# Config
+config = "0.14"
+
+[dev-dependencies]
+tokio-test = "0.4"
+axum-test = "14"
+mockall = "0.12"
+tempfile = "3"
+wiremock = "0.5"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
