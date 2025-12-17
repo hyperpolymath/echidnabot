@@ -75,3 +75,31 @@ wiremock = "0.5"
 lto = true
 codegen-units = 1
 strip = true
+
+# Packaging metadata for cargo-deb
+[package.metadata.deb]
+maintainer = "hyperpolymath <packages@hyperpolymath.dev>"
+copyright = "2025, hyperpolymath"
+license-file = ["LICENSE", "0"]
+extended-description = """
+ECHIDNABOT is a proof-aware CI bot that orchestrates ECHIDNA for theorem
+proof verification. It integrates with GitHub to automatically verify
+formal proofs in pull requests.
+"""
+depends = "$auto, openssl"
+section = "devel"
+priority = "optional"
+assets = [
+    ["target/release/echidnabot", "usr/bin/", "755"],
+    ["README.adoc", "usr/share/doc/echidnabot/README.adoc", "644"],
+]
+
+# Packaging metadata for cargo-generate-rpm
+[package.metadata.generate-rpm]
+assets = [
+    { source = "target/release/echidnabot", dest = "/usr/bin/echidnabot", mode = "755" },
+    { source = "README.adoc", dest = "/usr/share/doc/echidnabot/README.adoc", mode = "644" },
+]
+
+[package.metadata.generate-rpm.requires]
+openssl = "*"
