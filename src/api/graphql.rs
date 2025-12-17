@@ -67,6 +67,7 @@ pub enum ProverStatus {
     Available,
     Degraded,
     Unavailable,
+    Unknown,
 }
 
 /// Repository information

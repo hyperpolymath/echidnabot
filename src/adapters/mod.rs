@@ -1,4 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 //! Platform adapters for GitHub, GitLab, Bitbucket
+
+use serde::{Deserialize, Serialize};
 
 pub mod github;
 // pub mod gitlab;    // TODO: Implement
@@ -32,7 +35,7 @@ impl RepoId {
 }
 
 /// Platform enum
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Platform {
     GitHub,
     GitLab,

@@ -37,15 +37,16 @@ serde_json = "1"
 toml = "0.8"
 
 # Database
-sqlx = { version = "0.8.1", features = ["runtime-tokio", "sqlite", "postgres", "uuid", "chrono"] }
+sqlx = { version = "0.8.1", features = ["runtime-tokio-rustls", "sqlite", "postgres", "uuid", "chrono"] }
 
 # GitHub API
 octocrab = "0.38"
 
 # HTTP client (for ECHIDNA communication)
-reqwest = { version = "0.11", features = ["json"] }
+reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls"] }
 
 # Utilities
+async-trait = "0.1"
 uuid = { version = "1", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 thiserror = "1"
@@ -63,6 +64,9 @@ clap = { version = "4", features = ["derive", "env"] }
 
 # Config
 config = "0.14"
+
+# Filesystem utilities
+tempfile = "3"
 
 [dev-dependencies]
 tokio-test = "0.4"

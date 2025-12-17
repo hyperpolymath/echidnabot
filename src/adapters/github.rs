@@ -94,20 +94,22 @@ impl PlatformAdapter for GitHubAdapter {
     async fn create_check_run(&self, repo: &RepoId, check: CheckRun) -> Result<CheckRunId> {
         let checks = self.client.checks(&repo.owner, &repo.name);
 
+        use octocrab::params::checks::{CheckRunConclusion as OctoConclusion, CheckRunStatus as OctoStatus};
+
         let (status, conclusion) = match check.status {
-            CheckStatus::Queued => ("queued", None),
-            CheckStatus::InProgress => ("in_progress", None),
+            CheckStatus::Queued => (OctoStatus::Queued, None),
+            CheckStatus::InProgress => (OctoStatus::InProgress, None),
             CheckStatus::Completed { conclusion, .. } => {
                 let c = match conclusion {
-                    CheckConclusion::Success => "success",
-                    CheckConclusion::Failure => "failure",
-                    CheckConclusion::Neutral => "neutral",
-                    CheckConclusion::Cancelled => "cancelled",
-                    CheckConclusion::Skipped => "skipped",
-                    CheckConclusion::TimedOut => "timed_out",
-                    CheckConclusion::ActionRequired => "action_required",
+                    CheckConclusion::Success => OctoConclusion::Success,
+                    CheckConclusion::Failure => OctoConclusion::Failure,
+                    CheckConclusion::Neutral => OctoConclusion::Neutral,
+                    CheckConclusion::Cancelled => OctoConclusion::Cancelled,
+                    CheckConclusion::Skipped => OctoConclusion::Skipped,
+                    CheckConclusion::TimedOut => OctoConclusion::TimedOut,
+                    CheckConclusion::ActionRequired => OctoConclusion::ActionRequired,
                 };
-                ("completed", Some(c))
+                (OctoStatus::Completed, Some(c))
             }
         };
 
