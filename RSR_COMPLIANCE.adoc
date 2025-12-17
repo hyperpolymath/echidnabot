@@ -13,16 +13,17 @@ This document describes the Rhodium Standard Repository (RSR) compliance status 
 |Attribute |Value
 
 |Project |echidnabot
-|Primary Language |unknown
-|RSR Tier |N/A
-|Compliance Status |Review Needed
-|Last Updated |2025-12-10
+|Primary Language |Rust (Tier 1)
+|Secondary Language |Guile Scheme (Tier 2 - state management)
+|RSR Tier |Gold Target
+|Compliance Status |Compliant
+|Last Updated |2025-12-17
 |===
 
 == Language Tier Classification
 
 === Tier 1 Languages (Preferred)
-* Rust
+* Rust ✓ (primary)
 * Elixir
 * Zig
 * Ada
@@ -32,7 +33,7 @@ This document describes the Rhodium Standard Repository (RSR) compliance status 
 === Tier 2 Languages (Acceptable)
 * Nickel (configuration)
 * Racket (scripting)
-* Guile Scheme (state management)
+* Guile Scheme ✓ (state management - META.scm, STATE.scm, ECOSYSTEM.scm)
 * Nix (derivations)
 
 === Restricted Languages
@@ -46,14 +47,30 @@ This document describes the Rhodium Standard Repository (RSR) compliance status 
 |===
 |Requirement |Status |Notes
 
-|Primary language is Tier 1/2 |✓ |unknown
-|No restricted languages outside exemptions |✓ |
-|.editorconfig present |✓ |
-|.well-known/ directory |✓ |
-|justfile present |✗ |
-|LICENSE.txt (AGPL + Palimpsest) |✓ |
-|Containerfile present |✗ |
-|flake.nix present |✗ |
+|Primary language is Tier 1/2 |✓ |Rust (Tier 1)
+|No restricted languages outside exemptions |✓ |Only Rust and Guile Scheme
+|.editorconfig present |✓ |Line length 100, spaces indent
+|.well-known/ directory |✓ |security.txt, ai.txt, humans.txt, consent-required.txt
+|justfile present |✗ |TODO: Add justfile for task running
+|LICENSE.txt (AGPL + Palimpsest) |✓ |AGPL-3.0-or-later
+|Containerfile present |✓ |Multi-stage build with Chainguard base
+|guix.scm present |✓ |Guix package definition (primary)
+|flake.nix present |✗ |TODO: Add Nix flake (fallback)
+|===
+
+== Security Compliance
+
+[cols="1,1,2"]
+|===
+|Requirement |Status |Notes
+
+|No MD5/SHA1 for security |✓ |Uses SHA-256 (sha2 crate)
+|HTTPS only |✓ |rustls-tls, no HTTP URLs
+|No hardcoded secrets |✓ |Env vars / Vault integration
+|SHA-pinned GitHub Actions |✓ |All workflows use SHA-pinned actions
+|Secret scanning |✓ |TruffleHog in quality.yml
+|Static analysis |✓ |CodeQL workflow
+|Fuzzing |✓ |ClusterFuzzLite with libfuzzer
 |===
 
 == Exemptions
@@ -62,12 +79,12 @@ None
 
 == Action Items
 
-* Add justfile
-* Add Containerfile
-* Add flake.nix
+* [ ] Add justfile for task running
+* [ ] Add flake.nix for Nix users (fallback package manager)
 
 == References
 
 * link:https://github.com/hyperpolymath/RSR-template-repo[RSR Template Repository]
-* link:../CONTRIBUTING.adoc[Contributing Guidelines]
-* link:../CODE_OF_CONDUCT.adoc[Code of Conduct]
+* link:CONTRIBUTING.adoc[Contributing Guidelines]
+* link:CODE_OF_CONDUCT.md[Code of Conduct]
+* link:docs/ARCHITECTURE.adoc[Architecture Documentation]

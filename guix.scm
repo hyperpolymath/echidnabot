@@ -36,7 +36,7 @@
         ("rust-serde-json" ,rust-serde-json-1)
         ("rust-toml" ,rust-toml-0.8)
         ;; Database
-        ("rust-sqlx" ,rust-sqlx-0.7)
+        ("rust-sqlx" ,rust-sqlx-0.8)
         ;; HTTP client
         ("rust-reqwest" ,rust-reqwest-0.11)
         ;; Utilities
