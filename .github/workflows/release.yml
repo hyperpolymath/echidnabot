@@ -47,7 +47,7 @@ jobs:
             binary: echidnabot.exe
 
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@6d9817901c499d6b02debbb57edb38d33daa680b # stable
@@ -94,7 +94,7 @@ jobs:
           Get-FileHash echidnabot-${{ github.ref_name }}-${{ matrix.target }}.zip -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLower())  echidnabot-${{ github.ref_name }}-${{ matrix.target }}.zip" } | Out-File -FilePath echidnabot-${{ github.ref_name }}-${{ matrix.target }}.zip.sha256
 
       - name: Upload artifact
-        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v4
         with:
           name: echidnabot-${{ matrix.target }}
           path: |
@@ -107,7 +107,7 @@ jobs:
       contents: read
     needs: build-binaries
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - name: Install cargo-deb
         run: cargo install cargo-deb
@@ -116,7 +116,7 @@ jobs:
         run: cargo deb
 
       - name: Upload .deb
-        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v4
         with:
           name: deb-package
           path: target/debian/*.deb
@@ -128,7 +128,7 @@ jobs:
       contents: read
     needs: build-binaries
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - name: Install cargo-generate-rpm
         run: cargo install cargo-generate-rpm
@@ -143,7 +143,7 @@ jobs:
         run: cargo generate-rpm
 
       - name: Upload .rpm
-        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v4
         with:
           name: rpm-package
           path: target/generate-rpm/*.rpm
@@ -155,10 +155,10 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - name: Download all artifacts
-        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v4
         with:
           path: artifacts
 
@@ -169,7 +169,7 @@ jobs:
           ls -la release/
 
       - name: Create Release
-        uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2
         with:
           files: release/*
           generate_release_notes: true
