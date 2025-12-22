@@ -70,7 +70,7 @@ tempfile = "3"
 
 [dev-dependencies]
 tokio-test = "0.4"
-axum-test = "14"
+axum-test = "18"
 mockall = "0.12"
 tempfile = "3"
 wiremock = "0.5"
