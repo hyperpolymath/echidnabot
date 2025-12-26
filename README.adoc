@@ -9,7 +9,7 @@ Jonathan D.A. Jewell <jonathan.jewell@gmail.com>
 :url-bitbucket: https://bitbucket.org/hyperpolymath/echidnabot
 :url-codeberg: https://codeberg.org/hyperpolymath/echidnabot
 
-Automated echidna test generation bot
+Proof-aware CI bot that automatically verifies mathematical theorems in your codebase. Integrates with GitHub/GitLab/Bitbucket to run formal verification on every push and PR using ECHIDNA's multi-prover backend (Coq, Lean, Agda, Isabelle, Z3, and more). Written in Rust.
 
 image:https://img.shields.io/badge/RSR-Certified-gold[RSR Certified,link=https://github.com/hyperpolymath/rhodium-standard-repositories]
 image:https://img.shields.io/badge/License-AGPL%20v3-blue[License]
