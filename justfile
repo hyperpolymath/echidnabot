@@ -1,44 +1,80 @@
-# echidnabot - Development Tasks
+# echidnabot - Proof-Aware CI Bot
+# https://just.systems/man/en/
+#
+# Run `just` to see all available recipes
+# Run `just cookbook` to generate documentation
+# Run `just combinations` to see matrix recipe options
+#
+# NOTE: This project uses `just` for local tasks.
+#       Deployment contracts use `must` (see mustfile pattern).
+#       Makefiles are FORBIDDEN per RSR policy.
+
 set shell := ["bash", "-uc"]
 set dotenv-load := true
+set positional-arguments := true
 
+# Project metadata
 project := "echidnabot"
+version := "0.1.0"
+tier := "1"  # RSR Tier 1 (Rust)
 
-# Show all recipes
+# ═══════════════════════════════════════════════════════════════════════════════
+# DEFAULT & HELP
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Show all available recipes
 default:
     @just --list --unsorted
 
-# ============================================================================
-# Build & Run
-# ============================================================================
+# Show detailed help for a recipe
+help recipe="":
+    #!/usr/bin/env bash
+    if [ -z "{{recipe}}" ]; then
+        just --list --unsorted
+        echo ""
+        echo "Usage: just help <recipe>"
+        echo "       just cookbook     # Generate docs"
+        echo "       just combinations # Show matrix recipes"
+    else
+        just --show "{{recipe}}" 2>/dev/null || echo "Recipe '{{recipe}}' not found"
+    fi
+
+# Show project info
+info:
+    @echo "Project: {{project}}"
+    @echo "Version: {{version}}"
+    @echo "RSR Tier: {{tier}}"
+    @echo "Rust: $(rustc --version 2>/dev/null || echo 'not found')"
+    @[ -f STATE.scm ] && grep -oP '\(phase\s+\.\s+\K[^)]+' STATE.scm | head -1 | xargs -I{} echo "Phase: {}" || true
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# BUILD & COMPILE
+# ═══════════════════════════════════════════════════════════════════════════════
 
 # Build in debug mode
-build:
-    cargo build
+build *args:
+    cargo build {{args}}
 
-# Build in release mode
-build-release:
-    cargo build --release
+# Build in release mode with optimizations
+build-release *args:
+    cargo build --release {{args}}
 
-# Run the server (debug)
-run *ARGS:
-    cargo run -- serve {{ARGS}}
+# Watch for changes and rebuild
+watch:
+    cargo watch -x build
 
-# Run the server (release)
-run-release *ARGS:
-    cargo run --release -- serve {{ARGS}}
+# Clean build artifacts [reversible: rebuild with `just build`]
+clean:
+    cargo clean
+    rm -rf docs/_site target
 
-# Run with verbose logging
-run-debug:
-    RUST_LOG=debug cargo run -- -v serve
-
-# ============================================================================
-# Testing
-# ============================================================================
+# ═══════════════════════════════════════════════════════════════════════════════
+# TEST & QUALITY
+# ═══════════════════════════════════════════════════════════════════════════════
 
 # Run all tests
-test:
-    cargo test
+test *args:
+    cargo test {{args}}
 
 # Run tests with output
 test-verbose:
@@ -48,19 +84,23 @@ test-verbose:
 test-one TEST:
     cargo test {{TEST}} -- --nocapture
 
-# Run tests with coverage (requires cargo-tarpaulin)
-coverage:
-    cargo tarpaulin --out Html
+# Run tests with coverage (requires cargo-llvm-cov)
+test-coverage:
+    cargo llvm-cov --html --open
 
-# ============================================================================
-# Code Quality
-# ============================================================================
+# Run benchmarks
+bench:
+    cargo bench
 
-# Format code
+# ═══════════════════════════════════════════════════════════════════════════════
+# LINT & FORMAT
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Format all source files [reversible: git checkout]
 fmt:
     cargo fmt
 
-# Check formatting
+# Check formatting without changes
 fmt-check:
     cargo fmt -- --check
 
@@ -68,91 +108,214 @@ fmt-check:
 lint:
     cargo clippy -- -D warnings
 
-# Run all checks (fmt + lint + test)
-check: fmt-check lint test
+# Run all quality checks
+quality: fmt-check lint test
+    @echo "All quality checks passed!"
 
-# Fix clippy warnings automatically
+# Fix auto-fixable issues [reversible: git checkout]
 fix:
-    cargo clippy --fix --allow-dirty
+    cargo clippy --fix --allow-dirty --allow-staged
+    cargo fmt
 
-# ============================================================================
-# Database
-# ============================================================================
+# ═══════════════════════════════════════════════════════════════════════════════
+# RUN & SERVE
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Run the bot (debug)
+run *args:
+    cargo run -- {{args}}
+
+# Run the webhook server
+serve port="8080":
+    cargo run -- serve --port {{port}}
+
+# Run with hot reload
+dev:
+    cargo watch -x 'run -- serve'
+
+# Run with verbose logging
+run-debug:
+    RUST_LOG=debug cargo run -- -v serve
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# DATABASE
+# ═══════════════════════════════════════════════════════════════════════════════
 
 # Initialize the database
-init-db:
+db-init:
     cargo run -- init-db
 
-# Reset database (delete and reinitialize)
-reset-db:
+# Run migrations
+db-migrate:
+    cargo sqlx migrate run
+
+# Create new migration
+db-new name:
+    cargo sqlx migrate add {{name}}
+
+# Reset database [DESTRUCTIVE]
+db-reset:
     rm -f echidnabot.db
     cargo run -- init-db
 
-# ============================================================================
-# CLI Commands
-# ============================================================================
+# ═══════════════════════════════════════════════════════════════════════════════
+# CLI COMMANDS
+# ═══════════════════════════════════════════════════════════════════════════════
 
 # Register a repository
-register REPO PLATFORM="github":
-    cargo run -- register --repo {{REPO}} --platform {{PLATFORM}}
+register repo platform="github":
+    cargo run -- register --repo {{repo}} --platform {{platform}}
 
 # Trigger a manual check
-trigger REPO COMMIT="":
-    cargo run -- check --repo {{REPO}} {{if COMMIT != "" { "--commit " + COMMIT } else { "" } }}
+trigger repo commit="":
+    cargo run -- check --repo {{repo}} {{if commit != "" { "--commit " + commit } else { "" } }}
 
 # Show status
-status TARGET:
-    cargo run -- status --target {{TARGET}}
+status-check target:
+    cargo run -- status --target {{target}}
 
-# ============================================================================
-# Development Utilities
-# ============================================================================
+# ═══════════════════════════════════════════════════════════════════════════════
+# DOCUMENTATION
+# ═══════════════════════════════════════════════════════════════════════════════
 
-# Watch for changes and rebuild
-watch:
-    cargo watch -x build
-
-# Watch and run tests on change
-watch-test:
-    cargo watch -x test
-
-# Generate documentation
+# Generate all documentation
 docs:
+    @mkdir -p docs/generated docs/man
+    cargo doc --no-deps
+    just cookbook
+    just man
+    @echo "Documentation generated"
+
+# Generate justfile cookbook
+cookbook:
+    #!/usr/bin/env bash
+    mkdir -p docs
+    OUTPUT="docs/just-cookbook.adoc"
+    echo "= {{project}} Justfile Cookbook" > "$OUTPUT"
+    echo ":toc: left" >> "$OUTPUT"
+    echo ":toclevels: 3" >> "$OUTPUT"
+    echo "" >> "$OUTPUT"
+    echo "Generated: $(date -Iseconds)" >> "$OUTPUT"
+    echo "" >> "$OUTPUT"
+    just --list --unsorted >> "$OUTPUT"
+    echo "Generated: $OUTPUT"
+
+# Generate man page
+man:
+    #!/usr/bin/env bash
+    mkdir -p docs/man
+    cat > docs/man/echidnabot.1 << 'EOF'
+    .TH ECHIDNABOT 1 "2025" "{{version}}" "echidnabot Manual"
+    .SH NAME
+    echidnabot \- proof-aware CI bot for formal verification
+    .SH SYNOPSIS
+    .B echidnabot
+    [COMMAND] [OPTIONS]
+    .SH DESCRIPTION
+    echidnabot automatically verifies mathematical theorems in your codebase.
+    Integrates with GitHub/GitLab/Bitbucket to run formal verification on every
+    push and PR using ECHIDNA's multi-prover backend.
+    .SH COMMANDS
+    .TP
+    .B serve
+    Start the webhook server
+    .TP
+    .B register
+    Register a repository for verification
+    .TP
+    .B check
+    Manually trigger proof verification
+    .TP
+    .B status
+    Show verification status
+    .SH AUTHOR
+    hyperpolymath <hyperpolymath@proton.me>
+    .SH SEE ALSO
+    echidna(1), coq(1), lean(1)
+    EOF
+    echo "Generated: docs/man/echidnabot.1"
+
+# Open docs in browser
+docs-open:
     cargo doc --no-deps --open
 
-# Clean build artifacts
-clean:
-    cargo clean
+# ═══════════════════════════════════════════════════════════════════════════════
+# CONTAINER (Podman/nerdctl)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Build container image
+container-build tag="latest":
+    podman build -t echidnabot:{{tag}} -f Containerfile .
+
+# Run container
+container-run tag="latest" *args:
+    podman run --rm -it -p 8080:8080 echidnabot:{{tag}} {{args}}
+
+# Push to registry
+container-push registry="ghcr.io/hyperpolymath" tag="latest":
+    podman tag echidnabot:{{tag}} {{registry}}/echidnabot:{{tag}}
+    podman push {{registry}}/echidnabot:{{tag}}
+
+# Scan container for vulnerabilities
+container-scan tag="latest":
+    trivy image echidnabot:{{tag}}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CI & AUTOMATION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Run full CI pipeline locally
+ci: quality
+    @echo "CI pipeline complete!"
+
+# Install git hooks
+install-hooks:
+    @mkdir -p .git/hooks
+    @cat > .git/hooks/pre-commit << 'EOF'
+    #!/bin/bash
+    just fmt-check || exit 1
+    just lint || exit 1
+    EOF
+    @chmod +x .git/hooks/pre-commit
+    @echo "Git hooks installed"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SECURITY
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Run security audit
+security:
+    @echo "=== Security Audit ==="
+    cargo audit
+    @command -v gitleaks >/dev/null && gitleaks detect --source . --verbose || true
+    @echo "Security audit complete"
+
+# Generate SBOM
+sbom:
+    @mkdir -p docs/security
+    cargo sbom > docs/security/sbom.spdx.json 2>/dev/null || echo "cargo-sbom not installed"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# DEPENDENCIES
+# ═══════════════════════════════════════════════════════════════════════════════
 
 # Update dependencies
-update:
+deps:
     cargo update
 
-# Check for outdated dependencies
-outdated:
+# Check for outdated deps
+deps-outdated:
     cargo outdated
 
-# Security audit
-audit:
+# Audit dependencies
+deps-audit:
     cargo audit
 
-# ============================================================================
-# Docker
-# ============================================================================
+# ═══════════════════════════════════════════════════════════════════════════════
+# GUIX & NIX
+# ═══════════════════════════════════════════════════════════════════════════════
 
-# Build Docker image
-docker-build:
-    podman build -t echidnabot:latest .
-
-# Run in Docker
-docker-run:
-    podman run -p 8080:8080 echidnabot:latest
-
-# ============================================================================
-# Guix
-# ============================================================================
-
-# Enter Guix development shell
+# Enter Guix development shell (primary)
 guix-shell:
     guix shell -D -f guix.scm
 
@@ -160,15 +323,121 @@ guix-shell:
 guix-build:
     guix build -f guix.scm
 
-# ============================================================================
-# Release
-# ============================================================================
+# Enter Nix development shell (fallback)
+nix-shell:
+    @if [ -f "flake.nix" ]; then nix develop; else echo "No flake.nix"; fi
 
-# Create a release build
-release: fmt-check lint test build-release
-    @echo "Release build complete: target/release/echidnabot"
+# ═══════════════════════════════════════════════════════════════════════════════
+# VALIDATION & COMPLIANCE
+# ═══════════════════════════════════════════════════════════════════════════════
 
-# Package for distribution
-package: release
+# Validate RSR compliance
+validate-rsr:
+    #!/usr/bin/env bash
+    echo "=== RSR Compliance Check ==="
+    MISSING=""
+    for f in justfile README.adoc; do
+        [ -f "$f" ] || MISSING="$MISSING $f"
+    done
+    for d in .well-known; do
+        [ -d "$d" ] || MISSING="$MISSING $d/"
+    done
+    for f in .well-known/security.txt; do
+        [ -f "$f" ] || MISSING="$MISSING $f"
+    done
+    if [ ! -f "guix.scm" ] && [ ! -f "flake.nix" ]; then
+        MISSING="$MISSING guix.scm/flake.nix"
+    fi
+    if [ -n "$MISSING" ]; then
+        echo "MISSING:$MISSING"
+        exit 1
+    fi
+    echo "RSR compliance: PASS"
+
+# Validate STATE.scm syntax
+validate-state:
+    @if [ -f "STATE.scm" ]; then \
+        guile -c "(primitive-load \"STATE.scm\")" 2>/dev/null && echo "STATE.scm: valid" || echo "STATE.scm: INVALID"; \
+    fi
+
+# Full validation
+validate: validate-rsr validate-state
+    @echo "All validations passed!"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# STATE MANAGEMENT
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Update STATE.scm timestamp
+state-touch:
+    @if [ -f "STATE.scm" ]; then \
+        sed -i 's/(updated . "[^"]*")/(updated . "'"$(date -Iseconds)"'")/' STATE.scm && \
+        echo "STATE.scm timestamp updated"; \
+    fi
+
+# Show current phase
+state-phase:
+    @grep -oP '\(phase\s+\.\s+\K[^)]+' STATE.scm 2>/dev/null | head -1 || echo "unknown"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# RELEASE
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Create release build with all checks
+release: quality build-release
     strip target/release/echidnabot
-    @echo "Packaged binary: target/release/echidnabot"
+    @echo "Release build ready: target/release/echidnabot"
+
+# Publish to crates.io (dry run)
+publish-dry:
+    cargo publish --dry-run
+
+# Publish to crates.io
+publish:
+    cargo publish
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# COMBINATORIC MATRIX RECIPES
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Build matrix: [debug|release] × [features]
+build-matrix mode="debug" features="":
+    @echo "Build: mode={{mode}} features={{features}}"
+    @if [ "{{mode}}" = "release" ]; then cargo build --release; else cargo build; fi
+
+# Test matrix: [unit|integration|all] × [verbosity]
+test-matrix suite="all" verbose="false":
+    @echo "Test: suite={{suite}} verbose={{verbose}}"
+    @if [ "{{verbose}}" = "true" ]; then cargo test -- --nocapture; else cargo test; fi
+
+# Show all matrix combinations
+combinations:
+    @echo "=== Combinatoric Matrix Recipes ==="
+    @echo ""
+    @echo "Build:  just build-matrix [debug|release] [features]"
+    @echo "Test:   just test-matrix [unit|integration|all] [true|false]"
+    @echo ""
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# UTILITIES
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Count lines of code
+loc:
+    @find src -name "*.rs" | xargs wc -l 2>/dev/null | tail -1 || echo "0"
+
+# Show TODO comments
+todos:
+    @grep -rn "TODO\|FIXME\|XXX" src/ 2>/dev/null || echo "No TODOs"
+
+# Open in editor
+edit:
+    ${EDITOR:-code} .
+
+# Git status
+status:
+    @git status --short
+
+# Recent commits
+log count="10":
+    @git log --oneline -{{count}}
