@@ -487,6 +487,106 @@ echidna-check:
     @command -v deno &>/dev/null && echo "✓ deno: $(deno --version | head -1)" || echo "✗ deno: not installed"
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# ECHIDNA SAFEGUARDS (Rate Limits & No-Flaky Mode)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Default safeguard settings
+default_timeout := "600"
+default_verification_passes := "3"
+
+# Run Echidna in no-flaky mode (deterministic, multi-pass verification)
+echidna-no-flaky contract="TokenEchidnaTest" seed="42":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "=== No-Flaky Mode: {{contract}} ==="
+    echo "Seed: {{seed}}"
+    echo "Verification passes: {{default_verification_passes}}"
+    echo ""
+
+    PASS_COUNT=0
+    FAIL_COUNT=0
+
+    for i in $(seq 1 {{default_verification_passes}}); do
+        echo "--- Pass $i/{{default_verification_passes}} ---"
+        PASS_SEED=$(({{seed}} + i))
+
+        if timeout {{default_timeout}} echidna contracts/{{contract}}.sol \
+            --contract {{contract}} \
+            --config echidna/echidna-no-flaky.yaml \
+            --seed $PASS_SEED \
+            --format text 2>&1; then
+            PASS_COUNT=$((PASS_COUNT + 1))
+            echo "Pass $i: SUCCESS"
+        else
+            FAIL_COUNT=$((FAIL_COUNT + 1))
+            echo "Pass $i: FAILURE"
+        fi
+        echo ""
+    done
+
+    echo "=== Verification Summary ==="
+    echo "Passed: $PASS_COUNT / {{default_verification_passes}}"
+    echo "Failed: $FAIL_COUNT / {{default_verification_passes}}"
+
+    if [ $FAIL_COUNT -gt 0 ]; then
+        echo ""
+        echo "ERROR: Test is FLAKY - results differ between runs"
+        exit 1
+    else
+        echo ""
+        echo "SUCCESS: Test is STABLE - all passes agree"
+    fi
+
+# Run Echidna with timeout (rate-limited)
+echidna-timeout contract="TokenEchidnaTest" timeout="300":
+    timeout {{timeout}} echidna contracts/{{contract}}.sol --contract {{contract}} --config echidna/echidna-ci.yaml || \
+        ([ $? -eq 124 ] && echo "ERROR: Test timed out after {{timeout}}s" && exit 1)
+
+# Run Echidna with fixed seed for reproducibility
+echidna-seed contract="TokenEchidnaTest" seed="12345":
+    echidna contracts/{{contract}}.sol --contract {{contract}} --config echidna/echidna-config.yaml --seed {{seed}}
+
+# Verify test stability (quick check)
+echidna-verify-stable contract="TokenEchidnaTest":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "Quick stability check for {{contract}}..."
+
+    # Run twice with different seeds
+    RESULT1=$(timeout 120 echidna contracts/{{contract}}.sol --contract {{contract}} --config echidna/echidna-ci.yaml --seed 42 --format json 2>&1 || echo "FAIL")
+    RESULT2=$(timeout 120 echidna contracts/{{contract}}.sol --contract {{contract}} --config echidna/echidna-ci.yaml --seed 43 --format json 2>&1 || echo "FAIL")
+
+    if echo "$RESULT1" | grep -q "FAIL" && echo "$RESULT2" | grep -q "FAIL"; then
+        echo "Both runs failed - test has consistent failures"
+    elif echo "$RESULT1" | grep -q "passed" && echo "$RESULT2" | grep -q "passed"; then
+        echo "Both runs passed - test appears stable"
+    else
+        echo "WARNING: Inconsistent results - test may be flaky!"
+        exit 1
+    fi
+
+# Show current safeguard configuration
+echidna-safeguards:
+    @echo "=== Echidna Safeguard Configuration ==="
+    @echo ""
+    @echo "Rate Limits:"
+    @echo "  - Default timeout: {{default_timeout}}s"
+    @echo "  - Max parallel contracts (CI): 3"
+    @echo "  - Max concurrent jobs (CI): 2"
+    @echo ""
+    @echo "No-Flaky Mode:"
+    @echo "  - Verification passes: {{default_verification_passes}}"
+    @echo "  - Uses deterministic config: echidna/echidna-no-flaky.yaml"
+    @echo "  - Single worker for reproducibility"
+    @echo "  - Fixed sender addresses"
+    @echo ""
+    @echo "Commands:"
+    @echo "  just echidna-no-flaky [contract] [seed]  # Multi-pass verification"
+    @echo "  just echidna-timeout [contract] [secs]   # Rate-limited run"
+    @echo "  just echidna-seed [contract] [seed]      # Reproducible run"
+    @echo "  just echidna-verify-stable [contract]    # Quick stability check"
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # UTILITIES
 # ═══════════════════════════════════════════════════════════════════════════════
 
