@@ -419,6 +419,74 @@ combinations:
     @echo ""
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# ECHIDNA SMART CONTRACT FUZZING
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Default Solidity and Echidna versions
+solc_version := "0.8.19"
+echidna_version := "2.2.3"
+
+# Install Echidna (Linux x86_64)
+echidna-install:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if command -v echidna &>/dev/null; then
+        echo "Echidna already installed: $(echidna --version)"
+    else
+        echo "Installing Echidna {{echidna_version}}..."
+        wget -q "https://github.com/crytic/echidna/releases/download/v{{echidna_version}}/echidna-{{echidna_version}}-x86_64-linux.tar.gz"
+        tar -xzf "echidna-{{echidna_version}}-x86_64-linux.tar.gz"
+        sudo mv echidna /usr/local/bin/
+        rm "echidna-{{echidna_version}}-x86_64-linux.tar.gz"
+        echo "Installed: $(echidna --version)"
+    fi
+
+# Install solc compiler
+solc-install:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if command -v solc &>/dev/null; then
+        echo "solc already installed: $(solc --version | head -2 | tail -1)"
+    else
+        echo "Installing solc {{solc_version}}..."
+        wget -q "https://github.com/ethereum/solidity/releases/download/v{{solc_version}}/solc-static-linux"
+        chmod +x solc-static-linux
+        sudo mv solc-static-linux /usr/local/bin/solc
+        echo "Installed: $(solc --version | head -2 | tail -1)"
+    fi
+
+# Run Echidna property tests on a contract
+echidna-test contract="TokenEchidnaTest":
+    echidna contracts/{{contract}}.sol --contract {{contract}} --config echidna/echidna-config.yaml
+
+# Run Echidna with CI configuration (faster)
+echidna-ci contract="TokenEchidnaTest":
+    echidna contracts/{{contract}}.sol --contract {{contract}} --config echidna/echidna-ci.yaml --format json
+
+# Run Echidna assertion tests
+echidna-assertion contract="TokenEchidnaTest":
+    echidna contracts/{{contract}}.sol --contract {{contract}} --config echidna/echidna-assertion.yaml
+
+# Generate Echidna test contract from source
+echidna-gen contract:
+    deno run --allow-read --allow-write scripts/echidna-gen.js contracts/{{contract}}.sol
+
+# Run all Echidna tests (property + assertion)
+echidna-all contract="TokenEchidnaTest":
+    @echo "=== Property Tests ==="
+    just echidna-test {{contract}}
+    @echo ""
+    @echo "=== Assertion Tests ==="
+    just echidna-assertion {{contract}}
+
+# Check Echidna installation and dependencies
+echidna-check:
+    @echo "Checking Echidna dependencies..."
+    @command -v solc &>/dev/null && echo "✓ solc: $(solc --version | head -2 | tail -1)" || echo "✗ solc: not installed (run: just solc-install)"
+    @command -v echidna &>/dev/null && echo "✓ echidna: $(echidna --version)" || echo "✗ echidna: not installed (run: just echidna-install)"
+    @command -v deno &>/dev/null && echo "✓ deno: $(deno --version | head -1)" || echo "✗ deno: not installed"
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # UTILITIES
 # ═══════════════════════════════════════════════════════════════════════════════
 
