@@ -16,6 +16,7 @@ permissions: read-all
 
 env:
   CARGO_TERM_COLOR: always
+  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
 
 jobs:
   build-binaries:
@@ -82,23 +83,23 @@ jobs:
         if: runner.os != 'Windows'
         run: |
           cd target/${{ matrix.target }}/release
-          tar -czvf echidnabot-${{ github.ref_name }}-${{ matrix.target }}.tar.gz ${{ matrix.binary }}
-          sha256sum echidnabot-${{ github.ref_name }}-${{ matrix.target }}.tar.gz > echidnabot-${{ github.ref_name }}-${{ matrix.target }}.tar.gz.sha256
+          tar -czvf echidnabot-${{ env.RELEASE_TAG }}-${{ matrix.target }}.tar.gz ${{ matrix.binary }}
+          sha256sum echidnabot-${{ env.RELEASE_TAG }}-${{ matrix.target }}.tar.gz > echidnabot-${{ env.RELEASE_TAG }}-${{ matrix.target }}.tar.gz.sha256
 
       - name: Package (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           cd target/${{ matrix.target }}/release
-          Compress-Archive -Path ${{ matrix.binary }} -DestinationPath echidnabot-${{ github.ref_name }}-${{ matrix.target }}.zip
-          Get-FileHash echidnabot-${{ github.ref_name }}-${{ matrix.target }}.zip -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLower())  echidnabot-${{ github.ref_name }}-${{ matrix.target }}.zip" } | Out-File -FilePath echidnabot-${{ github.ref_name }}-${{ matrix.target }}.zip.sha256
+          Compress-Archive -Path ${{ matrix.binary }} -DestinationPath echidnabot-${{ env.RELEASE_TAG }}-${{ matrix.target }}.zip
+          Get-FileHash echidnabot-${{ env.RELEASE_TAG }}-${{ matrix.target }}.zip -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLower())  echidnabot-${{ env.RELEASE_TAG }}-${{ matrix.target }}.zip" } | Out-File -FilePath echidnabot-${{ env.RELEASE_TAG }}-${{ matrix.target }}.zip.sha256
 
       - name: Upload artifact
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v4
         with:
           name: echidnabot-${{ matrix.target }}
           path: |
-            target/${{ matrix.target }}/release/echidnabot-${{ github.ref_name }}-${{ matrix.target }}.*
+            target/${{ matrix.target }}/release/echidnabot-${{ env.RELEASE_TAG }}-${{ matrix.target }}.*
 
   build-deb:
     name: Build .deb package
@@ -171,6 +172,7 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2
         with:
+          tag_name: ${{ env.RELEASE_TAG }}
           files: release/*
           generate_release_notes: true
           draft: false
