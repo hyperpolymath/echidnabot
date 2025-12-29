@@ -63,7 +63,7 @@ hex = "0.4"
 clap = { version = "4", features = ["derive", "env"] }
 
 # Config
-config = "0.14"
+config = "0.15"
 
 # Filesystem utilities
 tempfile = "3"
