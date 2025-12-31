@@ -3,7 +3,7 @@
 use serde::Deserialize;
 use std::path::Path;
 
-use crate::error::{Error, Result};
+use crate::error::Result;
 
 /// Main configuration structure
 #[derive(Debug, Deserialize, Clone)]

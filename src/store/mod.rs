@@ -9,9 +9,8 @@ use async_trait::async_trait;
 use uuid::Uuid;
 
 use crate::adapters::Platform;
-use crate::dispatcher::ProverKind;
 use crate::error::Result;
-use crate::scheduler::{JobId, ProofJob};
+use crate::scheduler::JobId;
 use models::{Repository, ProofJobRecord, ProofResultRecord};
 
 /// Abstract store trait for different database backends

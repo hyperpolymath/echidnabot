@@ -38,7 +38,7 @@ impl PlatformAdapter for GitHubAdapter {
     async fn clone_repo(&self, repo: &RepoId, commit: &str) -> Result<PathBuf> {
         // Create a temporary directory for the clone
         let temp_dir = tempfile::tempdir().map_err(Error::Io)?;
-        let clone_path = temp_dir.into_path();
+        let clone_path = temp_dir.keep();
 
         // Use git to clone (shallow, specific commit)
         let url = format!("https://github.com/{}/{}.git", repo.owner, repo.name);

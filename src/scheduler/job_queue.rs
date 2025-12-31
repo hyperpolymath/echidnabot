@@ -6,8 +6,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
-use super::{JobId, JobPriority, JobStatus, ProofJob};
-use crate::dispatcher::ProverKind;
+use super::{JobId, ProofJob};
 use crate::error::Result;
 
 /// Job scheduler managing the verification queue
@@ -216,6 +215,8 @@ pub struct QueueStats {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::dispatcher::ProverKind;
+    use crate::scheduler::{JobPriority, JobStatus};
 
     #[tokio::test]
     async fn test_enqueue_and_start() {
