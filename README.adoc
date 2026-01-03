@@ -1,9 +1,11 @@
+image:https://img.shields.io/badge/License-MPL_2.0-blue.svg[MPL-2.0,link="https://opensource.org/licenses/MPL-2.0"]
+image:https://img.shields.io/badge/Philosophy-Palimpsest-purple.svg[Palimpsest,link="https://github.com/hyperpolymath/palimpsest-licence"]
+
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2024-2025 hyperpolymath
 
 = echidnabot
 
-image:https://img.shields.io/badge/license-AGPL--3.0-blue.svg[AGPL-3.0,link="https://www.gnu.org/licenses/agpl-3.0"] image:https://img.shields.io/badge/philosophy-Palimpsest-purple.svg[Palimpsest,link="https://github.com/hyperpolymath/palimpsest-licence"]
 :toc: auto
 :toclevels: 3
 :icons: font
@@ -13,7 +15,6 @@ image:https://img.shields.io/badge/license-AGPL--3.0-blue.svg[AGPL-3.0,link="htt
 :url-docs: https://hyperpolymath.github.io/echidnabot
 :url-echidna: https://github.com/hyperpolymath/echidna
 
-image:https://img.shields.io/badge/License-AGPL%20v3-blue[License,link=LICENSE]
 image:https://img.shields.io/github/v/release/hyperpolymath/echidnabot?include_prereleases[GitHub Release,link={url-github}/releases]
 image:https://github.com/hyperpolymath/echidnabot/actions/workflows/quality.yml/badge.svg[CI,link={url-github}/actions/workflows/quality.yml]
 image:https://api.securityscorecards.dev/projects/github.com/hyperpolymath/echidnabot/badge[OpenSSF Scorecard,link=https://securityscorecards.dev/viewer/?uri=github.com/hyperpolymath/echidnabot]
