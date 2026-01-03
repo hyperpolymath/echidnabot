@@ -1,12 +1,15 @@
-# SPDX-License-Identifier: MPL-2.0
+# SPDX-License-Identifier: AGPL-3.0-or-later
 name: Code Quality
 on: [push, pull_request]
+
 
 permissions: read-all
 
 jobs:
   lint:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       
@@ -15,7 +18,7 @@ jobs:
           find . -type f -perm /111 -name "*.sh" | head -10 || true
       
       - name: Check for secrets
-        uses: trufflesecurity/trufflehog@8a8ef8526528d8a4ff3e2c90be08e25ef8efbd9b # v3
+        uses: trufflesecurity/trufflehog@05cccb53bc9e13bc6d17997db5a6bcc3df44bf2f # v3.92.3
         with:
           path: ./
           base: ${{ github.event.pull_request.base.sha || github.event.before }}
@@ -32,11 +35,13 @@ jobs:
           find . -type f -size +1M -not -path "./.git/*" | head -10 || echo "No large files"
       
       - name: EditorConfig check
-        uses: editorconfig-checker/action-editorconfig-checker@9f8f6065f4db902c0c56cafa67cea18b3ebbb680 # main
+        uses: editorconfig-checker/action-editorconfig-checker@8c9b118d446fce7e6410b6c0a3ce2f83bd04e97a # v2.1.0
         continue-on-error: true
 
   docs:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Check documentation
