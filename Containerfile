@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Build stage
-FROM docker.io/library/rust:1.83-slim AS builder
+# Note: async-graphql 7.0.17+ and cargo-platform require Rust 1.88+
+FROM docker.io/library/rust:1.88-slim AS builder
 
 WORKDIR /build
 
