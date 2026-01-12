@@ -1,6 +1,7 @@
+image:[License,link="https://github.com/hyperpolymath/palimpsest-license"]
 
 // SPDX-License-Identifier: PMPL-1.0
-// SPDX-FileCopyrightText: 2024-2025 hyperpolymath
+// SPDX-FileCopyrightText: 2025 hyperpolymath
 
 = echidnabot
 
