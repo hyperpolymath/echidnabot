@@ -36,7 +36,7 @@ jobs:
           path: casket-ssg
 
       - name: Set up GHC
-        uses: haskell-actions/setup@dd344bc1cec854a9b2f7029b98379ce6c1accc98 # v2
+        uses: haskell-actions/setup@dc63c94789664bb2910876ec3dfeeaa24d23b96b # v2
         with:
           ghc-version: '9.4'
           cabal-version: '3.10'
