@@ -17,7 +17,11 @@ max_connections = 5
 
 [echidna]
 # ECHIDNA Core GraphQL endpoint
-endpoint = "http://localhost:3000/graphql"
+endpoint = "http://localhost:8080/graphql"
+# ECHIDNA Core REST endpoint
+rest_endpoint = "http://localhost:8080"
+# API mode: auto, graphql, rest
+mode = "auto"
 # Timeout for proof verification (seconds)
 timeout_secs = 300
 
@@ -49,4 +53,6 @@ queue_size = 100
 # ECHIDNABOT__SERVER__PORT=9090
 # ECHIDNABOT__DATABASE__URL=postgres://...
 # ECHIDNABOT__ECHIDNA__ENDPOINT=http://...
+# ECHIDNABOT__ECHIDNA__REST_ENDPOINT=http://...
+# ECHIDNABOT__ECHIDNA__MODE=rest
 # ECHIDNABOT__GITHUB__TOKEN=ghp_...

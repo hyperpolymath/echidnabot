@@ -1,7 +1,6 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-License-Identifier: PMPL-1.0
 # Build stage
-# Note: async-graphql 7.0.17+ and cargo-platform require Rust 1.88+
-FROM docker.io/library/rust:1.88-slim AS builder
+FROM docker.io/library/rust:1.83-slim AS builder
 
 WORKDIR /build
 
@@ -22,7 +21,7 @@ FROM cgr.dev/chainguard/wolfi-base:latest
 
 LABEL org.opencontainers.image.source="https://github.com/hyperpolymath/echidnabot"
 LABEL org.opencontainers.image.description="Proof-aware CI bot that orchestrates ECHIDNA for theorem proof verification"
-LABEL org.opencontainers.image.licenses="AGPL-3.0-or-later"
+LABEL org.opencontainers.image.licenses="PMPL-1.0-or-later"
 
 # Install runtime dependencies
 RUN apk add --no-cache sqlite-libs ca-certificates

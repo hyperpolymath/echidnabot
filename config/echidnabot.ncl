@@ -10,6 +10,8 @@ let Platform = [| 'GitHub, 'GitLab, 'Bitbucket, 'Codeberg |] in
 
 let BotMode = [| 'Verifier, 'Advisor, 'Consultant, 'Regulator |] in
 
+let EchidnaMode = [| 'auto, 'graphql, 'rest |] in
+
 let ServerConfig = {
   host | String | default = "0.0.0.0",
   port | Number | default = 8080,
@@ -24,6 +26,8 @@ let DatabaseConfig = {
 
 let EchidnaConfig = {
   endpoint | String,
+  rest_endpoint | String,
+  mode | EchidnaMode | default = 'auto,
   timeout_seconds | Number | default = 300,
   retry_attempts | Number | default = 3,
 } in
@@ -87,7 +91,9 @@ let Config = {
     max_connections = 5,
   },
   echidna = {
-    endpoint = "http://localhost:9000/graphql",
+    endpoint = "http://localhost:8080/graphql",
+    rest_endpoint = "http://localhost:8080",
+    mode = 'auto,
     timeout_seconds = 120,
   },
   scheduler = {

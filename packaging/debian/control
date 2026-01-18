@@ -25,4 +25,4 @@ Description: Proof-aware CI bot for theorem proof verification
   - PostgreSQL and SQLite database backends
   - Real-time proof status updates
  .
- License: AGPL-3.0-or-later
+ License: PMPL-1.0-or-later

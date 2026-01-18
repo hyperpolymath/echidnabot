@@ -2,7 +2,7 @@
 name = "echidnabot"
 version = "0.1.0"
 edition = "2021"
-license = "AGPL-3.0-or-later"
+license = "PMPL-1.0"
 description = "Proof-aware CI bot that orchestrates ECHIDNA for theorem proof verification"
 repository = "https://github.com/hyperpolymath/echidnabot"
 keywords = ["theorem-prover", "formal-verification", "ci", "bot", "echidna"]
@@ -84,7 +84,7 @@ strip = true
 [package.metadata.deb]
 maintainer = "hyperpolymath <packages@hyperpolymath.dev>"
 copyright = "2025, hyperpolymath"
-license-file = ["LICENSE", "0"]
+license-PMPL--1.0 = ["LICENSE", "0"]
 extended-description = """
 ECHIDNABOT is a proof-aware CI bot that orchestrates ECHIDNA for theorem
 proof verification. It integrates with GitHub to automatically verify

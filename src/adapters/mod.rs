@@ -1,11 +1,11 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: PMPL-1.0
 //! Platform adapters for GitHub, GitLab, Bitbucket
 
 use serde::{Deserialize, Serialize};
 
 pub mod github;
-// pub mod gitlab;    // TODO: Implement
-// pub mod bitbucket; // TODO: Implement
+pub mod gitlab;
+pub mod bitbucket;
 
 use async_trait::async_trait;
 use std::path::PathBuf;

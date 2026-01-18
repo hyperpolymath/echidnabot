@@ -54,6 +54,8 @@ secret = "${ECHIDNABOT_WEBHOOK_SECRET}"
 
 [echidna]
 endpoint = "https://echidna.example.com/graphql"
+rest_endpoint = "https://echidna.example.com"
+mode = "auto"
 ```
 
 ## Setting Up Webhooks

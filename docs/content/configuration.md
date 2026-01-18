@@ -32,6 +32,8 @@ url = "sqlite://echidnabot.db"
 # ECHIDNA Core connection
 [echidna]
 endpoint = "https://echidna.example.com/graphql"
+rest_endpoint = "https://echidna.example.com"
+mode = "auto" # auto, graphql, rest
 timeout_seconds = 300
 retry_attempts = 3
 
@@ -65,6 +67,8 @@ webhook_secret = "${GITLAB_WEBHOOK_SECRET}"
 | `ECHIDNABOT_CONFIG` | Path to config file | No |
 | `ECHIDNABOT_DATABASE_URL` | Database connection URL | Yes |
 | `ECHIDNABOT_ECHIDNA_ENDPOINT` | ECHIDNA Core GraphQL endpoint | Yes |
+| `ECHIDNABOT_ECHIDNA_REST_ENDPOINT` | ECHIDNA Core REST endpoint | No |
+| `ECHIDNABOT_ECHIDNA_MODE` | ECHIDNA API mode (auto/graphql/rest) | No |
 | `GITHUB_WEBHOOK_SECRET` | GitHub webhook secret | For GitHub |
 | `GITHUB_APP_ID` | GitHub App ID | For GitHub |
 | `GITHUB_PRIVATE_KEY` | GitHub App private key (PEM) | For GitHub |
