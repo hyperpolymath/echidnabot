@@ -4,7 +4,7 @@
 ;;; Purpose: Preserve AI conversation context across sessions
 ;;; Reference: https://github.com/hyperpolymath/state.scm
 
-;; SPDX-License-Identifier: AGPL-3.0-or-later
+;; SPDX-License-Identifier: PMPL-1.0
 ;; SPDX-FileCopyrightText: 2025 Jonathan D.A. Jewell
 
 ;;;============================================================================
@@ -28,7 +28,7 @@
     (tagline . "Proof-aware CI bot for theorem prover repositories")
     (author . "Jonathan D.A. Jewell <jonathan.jewell@gmail.com>")
     (version . "0.1.0")
-    (license . "AGPL-3.0-or-later")
+    (license . "PMPL-1.0-or-later")
     (rsr-compliance . "gold-target")
 
     (tech-stack

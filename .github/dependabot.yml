@@ -17,12 +17,4 @@ updates:
       - dependency-name: "*"
         update-types: ["version-update:semver-patch"]
   
-  - package-ecosystem: "npm"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-  
-  - package-ecosystem: "pip"
-    directory: "/"
-    schedule:
-      interval: "weekly"
+  # Note: npm/pip removed per RSR - use Deno (deno.json) for JS, Julia/Rust for data processing

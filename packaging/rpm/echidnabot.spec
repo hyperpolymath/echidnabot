@@ -6,7 +6,7 @@ Version:        0.1.0
 Release:        1%{?dist}
 Summary:        Proof-aware CI bot for theorem proof verification
 
-License:        AGPL-3.0-or-later
+License:        PMPL-1.0-or-later
 URL:            https://github.com/hyperpolymath/echidnabot
 Source0:        %{name}-%{version}.tar.gz
 

@@ -1,11 +1,13 @@
-image:https://img.shields.io/badge/License-MPL_2.0-blue.svg[MPL-2.0,link="https://opensource.org/licenses/MPL-2.0"]
 image:https://img.shields.io/badge/Philosophy-Palimpsest-purple.svg[Palimpsest,link="https://github.com/hyperpolymath/palimpsest-licence"]
 
 
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: PMPL-1.0
 // SPDX-FileCopyrightText: 2024-2025 hyperpolymath
 
 = echidnabot
+image:https://img.shields.io/badge/license-PMPL--1.0-blue.svg[License,link="https://github.com/hyperpolymath/palimpsest-license"]
+
+
 
 :toc: auto
 :toclevels: 3
@@ -102,6 +104,10 @@ When proofs fail, echidnabot can suggest tactics via ECHIDNA's Julia ML backend:
    2. intros; rewrite app_assoc; reflexivity.
 ----
 
+=== Language Policy
+
+echidnabot is Rust + ReScript only. TypeScript/JavaScript are not permitted, and CI will block TS/JS additions.
+
 == Quick Start
 
 === Installation
@@ -139,6 +145,8 @@ secret = "${ECHIDNABOT_WEBHOOK_SECRET}"
 
 [echidna]
 endpoint = "https://echidna.your-domain.com/graphql"
+rest_endpoint = "https://echidna.your-domain.com"
+mode = "auto"
 ----
 
 === Running the Server
@@ -333,11 +341,11 @@ link:https://github.com/hyperpolymath[hyperpolymath] builds politically autonomo
 * **Formal correctness** — Proofs over tests where possible
 * **Sustainability** — Carbon-aware computing
 * **Independence** — No Big Tech dependencies
-* **Openness** — AGPL/MIT licensing, reproducible builds
+* **Openness** — AGPL/PMPL-1.0 licensing, reproducible builds
 
 == License
 
-This project is licensed under **AGPL-3.0-or-later**.
+This project is licensed under **PMPL-1.0-or-later**.
 
 We also encourage adherence to the principles of the link:https://github.com/hyperpolymath/palimpsest-license[Palimpsest License] — a framework for consent-based digital interaction.
 

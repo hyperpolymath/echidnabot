@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-License-Identifier: PMPL-1.0
 # Pre-commit hook: Validate CodeQL language matrix matches repo
 set -euo pipefail
 
@@ -23,11 +23,10 @@ if grep -q "language:.*javascript" "$CODEQL_FILE" && [ -z "$HAS_JS" ]; then
     echo "WARNING: CodeQL configured for JavaScript but no JS/TS files found"
 fi
 
-# Rust/OCaml are not supported - should use 'actions' only
+# Rust is supported; warn if missing
 if [ -n "$HAS_RS" ]; then
-    if grep -q "language:.*rust" "$CODEQL_FILE"; then
-        echo "ERROR: CodeQL does not support Rust - use ['actions'] instead"
-        exit 1
+    if ! grep -q "language:.*rust" "$CODEQL_FILE"; then
+        echo "WARNING: CodeQL not configured for Rust but .rs files found"
     fi
 fi
 

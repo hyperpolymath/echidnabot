@@ -61,4 +61,4 @@ GitHub/GitLab/Bitbucket
 
 ## License
 
-AGPL-3.0-or-later OR LicenseRef-Palimpsest-0.5
+PMPL-1.0-or-later OR LicenseRef-Palimpsest-0.5

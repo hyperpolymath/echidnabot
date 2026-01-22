@@ -33,6 +33,14 @@ pub struct Config {
     pub scheduler: SchedulerConfig,
 }
 
+#[derive(Debug, Deserialize, Clone, Copy)]
+#[serde(rename_all = "lowercase")]
+pub enum EchidnaApiMode {
+    Auto,
+    Graphql,
+    Rest,
+}
+
 #[derive(Debug, Deserialize, Clone)]
 pub struct ServerConfig {
     #[serde(default = "default_host")]
@@ -91,6 +99,14 @@ pub struct EchidnaConfig {
     #[serde(default = "default_echidna_endpoint")]
     pub endpoint: String,
 
+    /// ECHIDNA Core REST endpoint
+    #[serde(default = "default_echidna_rest_endpoint")]
+    pub rest_endpoint: String,
+
+    /// API mode (auto, graphql, rest)
+    #[serde(default = "default_echidna_mode")]
+    pub mode: EchidnaApiMode,
+
     /// Timeout for proof verification (seconds)
     #[serde(default = "default_timeout")]
     pub timeout_secs: u64,
@@ -100,13 +116,23 @@ impl Default for EchidnaConfig {
     fn default() -> Self {
         Self {
             endpoint: default_echidna_endpoint(),
+            rest_endpoint: default_echidna_rest_endpoint(),
+            mode: default_echidna_mode(),
             timeout_secs: default_timeout(),
         }
     }
 }
 
 fn default_echidna_endpoint() -> String {
-    "http://localhost:3000/graphql".to_string()
+    "http://localhost:8080/graphql".to_string()
+}
+
+fn default_echidna_rest_endpoint() -> String {
+    "http://localhost:8080".to_string()
+}
+
+fn default_echidna_mode() -> EchidnaApiMode {
+    EchidnaApiMode::Auto
 }
 
 fn default_timeout() -> u64 {

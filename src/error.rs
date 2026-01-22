@@ -26,6 +26,9 @@ pub enum Error {
     #[error("GitHub API error: {0}")]
     GitHub(String),
 
+    #[error("Unsupported operation: {0}")]
+    Unsupported(String),
+
     #[error("ECHIDNA communication error: {0}")]
     Echidna(String),
 

@@ -74,8 +74,8 @@ Our principles:
 - **Formal correctness** — Proofs over tests
 - **Sustainability** — Carbon-aware computing
 - **Independence** — No Big Tech dependencies
-- **Openness** — AGPL/MIT licensing
+- **Openness** — AGPL/PMPL-1.0 licensing
 
 ---
 
-*echidnabot is licensed under AGPL-3.0-or-later*
+*echidnabot is licensed under PMPL-1.0-or-later*

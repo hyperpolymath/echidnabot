@@ -43,21 +43,29 @@ impl PlatformAdapter for GitHubAdapter {
         // Use git to clone (shallow, specific commit)
         let url = format!("https://github.com/{}/{}.git", repo.owner, repo.name);
 
-        let status = tokio::process::Command::new("git")
-            .args([
-                "clone",
-                "--depth",
-                "1",
-                "--branch",
-                commit,
-                &url,
-                clone_path.to_str().unwrap(),
-            ])
-            .status()
-            .await
-            .map_err(Error::Io)?;
+        let status = if commit == "HEAD" {
+            tokio::process::Command::new("git")
+                .args(["clone", "--depth", "1", &url, clone_path.to_str().unwrap()])
+                .status()
+                .await
+                .map_err(Error::Io)?
+        } else {
+            tokio::process::Command::new("git")
+                .args([
+                    "clone",
+                    "--depth",
+                    "1",
+                    "--branch",
+                    commit,
+                    &url,
+                    clone_path.to_str().unwrap(),
+                ])
+                .status()
+                .await
+                .map_err(Error::Io)?
+        };
 
-        if !status.success() {
+        if !status.success() && commit != "HEAD" {
             // Try fetching the specific commit instead
             let status = tokio::process::Command::new("git")
                 .args(["clone", "--depth", "1", &url, clone_path.to_str().unwrap()])

@@ -5,14 +5,17 @@ use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
 use super::{ProofResult, ProofStatus, ProverKind, TacticSuggestion};
-use crate::config::EchidnaConfig;
+use crate::config::{EchidnaApiMode, EchidnaConfig};
 use crate::error::{Error, Result};
+use tracing::warn;
 
 /// Client for ECHIDNA Core GraphQL API
 pub struct EchidnaClient {
     client: Client,
     endpoint: String,
+    rest_endpoint: String,
     timeout: Duration,
+    mode: EchidnaApiMode,
 }
 
 impl EchidnaClient {
@@ -26,12 +29,91 @@ impl EchidnaClient {
         Self {
             client,
             endpoint: config.endpoint.clone(),
+            rest_endpoint: config.rest_endpoint.clone(),
             timeout: Duration::from_secs(config.timeout_secs),
+            mode: config.mode,
         }
     }
 
     /// Verify a proof using ECHIDNA Core
     pub async fn verify_proof(&self, prover: ProverKind, content: &str) -> Result<ProofResult> {
+        match self.mode {
+            EchidnaApiMode::Graphql => self.verify_proof_graphql(prover, content).await,
+            EchidnaApiMode::Rest => self.verify_proof_rest(prover, content).await,
+            EchidnaApiMode::Auto => match self.verify_proof_graphql(prover, content).await {
+                Ok(result) => Ok(result),
+                Err(err) => {
+                    warn!("GraphQL verify failed, falling back to REST: {}", err);
+                    self.verify_proof_rest(prover, content).await
+                }
+            },
+        }
+    }
+
+    /// Request tactic suggestions from ECHIDNA's Julia ML component
+    pub async fn suggest_tactics(
+        &self,
+        prover: ProverKind,
+        context: &str,
+        goal_state: &str,
+    ) -> Result<Vec<TacticSuggestion>> {
+        match self.mode {
+            EchidnaApiMode::Graphql => {
+                self.suggest_tactics_graphql(prover, context, goal_state).await
+            }
+            EchidnaApiMode::Rest => self.suggest_tactics_rest(prover, context, goal_state).await,
+            EchidnaApiMode::Auto => {
+                match self
+                    .suggest_tactics_graphql(prover, context, goal_state)
+                    .await
+                {
+                    Ok(result) => Ok(result),
+                    Err(err) => {
+                        warn!("GraphQL suggest failed, falling back to REST: {}", err);
+                        self.suggest_tactics_rest(prover, context, goal_state).await
+                    }
+                }
+            }
+        }
+    }
+
+    /// Check if ECHIDNA Core is available and healthy
+    pub async fn health_check(&self) -> Result<bool> {
+        match self.mode {
+            EchidnaApiMode::Graphql => self.health_check_graphql().await,
+            EchidnaApiMode::Rest => self.health_check_rest().await,
+            EchidnaApiMode::Auto => match self.health_check_graphql().await {
+                Ok(true) => Ok(true),
+                _ => self.health_check_rest().await,
+            },
+        }
+    }
+
+    /// Check prover availability
+    pub async fn prover_status(&self, prover: ProverKind) -> Result<ProverStatus> {
+        match self.mode {
+            EchidnaApiMode::Graphql => self.prover_status_graphql(prover).await,
+            EchidnaApiMode::Rest => self.prover_status_rest(prover).await,
+            EchidnaApiMode::Auto => match self.prover_status_graphql(prover).await {
+                Ok(result) => Ok(result),
+                Err(err) => {
+                    warn!("GraphQL prover_status failed, falling back to REST: {}", err);
+                    self.prover_status_rest(prover).await
+                }
+            },
+        }
+    }
+
+    fn rest_url(&self, path: &str) -> String {
+        let base = self.rest_endpoint.trim_end_matches('/');
+        format!("{}{}", base, path)
+    }
+
+    async fn verify_proof_graphql(
+        &self,
+        prover: ProverKind,
+        content: &str,
+    ) -> Result<ProofResult> {
         let query = GraphQLRequest {
             query: r#"
                 mutation VerifyProof($prover: String!, $content: String!) {
@@ -89,8 +171,7 @@ impl EchidnaClient {
         })
     }
 
-    /// Request tactic suggestions from ECHIDNA's Julia ML component
-    pub async fn suggest_tactics(
+    async fn suggest_tactics_graphql(
         &self,
         prover: ProverKind,
         context: &str,
@@ -154,8 +235,7 @@ impl EchidnaClient {
             .collect())
     }
 
-    /// Check if ECHIDNA Core is available and healthy
-    pub async fn health_check(&self) -> Result<bool> {
+    async fn health_check_graphql(&self) -> Result<bool> {
         let query = GraphQLRequest {
             query: "{ __typename }".to_string(),
             variables: serde_json::json!({}),
@@ -175,8 +255,7 @@ impl EchidnaClient {
         }
     }
 
-    /// Check prover availability
-    pub async fn prover_status(&self, prover: ProverKind) -> Result<ProverStatus> {
+    async fn prover_status_graphql(&self, prover: ProverKind) -> Result<ProverStatus> {
         let query = GraphQLRequest {
             query: r#"
                 query ProverStatus($prover: String!) {
@@ -214,6 +293,196 @@ impl EchidnaClient {
             None => Ok(ProverStatus::Unknown),
         }
     }
+
+    async fn verify_proof_rest(&self, prover: ProverKind, content: &str) -> Result<ProofResult> {
+        let request = RestVerifyRequest {
+            prover: prover_to_echidna_name(prover),
+            content: content.to_string(),
+        };
+
+        let response = self
+            .client
+            .post(self.rest_url("/api/verify"))
+            .json(&request)
+            .timeout(self.timeout)
+            .send()
+            .await
+            .map_err(Error::Http)?;
+
+        if !response.status().is_success() {
+            return Err(Error::Echidna(format!(
+                "ECHIDNA REST returned status {}",
+                response.status()
+            )));
+        }
+
+        let data: RestVerifyResponse = response.json().await.map_err(Error::Http)?;
+        Ok(ProofResult {
+            status: if data.valid {
+                ProofStatus::Verified
+            } else {
+                ProofStatus::Failed
+            },
+            message: if data.valid {
+                "Proof verified successfully".to_string()
+            } else {
+                "Proof verification failed".to_string()
+            },
+            prover_output: String::new(),
+            duration_ms: 0,
+            artifacts: Vec::new(),
+        })
+    }
+
+    async fn suggest_tactics_rest(
+        &self,
+        prover: ProverKind,
+        context: &str,
+        goal_state: &str,
+    ) -> Result<Vec<TacticSuggestion>> {
+        let content = if !goal_state.trim().is_empty() {
+            goal_state.to_string()
+        } else {
+            context.to_string()
+        };
+
+        let request = RestSuggestRequest {
+            prover: prover_to_echidna_name(prover),
+            content,
+            limit: Some(5),
+        };
+
+        let response = self
+            .client
+            .post(self.rest_url("/api/suggest"))
+            .json(&request)
+            .timeout(self.timeout)
+            .send()
+            .await
+            .map_err(Error::Http)?;
+
+        if !response.status().is_success() {
+            return Err(Error::Echidna(format!(
+                "ECHIDNA REST returned status {}",
+                response.status()
+            )));
+        }
+
+        let data: RestSuggestResponse = response.json().await.map_err(Error::Http)?;
+        Ok(data
+            .suggestions
+            .into_iter()
+            .map(|tactic| TacticSuggestion {
+                tactic,
+                confidence: 0.5,
+                explanation: Some("REST heuristic suggestion".to_string()),
+            })
+            .collect())
+    }
+
+    async fn health_check_rest(&self) -> Result<bool> {
+        let response = self
+            .client
+            .get(self.rest_url("/api/health"))
+            .timeout(Duration::from_secs(5))
+            .send()
+            .await;
+
+        match response {
+            Ok(resp) => Ok(resp.status().is_success()),
+            Err(_) => Ok(false),
+        }
+    }
+
+    async fn prover_status_rest(&self, prover: ProverKind) -> Result<ProverStatus> {
+        let response = self
+            .client
+            .get(self.rest_url("/api/provers"))
+            .timeout(Duration::from_secs(10))
+            .send()
+            .await
+            .map_err(Error::Http)?;
+
+        if !response.status().is_success() {
+            return Ok(ProverStatus::Unknown);
+        }
+
+        let data: RestProversResponse = response.json().await.map_err(Error::Http)?;
+        let target = prover_to_echidna_name(prover).to_lowercase();
+        let available = data
+            .provers
+            .into_iter()
+            .any(|info| info.name.to_lowercase() == target);
+
+        Ok(if available {
+            ProverStatus::Available
+        } else {
+            ProverStatus::Unavailable
+        })
+    }
+}
+
+// =============================================================================
+// REST Types
+// =============================================================================
+
+#[derive(Serialize)]
+struct RestVerifyRequest {
+    prover: String,
+    content: String,
+}
+
+#[derive(Deserialize)]
+struct RestVerifyResponse {
+    valid: bool,
+    #[allow(dead_code)]
+    goals_remaining: usize,
+    #[allow(dead_code)]
+    tactics_used: usize,
+}
+
+#[derive(Serialize)]
+struct RestSuggestRequest {
+    prover: String,
+    content: String,
+    limit: Option<usize>,
+}
+
+#[derive(Deserialize)]
+struct RestSuggestResponse {
+    suggestions: Vec<String>,
+}
+
+#[derive(Deserialize)]
+struct RestProversResponse {
+    provers: Vec<RestProverInfo>,
+}
+
+#[derive(Deserialize)]
+struct RestProverInfo {
+    name: String,
+    #[allow(dead_code)]
+    tier: u8,
+    #[allow(dead_code)]
+    complexity: u8,
+}
+
+fn prover_to_echidna_name(prover: ProverKind) -> String {
+    match prover {
+        ProverKind::Agda => "Agda",
+        ProverKind::Coq => "Coq",
+        ProverKind::Lean => "Lean",
+        ProverKind::Isabelle => "Isabelle",
+        ProverKind::Z3 => "Z3",
+        ProverKind::Cvc5 => "CVC5",
+        ProverKind::Metamath => "Metamath",
+        ProverKind::HolLight => "HOLLight",
+        ProverKind::Mizar => "Mizar",
+        ProverKind::Pvs => "PVS",
+        ProverKind::Acl2 => "ACL2",
+        ProverKind::Hol4 => "HOL4",
+    }
+    .to_string()
 }
 
 // =============================================================================

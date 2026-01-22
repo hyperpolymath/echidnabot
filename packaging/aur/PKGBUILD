@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-License-Identifier: PMPL-1.0
 # Maintainer: hyperpolymath <packages@hyperpolymath.dev>
 
 pkgname=echidnabot-bin
@@ -8,7 +8,7 @@ pkgrel=1
 pkgdesc="Proof-aware CI bot that orchestrates ECHIDNA for theorem proof verification"
 arch=('x86_64' 'aarch64')
 url="https://github.com/hyperpolymath/echidnabot"
-license=('AGPL-3.0-or-later')
+license=('PMPL-1.0-or-later')
 provides=('echidnabot')
 conflicts=('echidnabot')
 depends=('openssl')
