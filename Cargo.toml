@@ -68,6 +68,9 @@ config = "0.15"
 # Filesystem utilities
 tempfile = "3"
 
+# URL encoding for GitLab/Bitbucket APIs
+urlencoding = "2"
+
 [dev-dependencies]
 tokio-test = "0.4"
 axum-test = "18"
