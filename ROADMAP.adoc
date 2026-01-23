@@ -1,22 +1,351 @@
-// SPDX-License-Identifier: PMPL-1.0
+// SPDX-License-Identifier: PMPL-1.0-or-later
+
 = Echidnabot Roadmap
 
-== Current Status
+:toc: macro
+:toclevels: 3
+:icons: font
 
-Initial development phase.
+Development roadmap for echidnabot - Proof-Aware CI Bot.
 
-== Milestones
+toc::[]
 
-=== v0.1.0 - Foundation
-* [ ] Core functionality
-* [ ] Basic documentation
-* [ ] CI/CD pipeline
+== Vision
 
-=== v1.0.0 - Stable Release
-* [ ] Full feature set
-* [ ] Comprehensive tests
-* [ ] Production ready
+Echidnabot aims to be the **definitive formal verification CI bot**, orchestrating ECHIDNA to verify mathematical proofs automatically on every push across all major git forges.
 
-== Future Directions
+== Current Status (v0.1.0)
 
-_To be determined based on community feedback._
+[cols="1,3,1"]
+|===
+|Feature |Status |Completeness
+
+|**Core Features**
+|
+|
+
+|Multi-prover support
+|✅ Implemented
+|80%
+
+|Webhook integration
+|✅ Implemented
+|100%
+
+|GraphQL API
+|✅ Implemented
+|100%
+
+|CLI verification
+|✅ Implemented
+|100%
+
+|**Tier 1 Provers** (Ready)
+|
+|
+
+|Coq
+|✅ Supported
+|90%
+
+|Lean 4
+|✅ Supported
+|90%
+
+|Agda
+|✅ Supported
+|80%
+
+|Isabelle/HOL
+|✅ Supported
+|80%
+
+|Z3
+|✅ Supported
+|70%
+
+|CVC5
+|✅ Supported
+|70%
+
+|**Tier 2 Provers** (MVP)
+|
+|
+
+|Metamath
+|🚧 Partial
+|50%
+
+|HOL Light
+|🚧 Partial
+|50%
+
+|Mizar
+|🚧 Partial
+|40%
+
+|**Tier 3 Provers** (Planned)
+|
+|
+
+|PVS
+|❌ Planned
+|0%
+
+|ACL2
+|❌ Planned
+|0%
+
+|HOL4
+|❌ Planned
+|0%
+
+|**Platform Support**
+|
+|
+
+|GitHub integration
+|✅ Full support
+|100%
+
+|GitLab integration
+|✅ Full support
+|100%
+
+|Bitbucket integration
+|✅ Full support
+|100%
+
+|**Bot Modes**
+|
+|
+
+|Verifier (silent pass/fail)
+|✅ Implemented
+|100%
+
+|Advisor (suggest tactics)
+|🚧 Partial (Julia ML)
+|40%
+
+|Consultant (answer questions)
+|❌ Planned
+|0%
+
+|Regulator (block merges)
+|❌ Planned
+|0%
+|===
+
+== Near-Term Goals (v0.2.0 - Q1 2026)
+
+=== 1. Complete Tier 1 Prover Support
+
+**Priority: HIGH**
+
+* [ ] Finish Coq integration (100% coverage of standard library tactics)
+* [ ] Complete Lean 4 support (Mathlib integration)
+* [ ] Improve Agda performance (parallel type-checking)
+* [ ] Isabelle/HOL sledgehammer integration
+* [ ] Z3 and CVC5 optimization (timeout tuning)
+
+**Why:** Ensure rock-solid support for most popular provers.
+
+**Effort:** 3-4 weeks
+
+=== 2. ML-Powered Tactic Suggestions
+
+**Priority: MEDIUM**
+
+* [ ] Integrate Julia ML backend fully
+* [ ] Train models on successful proof patterns
+* [ ] Context-aware tactic suggestion
+* [ ] Proof repair hints (suggest fixes for failing proofs)
+
+**Why:** Help developers fix failing proofs faster.
+
+**Effort:** 4-5 weeks (research + implementation)
+
+=== 3. Proof Caching & Incremental Verification
+
+**Priority: HIGH**
+
+* [ ] Cache verified proofs (skip re-verification)
+* [ ] Incremental verification (only changed theorems)
+* [ ] Proof dependency tracking
+* [ ] Smart invalidation (detect affected proofs)
+
+**Why:** Dramatically speed up CI for large proof repos.
+
+**Effort:** 2-3 weeks
+
+== Mid-Term Goals (v0.3.0 - Q2 2026)
+
+=== 1. Consultant Mode
+
+**Priority: MEDIUM**
+
+* [ ] Natural language proof queries ("Why did this proof fail?")
+* [ ] Proof state inspection via GraphQL
+* [ ] Interactive proof debugging
+* [ ] Step-by-step proof explanation
+
+**Why:** Make formal verification more accessible.
+
+**Effort:** 3-4 weeks
+
+=== 2. Regulator Mode
+
+**Priority: HIGH**
+
+* [ ] Block PR merges on proof failures
+* [ ] Configurable severity levels (error, warning)
+* [ ] Exemption system (skip specific theorems)
+* [ ] Required proof coverage per PR
+
+**Why:** Enforce proof requirements at the gate.
+
+**Effort:** 2 weeks
+
+=== 3. Tier 2 & 3 Prover Completion
+
+**Priority: MEDIUM**
+
+* [ ] Complete Metamath, HOL Light, Mizar (Tier 2 → 100%)
+* [ ] Add PVS, ACL2, HOL4 (Tier 3 → 80%)
+* [ ] Unified prover interface
+* [ ] Auto-detect prover from file extensions
+
+**Why:** Support more proof ecosystems.
+
+**Effort:** 4-6 weeks
+
+=== 4. Integration with Other Bots
+
+**Priority: HIGH**
+
+* [ ] Coordinate with rhodibot (RSR compliance first)
+* [ ] Share context with finishingbot (proofs verified before release)
+* [ ] Hypatia orchestration support
+* [ ] Fleet-wide proof dashboard
+
+**Why:** Enable multi-bot workflows.
+
+**Effort:** 1-2 weeks
+
+== Long-Term Vision (v1.0.0 - Q3-Q4 2026)
+
+=== 1. Proof Synthesis
+
+**Priority: RESEARCH (Ambitious)
+
+* [ ] AI-powered proof sketch generation
+* [ ] Theorem statement from informal description
+* [ ] Proof completion (fill in sorry/admit holes)
+* [ ] Cross-prover proof translation
+
+**Why:** Make formal verification accessible to non-experts.
+
+**Effort:** 8-12 weeks (research + implementation)
+
+=== 2. Distributed Proof Verification
+
+**Priority: MEDIUM**
+
+* [ ] Parallel proof checking across workers
+* [ ] Cloud-native verification (Kubernetes)
+* [ ] Spot instance support (cost optimization)
+* [ ] Proof queue management
+
+**Why:** Scale to massive proof repositories.
+
+**Effort:** 4-5 weeks
+
+=== 3. Proof Library Integration
+
+**Priority: MEDIUM**
+
+* [ ] Mathlib (Lean) integration
+* [ ] Coq stdlib + ext-lib
+* [ ] Agda stdlib
+* [ ] Isabelle/AFP (Archive of Formal Proofs)
+* [ ] Auto-import missing dependencies
+
+**Why:** Seamless use of standard libraries.
+
+**Effort:** 3-4 weeks
+
+=== 4. Educational Features
+
+**Priority: LOW**
+
+* [ ] Interactive proof tutorials
+* [ ] "Fix alongside me" mode
+* [ ] Proof pattern learning resources
+* [ ] Certification system (verified by echidnabot)
+
+**Why:** Lower barrier to entry for formal methods.
+
+**Effort:** 3-4 weeks
+
+== Technical Debt
+
+=== High Priority
+
+* [ ] Refactor platform adapters to shared crate (with rhodibot, seambot)
+* [ ] Improve error messages (prover-specific guidance)
+* [ ] Add integration tests for all provers
+* [ ] Docker image optimization (reduce size, faster builds)
+
+=== Medium Priority
+
+* [ ] Performance optimization (concurrent proof checking)
+* [ ] Memory optimization (large proof files)
+* [ ] Better logging (structured, prover-specific)
+* [ ] Metrics export (Prometheus format)
+
+=== Low Priority
+
+* [ ] WASM compilation (run in browser - limited utility)
+* [ ] Plugin system for custom provers
+* [ ] Alternative output formats (HTML, PDF)
+* [ ] Multi-language support (i18n)
+
+== Community Contributions Welcome
+
+We welcome contributions in these areas:
+
+* **New prover support** (F*, Dafny, TLA+, etc.)
+* **Tactic libraries** (common proof patterns)
+* **Platform adapters** (Gitea, Codeberg, SourceHut)
+* **ML models** (proof synthesis, tactic suggestion)
+* **Documentation** (tutorials, examples, case studies)
+
+See link:CONTRIBUTING.md[CONTRIBUTING.md] for guidelines.
+
+== Non-Goals
+
+Echidnabot will NOT:
+
+* Replace human proof engineers (assists, not replaces)
+* Verify proofs without ECHIDNA (delegates to ECHIDNA core)
+* Support non-theorem-prover languages (Python tests ≠ proofs)
+* Guarantee soundness (relies on prover soundness)
+
+== Versioning
+
+Echidnabot follows semantic versioning:
+
+* **v0.x.y** - Pre-1.0, breaking changes allowed between minor versions
+* **v1.x.y** - Stable API, breaking changes only in major versions
+* **vX.0.0** - Major release with new features and possible breaking changes
+
+== Release Cadence
+
+* **Patch releases** (v0.1.x) - Weekly or as needed for bug fixes
+* **Minor releases** (v0.x.0) - Monthly with new features
+* **Major releases** (v1.0.0+) - When stable API is ready (Q4 2026 target)
+
+== Feedback
+
+Have suggestions for the roadmap? Open an issue or discussion on GitHub!
