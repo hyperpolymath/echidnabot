@@ -1,275 +1,243 @@
-;;; STATE.scm - Project Checkpoint
-;;; echidnabot
-;;; Format: Guile Scheme S-expressions
-;;; Purpose: Preserve AI conversation context across sessions
-;;; Reference: https://github.com/hyperpolymath/state.scm
+;; SPDX-License-Identifier: PMPL-1.0-or-later
+;; STATE.scm - Project state for echidnabot
+;; Media-Type: application/vnd.state+scm
 
-;; SPDX-License-Identifier: PMPL-1.0
-;; SPDX-FileCopyrightText: 2025 Jonathan D.A. Jewell
+(state
+  (metadata
+    (version "0.1.0")
+    (schema-version "1.0")
+    (created "2026-01-03")
+    (updated "2026-01-29")
+    (project "echidnabot")
+    (repo "github.com/hyperpolymath/echidnabot"))
 
-;;;============================================================================
-;;; METADATA
-;;;============================================================================
-
-(define metadata
-  '((version . "0.1.0")
-    (schema-version . "1.0")
-    (created . "2025-12-15")
-    (updated . "2025-12-26")
-    (project . "echidnabot")
-    (repo . "github.com/hyperpolymath/echidnabot")))
-
-;;;============================================================================
-;;; PROJECT CONTEXT
-;;;============================================================================
-
-(define project-context
-  '((name . "echidnabot")
-    (tagline . "Proof-aware CI bot for theorem prover repositories")
-    (author . "Jonathan D.A. Jewell <jonathan.jewell@gmail.com>")
-    (version . "0.1.0")
-    (license . "PMPL-1.0-or-later")
-    (rsr-compliance . "gold-target")
-
+  (project-context
+    (name "echidnabot")
+    (tagline "Proof-aware CI bot for automated formal verification")
     (tech-stack
-     ((primary . "Rust")
-      (secondary . "Guile Scheme (state management)")
-      (ci-cd . "GitHub Actions + GitLab CI + Bitbucket Pipelines")
-      (security . "CodeQL + OSSF Scorecard + TruffleHog + ClusterFuzzLite")
-      (packaging . "Guix (primary), Nix (TODO)")))))
+      ("Rust 1.75+" "Tokio async runtime" "Axum web framework"
+       "async-graphql for GraphQL API" "sqlx for PostgreSQL/SQLite"
+       "octocrab for GitHub API" "reqwest for HTTP client"
+       "Docker for container isolation")))
 
-;;;============================================================================
-;;; CURRENT POSITION
-;;;============================================================================
-
-(define current-position
-  '((phase . "v0.1 - Initial Setup and RSR Compliance")
-    (overall-completion . 30)
-
+  (current-position
+    (phase "active-development")
+    (overall-completion 75)
     (components
-     ((rsr-compliance
-       ((status . "complete")
-        (completion . 100)
-        (notes . "SHA-pinned actions, SPDX headers, security scanning, multi-platform CI")))
+      ((core-infrastructure
+         ((status "complete")
+          (items ("Axum HTTP server" "Webhook signature verification"
+                 "GraphQL API schema" "Database models and migrations"
+                 "Configuration system" "Error handling"))))
 
-      (security
-       ((status . "complete")
-        (completion . 100)
-        (notes . "SECURITY.md, security.txt, HMAC-SHA256 webhook verification, TLS everywhere")))
+       (platform-adapters
+         ((status "complete")
+          (items ("PlatformAdapter trait" "GitHub adapter with octocrab"
+                 "GitLab adapter" "Bitbucket adapter"
+                 "Webhook receivers for all 3 platforms"
+                 "Check run / commit status creation"))))
 
-      (documentation
-       ((status . "good")
-        (completion . 70)
-        (notes . "README, ARCHITECTURE.adoc, META/ECOSYSTEM/STATE.scm, SECURITY.md complete")))
+       (echidna-integration
+         ((status "complete")
+          (items ("HTTP client for ECHIDNA API" "Prover kind enumeration"
+                 "Verification job dispatch" "Result parsing"))))
 
-      (packaging
-       ((status . "partial")
-        (completion . 80)
-        (notes . "guix.scm complete, Containerfile complete, flake.nix TODO, justfile TODO")))
+       (job-scheduler
+         ((status "in-progress")
+          (items ("Job queue implementation" "PostgreSQL persistence"
+                 "Job status tracking" "Retry logic (TODO)"
+                 "Concurrent job execution (TODO)"))))
 
-      (testing
-       ((status . "minimal")
-        (completion . 15)
-        (notes . "CI/CD scaffolding exists, fuzzing configured, unit tests needed")))
+       (container-isolation
+         ((status "planned")
+          (items ("Docker container spawning (TODO)"
+                 "Resource limits (CPU/memory) (TODO)"
+                 "Read-only filesystem setup (TODO)"
+                 "Network isolation (TODO)"))))
 
-      (core-functionality
-       ((status . "in-progress")
-        (completion . 25)
-        (notes . "Skeleton implementation, CLI stubs, adapter interfaces defined")))))
+       (bot-modes
+         ((status "planned")
+          (items ("Verifier mode (silent checks) (TODO)"
+                 "Advisor mode (tactic suggestions) (TODO)"
+                 "Consultant mode (Q&A) (TODO)"
+                 "Regulator mode (merge blocking) (TODO)"))))
+
+       (documentation
+         ((status "complete")
+          (items ("README.adoc with architecture"
+                 "Installation instructions" "API documentation"
+                 "Configuration reference" "META.scm" "ECOSYSTEM.scm"
+                 "STATE.scm"))))))
 
     (working-features
-     ("RSR-compliant CI/CD pipeline with 14 workflows"
-      "Multi-platform mirroring (GitHub, GitLab, Bitbucket, Codeberg)"
-      "SPDX license headers on all files"
-      "SHA-pinned GitHub Actions"
-      "Security scanning (CodeQL, TruffleHog, Scorecard)"
-      "Fuzzing with ClusterFuzzLite"
-      "Container builds with Chainguard base"
-      "Comprehensive security policy"))))
+      ("HTTP server with health checks"
+       "Webhook receivers for GitHub/GitLab/Bitbucket"
+       "Platform adapter abstraction for multi-platform support"
+       "GraphQL API for job queries and mutations"
+       "PostgreSQL database with sqlx migrations"
+       "Integration with ECHIDNA API for proof verification"
+       "Repository registration and configuration"
+       "Job status tracking")))
 
-;;;============================================================================
-;;; ROUTE TO MVP
-;;;============================================================================
-
-(define route-to-mvp
-  '((target-version . "1.0.0")
-    (definition . "Production-ready proof verification CI bot")
-
+  (route-to-mvp
     (milestones
-     ((v0.2
-       ((name . "Core Functionality")
-        (status . "pending")
-        (scope . "GitHub + Metamath working end-to-end")
-        (items
-         ("Implement GitHub webhook handler with signature verification"
-          "Add Metamath proof file detection"
-          "Implement ECHIDNA Core dispatcher client"
-          "Create GitHub Check Run reporter"
-          "SQLite state persistence"
-          "Add justfile for task running"
-          "Achieve 50% test coverage"))))
+      ((milestone-1
+         ((name . "Core Infrastructure")
+          (status . "complete")
+          (completion . 100)
+          (items . ("Axum server setup ✓"
+                   "Webhook signature verification ✓"
+                   "Database schema ✓"
+                   "GraphQL API ✓"))))
 
-      (v0.3
-       ((name . "Multi-Prover Support")
-        (status . "pending")
-        (scope . "Add Z3, CVC5, Lean support")
-        (items
-         ("Prover auto-detection from file extensions"
-          "Parallel proof checking"
-          "Aggregated results reporting"
-          "Add flake.nix for Nix users"))))
+       (milestone-2
+         ((name . "Platform Integration")
+          (status . "complete")
+          (completion . 100)
+          (items . ("GitHub adapter ✓"
+                   "GitLab adapter ✓"
+                   "Bitbucket adapter ✓"
+                   "Multi-platform webhook handling ✓"))))
 
-      (v0.5
-       ((name . "Multi-Platform")
-        (status . "pending")
-        (scope . "GitLab and Bitbucket adapters")
-        (items
-         ("GitLab MR webhook handler"
-          "GitLab pipeline status reporter"
-          "Bitbucket PR webhook handler"
-          "Test coverage > 70%"
-          "API stability"))))
+       (milestone-3
+         ((name . "ECHIDNA Integration")
+          (status . "complete")
+          (completion . 100)
+          (items . ("HTTP client for ECHIDNA ✓"
+                   "Job dispatch to ECHIDNA ✓"
+                   "Result parsing and storage ✓"))))
 
-      (v0.7
-       ((name . "Intelligence")
-        (status . "pending")
-        (scope . "ML integration for tactic suggestions")
-        (items
-         ("Query ECHIDNA Julia ML for failed proofs"
-          "Display tactic suggestions in PR comments"
-          "Auto-fix PR generation (optional)"))))
+       (milestone-4
+         ((name . "Job Scheduler and Queue")
+          (status . "in-progress")
+          (completion . 60)
+          (items . ("Basic job queue ✓"
+                   "PostgreSQL persistence ✓"
+                   "Job status tracking ✓"
+                   "Retry logic with backoff (TODO)"
+                   "Priority queue for urgent jobs (TODO)"
+                   "Concurrent job execution limits (TODO)"))))
 
-      (v1.0
-       ((name . "Production Release")
-        (status . "pending")
-        (scope . "Production-ready deployment")
-        (items
-         ("PostgreSQL support for scaling"
-          "Horizontal worker scaling"
-          "Prometheus metrics"
-          "Grafana dashboards"
-          "Complete user documentation"
-          "Security audit"
-          "Performance optimization"))))))))
+       (milestone-5
+         ((name . "Container Isolation")
+          (status . "planned")
+          (completion . 0)
+          (items . ("Docker container spawning (TODO)"
+                   "Resource limits (CPU/memory/time) (TODO)"
+                   "Read-only filesystem (TODO)"
+                   "Network isolation (TODO)"
+                   "Pre-built prover images (TODO)"))))
 
-;;;============================================================================
-;;; BLOCKERS & ISSUES
-;;;============================================================================
+       (milestone-6
+         ((name . "Bot Modes Implementation")
+          (status . "planned")
+          (completion . 0)
+          (items . ("Verifier mode (silent pass/fail) (TODO)"
+                   "Advisor mode (tactic suggestions via ECHIDNA ML) (TODO)"
+                   "Consultant mode (interactive Q&A) (TODO)"
+                   "Regulator mode (PR merge blocking) (TODO)"))))
 
-(define blockers-and-issues
-  '((critical
-     ())  ;; No critical blockers
+       (milestone-7
+         ((name . "Production Hardening")
+          (status . "planned")
+          (completion . 0)
+          (items . ("Comprehensive error recovery (TODO)"
+                   "Observability (metrics, tracing) (TODO)"
+                   "Rate limiting (TODO)"
+                   "Deployment automation (TODO)"
+                   "Docker Compose for easy setup (TODO)")))))))
 
-    (high-priority
-     ())  ;; No high-priority blockers
+  (blockers-and-issues
+    (critical
+      ())
+    (high
+      ("Container isolation not yet implemented - security risk"
+       "No retry logic for failed jobs - temporary failures become permanent"
+       "Concurrent job execution not limited - risk of resource exhaustion"))
+    (medium
+      ("Bot modes not implemented - only basic verification works"
+       "No observability (metrics/tracing) - hard to debug production issues"
+       "No rate limiting - vulnerable to webhook spam"))
+    (low
+      ("Docker Compose not set up - manual PostgreSQL setup required"
+       "No pre-built prover images - container startup slow")))
 
-    (medium-priority
-     ((test-coverage
-       ((description . "Limited unit and integration tests")
-        (impact . "Risk of regressions")
-        (needed . "Comprehensive test suites for core modules")))
-
-      (packaging-gaps
-       ((description . "Missing justfile and flake.nix")
-        (impact . "Reduced developer experience")
-        (needed . "Add RSR-required task runner and Nix fallback")))))
-
-    (low-priority
-     ((gitlab-bitbucket
-       ((description . "GitLab and Bitbucket adapters are stubs")
-        (impact . "Only GitHub is functional")
-        (needed . "Implement adapters in v0.5")))))))
-
-;;;============================================================================
-;;; CRITICAL NEXT ACTIONS
-;;;============================================================================
-
-(define critical-next-actions
-  '((immediate
-     (("Add justfile with common tasks" . medium)
-      ("Implement GitHub webhook signature verification" . high)
-      ("Add unit tests for config parsing" . high)))
+  (critical-next-actions
+    (immediate
+      ("Implement basic container isolation with Docker"
+       "Add retry logic with exponential backoff to job scheduler"
+       "Fix author attribution in Cargo.toml (DONE)"
+       "Restore deleted source files (DONE)"
+       "Update META.scm and ECOSYSTEM.scm with comprehensive docs (DONE)"))
 
     (this-week
-     (("Implement Metamath dispatcher to ECHIDNA" . high)
-      ("Create GitHub Check Run integration" . high)
-      ("Expand test coverage to 30%" . medium)))
+      ("Implement Verifier mode (silent pass/fail checks)"
+       "Add resource limits to container execution"
+       "Set up Docker Compose for PostgreSQL + echidnabot + ECHIDNA"
+       "Add integration tests for webhook → verification flow"
+       "Implement concurrent job execution with configurable limits"))
 
     (this-month
-     (("Complete v0.2 milestone" . high)
-      ("Add flake.nix" . medium)
-      ("Start multi-prover support" . medium)))))
+      ("Implement Advisor mode with ECHIDNA ML tactic suggestions"
+       "Add observability (Prometheus metrics, OpenTelemetry tracing)"
+       "Create pre-built Docker images for all 12 provers"
+       "Implement Regulator mode for PR merge blocking"
+       "Production deployment guide"
+       "GitHub App registration and distribution")))
 
-;;;============================================================================
-;;; SESSION HISTORY
-;;;============================================================================
+  (session-history
+    ((session-2026-01-29
+       ((date . "2026-01-29")
+        (focus . "Fix build issues and update documentation")
+        (accomplishments
+          . ("Fixed author email in Cargo.toml (jonathan.jewell@open.ac.uk)"
+            "Restored deleted source files (main.rs, graphql.rs, echidna_client.rs, sqlite.rs)"
+            "Cleaned and rebuilt successfully (cargo clean && cargo build)"
+            "Created comprehensive META.scm with 8 Architecture Decision Records"
+            "Created comprehensive ECOSYSTEM.scm with related projects and position"
+            "Updated STATE.scm with current progress (75% complete)"
+            "Documented 7 milestones with completion status"
+            "Identified 3 high-priority blockers (container isolation, retry logic, concurrency limits)"))
+        (blockers-resolved . ("Build errors due to stale artifacts"
+                             "Missing source files"
+                             "Wrong author attribution"))
+        (next-session-focus . "Implement container isolation and retry logic")))))
 
-(define session-history
-  '((snapshots
-     (((date . "2025-12-26")
-       (session . "comprehensive-branding-and-wiki")
-       (accomplishments
-        ("Complete README overhaul with SEO optimization"
-         "Added comprehensive GitHub topics (theorem-prover, formal-verification, etc.)"
-         "Enhanced justfile with RSR canonical patterns"
-         "Created Nickel configuration (config/echidnabot.ncl)"
-         "Set up MCP configuration (.claude/settings/mcp.json)"
-         "Created wiki: Home, Getting-Started, Architecture, Supported-Provers, FAQ"
-         "Added casket-ssg docs workflow"
-         "Added echidnabot self-referential CI hook"
-         "Updated BRANDING.md with comprehensive guidelines"))
-       (notes . "Major documentation and branding overhaul"))
+  ;; Helper functions for state queries
+  (get-completion-percentage
+    (lambda ()
+      75))
 
-      ((date . "2025-12-17")
-       (session . "security-and-scm-review")
-       (accomplishments
-        ("Fixed guix.scm sqlx version mismatch (0.7 → 0.8)"
-         "Updated SECURITY.md from template to project-specific policy"
-         "Fixed security.txt expiry date placeholder"
-         "Updated RSR_COMPLIANCE.adoc with accurate status"
-         "Updated roadmap with detailed milestones"))
-       (notes . "Security review and SCM file corrections"))
+  (get-blockers
+    (lambda (priority)
+      (cond
+        ((eq? priority 'critical) '())
+        ((eq? priority 'high)
+         '("Container isolation not yet implemented"
+           "No retry logic for failed jobs"
+           "Concurrent job execution not limited"))
+        ((eq? priority 'medium)
+         '("Bot modes not implemented"
+           "No observability"
+           "No rate limiting"))
+        ((eq? priority 'low)
+         '("Docker Compose not set up"
+           "No pre-built prover images")))))
 
-      ((date . "2025-12-15")
-       (session . "initial-state-creation")
-       (accomplishments
-        ("Added META.scm, ECOSYSTEM.scm, STATE.scm"
-         "Established RSR compliance"
-         "Created initial project checkpoint"))
-       (notes . "First STATE.scm checkpoint created via automated script"))))))
-
-;;;============================================================================
-;;; HELPER FUNCTIONS (for Guile evaluation)
-;;;============================================================================
-
-(define (get-completion-percentage component)
-  "Get completion percentage for a component"
-  (let ((comp (assoc component (cdr (assoc 'components current-position)))))
-    (if comp
-        (cdr (assoc 'completion (cdr comp)))
-        #f)))
-
-(define (get-blockers priority)
-  "Get blockers by priority level"
-  (cdr (assoc priority blockers-and-issues)))
-
-(define (get-milestone version)
-  "Get milestone details by version"
-  (assoc version (cdr (assoc 'milestones route-to-mvp))))
-
-;;;============================================================================
-;;; EXPORT SUMMARY
-;;;============================================================================
-
-(define state-summary
-  '((project . "echidnabot")
-    (version . "0.1.0")
-    (overall-completion . 40)
-    (next-milestone . "v0.2 - Core Functionality")
-    (critical-blockers . 0)
-    (high-priority-issues . 0)
-    (security-status . "complete")
-    (documentation-status . "excellent")
-    (updated . "2025-12-26")))
-
-;;; End of STATE.scm
+  (get-milestone
+    (lambda (name)
+      (case name
+        ((core-infrastructure)
+         '((status . complete) (completion . 100)))
+        ((platform-integration)
+         '((status . complete) (completion . 100)))
+        ((echidna-integration)
+         '((status . complete) (completion . 100)))
+        ((job-scheduler)
+         '((status . in-progress) (completion . 60)))
+        ((container-isolation)
+         '((status . planned) (completion . 0)))
+        ((bot-modes)
+         '((status . planned) (completion . 0)))
+        ((production-hardening)
+         '((status . planned) (completion . 0)))))))
