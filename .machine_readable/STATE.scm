@@ -7,7 +7,7 @@
     (version "0.1.0")
     (schema-version "1.0")
     (created "2026-01-03")
-    (updated "2026-01-29")
+    (updated "2026-02-01")
     (project "echidnabot")
     (repo "github.com/hyperpolymath/echidnabot"))
 

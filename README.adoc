@@ -1,4 +1,4 @@
-image:https://img.shields.io/badge/License-PMPL_1.0_or_later-blue.svg[PMPL-1.0-or-later,link="https://github.com/hyperpolymath/palimpsest-license"]
+image:https://img.shields.io/badge/License-PMPL--1.0-blue.svg[License: PMPL-1.0,link="https://github.com/hyperpolymath/palimpsest-license"]
 image:https://img.shields.io/github/license/hyperpolymath/echidnabot[License]
 image:https://img.shields.io/github/v/release/hyperpolymath/echidnabot?include_prereleases[GitHub Release]
 
@@ -304,7 +304,7 @@ Bots coordinate through a shared context layer managed by https://github.com/hyp
 [source,yaml]
 ----
 # .github/workflows/verify-proofs.yml
-# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-License-Identifier: PMPL-1.0-or-later
 name: Verify Proofs
 on: [push, pull_request]
 permissions: read-all
