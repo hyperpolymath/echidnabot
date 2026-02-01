@@ -63,7 +63,7 @@ jobs:
       has_metamath: ${{ steps.detect.outputs.has_metamath }}
       any_proofs: ${{ steps.detect.outputs.any_proofs }}
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Detect proof file types
         id: detect
@@ -93,7 +93,7 @@ jobs:
     if: needs.detect-proofs.outputs.has_coq == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Install Coq
         run: |
@@ -115,7 +115,7 @@ jobs:
     if: needs.detect-proofs.outputs.has_lean == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Install elan (Lean version manager)
         run: |
@@ -142,7 +142,7 @@ jobs:
     if: needs.detect-proofs.outputs.has_z3 == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Install Z3
         run: |
@@ -164,7 +164,7 @@ jobs:
     if: needs.detect-proofs.outputs.has_agda == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Install Agda
         run: |
