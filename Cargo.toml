@@ -19,6 +19,9 @@ name = "echidnabot"
 path = "src/main.rs"
 
 [dependencies]
+# Fleet coordination
+gitbot-shared-context = { path = "../gitbot-fleet/shared-context" }
+
 # Async runtime
 tokio = { version = "1", features = ["full"] }
 
@@ -53,6 +56,7 @@ thiserror = "2"
 anyhow = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+rand = "0.8"
 
 # Crypto for webhook verification
 hmac = "0.12"

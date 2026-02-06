@@ -1,8 +1,12 @@
 //! Job scheduler for proof verification tasks
 
 pub mod job_queue;
+pub mod limiter; // Concurrent job limits to prevent overwhelming prover backends
+pub mod retry; // Exponential backoff for transient failures
 
 pub use job_queue::JobScheduler;
+pub use limiter::{JobLimiter, LimiterConfig};
+pub use retry::{RetryConfig, RetryPolicy, retry, retry_with_backoff};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

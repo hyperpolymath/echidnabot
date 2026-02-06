@@ -16,6 +16,8 @@ pub mod adapters;
 pub mod config;
 pub mod dispatcher;
 pub mod error;
+pub mod executor; // Container isolation for secure prover execution
+pub mod fleet; // gitbot-fleet coordination layer
 pub mod scheduler;
 pub mod store;
 

@@ -16,8 +16,8 @@
                       "async-graphql" "sqlx (PostgreSQL/SQLite)" "octocrab (GitHub API)"
                       "reqwest HTTP client"))))
     (current-position
-      ((phase . "Active development — core infrastructure complete, integration in progress")
-       (overall-completion . 75)
+      ((phase . "Active development — security hardening complete, fleet integration next")
+       (overall-completion . 85)
        (components
          . (("HTTP Server & Health" . ((status . "complete") (completion . 100)))
             ("Webhook Receivers (3 platforms)" . ((status . "complete") (completion . 100)))
@@ -28,11 +28,11 @@
             ("Repository Registration & Config" . ((status . "complete") (completion . 100)))
             ("Job Status Tracking" . ((status . "complete") (completion . 100)))
             ("Job Scheduler & Queue" . ((status . "partial") (completion . 60)))
-            ("Container Isolation" . ((status . "planned") (completion . 0)))
+            ("Container Isolation" . ((status . "complete") (completion . 100)))
+            ("Retry Logic (exponential backoff)" . ((status . "complete") (completion . 100)))
+            ("Concurrent Job Limits" . ((status . "complete") (completion . 100)))
             ("Bot Modes (Verifier/Advisor/Consultant/Regulator)" . ((status . "planned") (completion . 0)))
-            ("Retry Logic (exponential backoff)" . ((status . "planned") (completion . 0)))
-            ("Concurrent Job Limits" . ((status . "planned") (completion . 0)))
-            ("Production Hardening" . ((status . "planned") (completion . 0)))))
+            ("Production Hardening" . ((status . "partial") (completion . 40)))))
        (working-features . ("HTTP server with health checks"
                            "Webhook receivers for GitHub, GitLab, Bitbucket"
                            "Platform adapter abstraction for multi-forge support"
@@ -40,7 +40,10 @@
                            "PostgreSQL/SQLite database with sqlx migrations"
                            "ECHIDNA API integration for multi-prover verification"
                            "Repository registration and per-repo configuration"
-                           "Job status tracking and lifecycle management"))))
+                           "Job status tracking and lifecycle management"
+                           "Docker container isolation with gVisor support (Maximum/Standard/Minimal security profiles)"
+                           "Exponential backoff retry logic for transient failures (HTTP, ECHIDNA, DB)"
+                           "Semaphore-based concurrent job limits (global + per-repo)"))))
     (route-to-mvp
       ((milestones
         ((v0.1 . ((items . ("Core infrastructure (HTTP, webhooks, DB)" "Platform adapters"
@@ -55,22 +58,33 @@
                   (status . "planned")))))))
     (blockers-and-issues
       ((critical . ())
-       (high . (("Container isolation not implemented" . "Security risk: prover execution is unsandboxed")
-                ("No retry logic for failed jobs" . "Transient failures are permanent")
-                ("No concurrent job limits" . "Could overwhelm prover backends")))
+       (high . ())
        (medium . (("Bot modes not implemented" . "Only one operating mode available")
                   ("Fleet integration pending" . "Not yet connected to gitbot-shared-context")))
-       (low . ())))
+       (low . (("Integration tests needed" . "End-to-end tests for full workflow")))))
     (critical-next-actions
-      ((immediate . ("Implement Docker container isolation for prover execution"
-                     "Add retry logic with exponential backoff"))
-       (this-week . ("Add concurrent job limits"
-                     "Test multi-prover verification end-to-end"))
-       (this-month . ("Implement bot modes (Verifier, Advisor, Consultant, Regulator)"
-                      "Integrate with gitbot-fleet shared-context"
-                      "Production hardening and monitoring"))))
+      ((immediate . ("Integrate with gitbot-fleet shared-context for coordination"
+                     "Add Finding submission after proof verification"))
+       (this-week . ("Implement bot modes (Verifier, Advisor, Consultant, Regulator)"
+                     "Test multi-prover verification end-to-end with container isolation"))
+       (this-month . ("Production hardening and monitoring"
+                      "Learning loop integration with hypatia"
+                      "End-to-end integration tests"))))
     (session-history
-      (((date . "2026-02-05")
+      (((date . "2026-02-06")
+        (session . "sonnet-security-hardening")
+        (accomplishments . ("Implemented Docker container isolation (src/executor/container.rs)"
+                           "Security profiles: Maximum (gVisor), Standard (Docker), Minimal"
+                           "Container features: --network=none, --read-only, resource limits, timeout enforcement"
+                           "Implemented exponential backoff retry (src/scheduler/retry.rs)"
+                           "Retry config: 3 attempts, 1s→2s→4s backoff, jitter enabled"
+                           "Transient error detection: HTTP, ECHIDNA timeouts, DB connection issues"
+                           "Implemented concurrent job limits (src/scheduler/limiter.rs)"
+                           "Semaphore-based limiting: global (10 jobs) + per-repo (3 jobs)"
+                           "RAII permits with automatic release on drop"
+                           "Reviewed Opus's notes on fleet coordination and learning mechanisms"
+                           "Identified next step: gitbot-fleet shared-context integration")))
+       ((date . "2026-02-05")
         (session . "opus-checkpoint-update")
         (accomplishments . ("Updated STATE.scm from stub to comprehensive state"
                            "Updated ECOSYSTEM.scm with full relationship mapping"

@@ -456,7 +456,7 @@ async fn run_scheduler_loop(
             }
 
             scheduler
-                .complete_job(job.id, result.success, result.message.clone())
+                .complete_job(job.id, result)
                 .await;
         } else {
             sleep(Duration::from_millis(250)).await;
