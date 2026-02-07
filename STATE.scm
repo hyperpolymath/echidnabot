@@ -60,13 +60,13 @@
     (blockers-and-issues
       ((critical . ())
        (high . ())
-       (medium . (("Bot modes not implemented" . "Only one operating mode available")))
+       (medium . ())
        (low . (("Integration tests needed" . "End-to-end tests for full workflow")))))
     (critical-next-actions
-      ((immediate . ("Implement bot modes (Verifier, Advisor, Consultant, Regulator)"
-                     "Test multi-prover verification end-to-end with container isolation"))
-       (this-week . ("End-to-end integration tests"
+      ((immediate . ("End-to-end integration tests"
                      "Test fleet integration with gitbot-fleet context"))
+       (this-week . ("Test multi-prover verification with container isolation"
+                     "Webhook integration with bot modes"))
        (this-month . ("Production hardening and monitoring"
                       "Learning loop integration with hypatia"))))
     (session-history
