@@ -17,7 +17,7 @@
                       "reqwest HTTP client"))))
     (current-position
       ((phase . "Active development — security hardening and fleet integration complete")
-       (overall-completion . 90)
+       (overall-completion . 95)
        (components
          . (("HTTP Server & Health" . ((status . "complete") (completion . 100)))
             ("Webhook Receivers (3 platforms)" . ((status . "complete") (completion . 100)))
@@ -32,7 +32,7 @@
             ("Retry Logic (exponential backoff)" . ((status . "complete") (completion . 100)))
             ("Concurrent Job Limits" . ((status . "complete") (completion . 100)))
             ("Fleet Integration (shared-context)" . ((status . "complete") (completion . 100)))
-            ("Bot Modes (Verifier/Advisor/Consultant/Regulator)" . ((status . "planned") (completion . 0)))
+            ("Bot Modes (Verifier/Advisor/Consultant/Regulator)" . ((status . "complete") (completion . 100)))
             ("Production Hardening" . ((status . "partial") (completion . 40)))))
        (working-features . ("HTTP server with health checks"
                            "Webhook receivers for GitHub, GitLab, Bitbucket"
@@ -70,7 +70,21 @@
        (this-month . ("Production hardening and monitoring"
                       "Learning loop integration with hypatia"))))
     (session-history
-      (((date . "2026-02-06")
+      (((date . "2026-02-07")
+        (session . "sonnet-bot-modes-implementation")
+        (accomplishments . ("Implemented 4 bot operating modes: Verifier/Advisor/Consultant/Regulator"
+                           "Created src/modes/mod.rs with BotMode enum (301 lines)"
+                           "Mode-specific behaviors: show_detailed_failures, suggest_tactics, blocks_merges, supports_interactive"
+                           "FormattedResult type for mode-specific output formatting"
+                           "Created src/result_formatter.rs bridge module (252 lines)"
+                           "PR comment generation with mode-specific formatting"
+                           "Check run status/conclusion mapping for GitHub/GitLab/Bitbucket"
+                           "Added Config.bot_mode field with serde support"
+                           "Comprehensive test suites: 8 tests for modes + 8 tests for formatter"
+                           "Build Status: ✅ Library compiles successfully"
+                           "Updated overall completion: 90% → 95%"))
+        (notes . "Bot modes fully implemented. Verifier (silent), Advisor (suggestions), Consultant (interactive), Regulator (blocking). Ready for webhook integration."))
+       ((date . "2026-02-06")
         (session . "sonnet-compilation-fixes")
         (accomplishments . ("Fixed 6 compilation errors preventing build"
                            "Added missing Error variants: Sqlx(sqlx::Error), InvalidInput(String)"
