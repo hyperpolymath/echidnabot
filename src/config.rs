@@ -4,6 +4,7 @@ use serde::Deserialize;
 use std::path::Path;
 
 use crate::error::Result;
+use crate::modes::BotMode;
 
 /// Main configuration structure
 #[derive(Debug, Deserialize, Clone)]
@@ -31,6 +32,10 @@ pub struct Config {
     /// Scheduler configuration
     #[serde(default)]
     pub scheduler: SchedulerConfig,
+
+    /// Bot operating mode
+    #[serde(default)]
+    pub bot_mode: BotMode,
 }
 
 #[derive(Debug, Deserialize, Clone, Copy)]
@@ -224,6 +229,7 @@ impl Default for Config {
             github: None,
             gitlab: None,
             scheduler: SchedulerConfig::default(),
+            bot_mode: BotMode::default(),
         }
     }
 }

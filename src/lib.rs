@@ -18,6 +18,7 @@ pub mod dispatcher;
 pub mod error;
 pub mod executor; // Container isolation for secure prover execution
 pub mod fleet; // gitbot-fleet coordination layer
+pub mod modes; // Bot operating modes (Verifier/Advisor/Consultant/Regulator)
 pub mod scheduler;
 pub mod store;
 
