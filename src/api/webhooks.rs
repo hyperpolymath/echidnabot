@@ -17,8 +17,9 @@ use serde::Deserialize;
 use crate::adapters::Platform;
 use crate::config::Config;
 use crate::error::Result;
+use crate::modes::{self, BotMode};
 use crate::scheduler::{JobPriority, JobScheduler, ProofJob};
-use crate::store::{Store};
+use crate::store::Store;
 use crate::store::models::ProofJobRecord;
 
 /// Application state shared across handlers
@@ -275,6 +276,27 @@ async fn enqueue_repo_jobs(
         return Ok(());
     }
 
+    // Determine bot mode from config (directive-based resolution is done
+    // at clone time when the target repo is available on disk).
+    let mode = state.config.bot_mode;
+    let is_pr = matches!(event_kind, RepoEventKind::PullRequest);
+
+    tracing::info!(
+        "Bot mode: {} (repo: {}, event: {})",
+        mode,
+        repo.full_name(),
+        if is_pr { "pull_request" } else { "push" },
+    );
+
+    // Consultant mode only triggers on explicit @echidnabot mentions
+    if !modes::should_auto_trigger(mode, is_pr) {
+        tracing::info!(
+            "Mode {} does not auto-trigger for this event; skipping",
+            mode,
+        );
+        return Ok(());
+    }
+
     let should_enqueue = match event_kind {
         RepoEventKind::Push => repo.check_on_push,
         RepoEventKind::PullRequest => repo.check_on_pr,
@@ -291,6 +313,13 @@ async fn enqueue_repo_jobs(
         state.store.create_job(&record).await?;
         let _ = state.scheduler.enqueue(job).await?;
     }
+
+    tracing::info!(
+        "Enqueued {} job(s) for {} in {} mode",
+        repo.enabled_provers.len(),
+        repo.full_name(),
+        mode,
+    );
 
     Ok(())
 }

@@ -205,6 +205,63 @@ impl BotMode {
     }
 }
 
+/// Parse a bot mode from a `.bot_directives/echidnabot.scm` file content.
+///
+/// Looks for `(mode ...)` S-expression in the directive file.
+/// Returns `BotMode::Verifier` (default) if parsing fails or mode not found.
+pub fn parse_mode_from_directive(content: &str) -> BotMode {
+    // Parse simple S-expression: (mode "verifier") or (mode verifier)
+    let content_lower = content.to_lowercase();
+
+    // Look for (mode ...) pattern
+    if let Some(start) = content_lower.find("(mode") {
+        let rest = &content_lower[start..];
+        if let Some(end) = rest.find(')') {
+            let mode_str = &rest[5..end].trim().trim_matches('"');
+            return match *mode_str {
+                "verifier" => BotMode::Verifier,
+                "advisor" => BotMode::Advisor,
+                "consultant" => BotMode::Consultant,
+                "regulator" => BotMode::Regulator,
+                _ => {
+                    tracing::warn!(
+                        "Unknown bot mode '{}' in directive, defaulting to Verifier",
+                        mode_str
+                    );
+                    BotMode::Verifier
+                }
+            };
+        }
+    }
+
+    BotMode::Verifier
+}
+
+/// Determine whether a proof check should be triggered based on mode and event.
+///
+/// - **Verifier** / **Advisor**: auto-trigger on PR open/update and push
+/// - **Consultant**: only respond to explicit `@echidnabot check` mentions
+/// - **Regulator**: auto-trigger on PR, check coverage on push
+pub fn should_auto_trigger(mode: BotMode, _is_pr: bool) -> bool {
+    match mode {
+        BotMode::Verifier | BotMode::Advisor | BotMode::Regulator => true,
+        BotMode::Consultant => {
+            // Consultant mode does NOT auto-trigger -- only on explicit mention
+            false
+        }
+    }
+}
+
+/// Check if a comment body contains an explicit echidnabot mention.
+///
+/// Looks for `@echidnabot check` or `@echidnabot verify` patterns.
+pub fn is_explicit_mention(comment_body: &str) -> bool {
+    let lower = comment_body.to_lowercase();
+    lower.contains("@echidnabot check")
+        || lower.contains("@echidnabot verify")
+        || lower.contains("@echidnabot run")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -290,5 +347,83 @@ mod tests {
         assert!(result.details.is_none()); // Verifier doesn't show details
         assert!(result.suggestions.is_empty());
         assert!(!result.should_block);
+    }
+
+    // =========================================================================
+    // Mode resolver tests
+    // =========================================================================
+
+    #[test]
+    fn test_parse_mode_verifier() {
+        let content = r#"(echidnabot (mode "verifier"))"#;
+        assert_eq!(parse_mode_from_directive(content), BotMode::Verifier);
+    }
+
+    #[test]
+    fn test_parse_mode_advisor() {
+        let content = r#"(echidnabot (mode "advisor"))"#;
+        assert_eq!(parse_mode_from_directive(content), BotMode::Advisor);
+    }
+
+    #[test]
+    fn test_parse_mode_consultant() {
+        let content = r#"(mode consultant)"#;
+        assert_eq!(parse_mode_from_directive(content), BotMode::Consultant);
+    }
+
+    #[test]
+    fn test_parse_mode_regulator() {
+        let content = r#"(mode "regulator")"#;
+        assert_eq!(parse_mode_from_directive(content), BotMode::Regulator);
+    }
+
+    #[test]
+    fn test_parse_mode_missing_defaults_to_verifier() {
+        let content = r#"(echidnabot (provers "lean" "coq"))"#;
+        assert_eq!(parse_mode_from_directive(content), BotMode::Verifier);
+    }
+
+    #[test]
+    fn test_parse_mode_unknown_defaults_to_verifier() {
+        let content = r#"(mode "unknown-mode")"#;
+        assert_eq!(parse_mode_from_directive(content), BotMode::Verifier);
+    }
+
+    #[test]
+    fn test_parse_mode_empty_content() {
+        assert_eq!(parse_mode_from_directive(""), BotMode::Verifier);
+    }
+
+    #[test]
+    fn test_should_auto_trigger_verifier() {
+        assert!(should_auto_trigger(BotMode::Verifier, true));
+        assert!(should_auto_trigger(BotMode::Verifier, false));
+    }
+
+    #[test]
+    fn test_should_auto_trigger_advisor() {
+        assert!(should_auto_trigger(BotMode::Advisor, true));
+        assert!(should_auto_trigger(BotMode::Advisor, false));
+    }
+
+    #[test]
+    fn test_should_not_auto_trigger_consultant() {
+        assert!(!should_auto_trigger(BotMode::Consultant, true));
+        assert!(!should_auto_trigger(BotMode::Consultant, false));
+    }
+
+    #[test]
+    fn test_should_auto_trigger_regulator() {
+        assert!(should_auto_trigger(BotMode::Regulator, true));
+        assert!(should_auto_trigger(BotMode::Regulator, false));
+    }
+
+    #[test]
+    fn test_is_explicit_mention() {
+        assert!(is_explicit_mention("@echidnabot check this proof"));
+        assert!(is_explicit_mention("Please @echidnabot verify"));
+        assert!(is_explicit_mention("@echidnabot run"));
+        assert!(!is_explicit_mention("echidnabot check")); // Missing @
+        assert!(!is_explicit_mention("Hello world"));
     }
 }
