@@ -9,7 +9,7 @@ use crate::error::Result;
 use crate::modes::BotMode;
 
 /// Main configuration structure
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, Default)]
 pub struct Config {
     /// Server configuration
     #[serde(default)]
@@ -222,16 +222,3 @@ impl Config {
     }
 }
 
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            server: ServerConfig::default(),
-            database: DatabaseConfig::default(),
-            echidna: EchidnaConfig::default(),
-            github: None,
-            gitlab: None,
-            scheduler: SchedulerConfig::default(),
-            bot_mode: BotMode::default(),
-        }
-    }
-}

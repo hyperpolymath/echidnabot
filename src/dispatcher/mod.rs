@@ -101,12 +101,9 @@ impl ProverKind {
         let ext = ext.to_lowercase();
         let ext = if ext.starts_with('.') { ext } else { format!(".{}", ext) };
 
-        for prover in Self::all() {
-            if prover.file_extensions().iter().any(|e| e.to_lowercase() == ext) {
-                return Some(prover);
-            }
-        }
-        None
+        Self::all().find(|prover| {
+            prover.file_extensions().iter().any(|e| e.to_lowercase() == ext)
+        })
     }
 
     /// All prover variants

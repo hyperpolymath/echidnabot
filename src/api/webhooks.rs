@@ -162,7 +162,7 @@ async fn handle_gitlab_webhook(
             tracing::info!("Received push hook");
             if let Ok(payload) = serde_json::from_slice::<GitLabPushPayload>(&body) {
                 let (owner, name) = split_full_name(&payload.project.path_with_namespace);
-                let commit = payload.checkout_sha.unwrap_or_else(|| payload.after);
+                let commit = payload.checkout_sha.unwrap_or(payload.after);
                 let _ = enqueue_repo_jobs(
                     &state,
                     Platform::GitLab,

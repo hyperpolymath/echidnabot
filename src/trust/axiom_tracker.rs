@@ -163,7 +163,7 @@ impl AxiomTracker {
         scan_universal(&output_lower, &mut flags);
 
         // Deduplicate flags
-        flags.sort_by(|a, b| b.severity().cmp(&a.severity()));
+        flags.sort_by_key(|f| std::cmp::Reverse(f.severity()));
         flags.dedup();
 
         let unsound_count = flags.iter().filter(|f| f.severity() >= 3).count();
@@ -258,20 +258,19 @@ fn scan_generic(output: &str, flags: &mut Vec<AxiomFlag>) {
 /// Scan for universal patterns across all provers
 fn scan_universal(output: &str, flags: &mut Vec<AxiomFlag>) {
     // Axiom of choice (applies to most provers)
-    if output.contains("axiom of choice") || output.contains("hilbert choice") {
-        if !flags.contains(&AxiomFlag::AxiomOfChoice) {
-            flags.push(AxiomFlag::AxiomOfChoice);
-        }
+    if (output.contains("axiom of choice") || output.contains("hilbert choice"))
+        && !flags.contains(&AxiomFlag::AxiomOfChoice)
+    {
+        flags.push(AxiomFlag::AxiomOfChoice);
     }
 
     // Classical logic indicators
-    if output.contains("excluded middle")
+    if (output.contains("excluded middle")
         || output.contains("double negation elimination")
-        || output.contains("law of excluded middle")
+        || output.contains("law of excluded middle"))
+        && !flags.contains(&AxiomFlag::ClassicalAxiom)
     {
-        if !flags.contains(&AxiomFlag::ClassicalAxiom) {
-            flags.push(AxiomFlag::ClassicalAxiom);
-        }
+        flags.push(AxiomFlag::ClassicalAxiom);
     }
 }
 

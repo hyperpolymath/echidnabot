@@ -101,8 +101,11 @@ impl PodmanExecutor {
     /// Checks for Podman first, then bubblewrap. If neither is found,
     /// the executor will refuse to run any proofs (fail-safe).
     pub async fn new() -> Self {
-        let mut executor = Self::default();
-        executor.backend = Self::detect_backend().await;
+        let backend = Self::detect_backend().await;
+        let executor = Self {
+            backend,
+            ..Self::default()
+        };
 
         match executor.backend {
             IsolationBackend::Podman => {

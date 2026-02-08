@@ -20,7 +20,7 @@ pub fn format_proof_result(
     // Convert tactic suggestions to strings
     let suggestion_strings: Vec<String> = suggestions
         .iter()
-        .map(|s| format_tactic_suggestion(s))
+        .map(format_tactic_suggestion)
         .collect();
 
     mode.format_result(success, prover_name, &result.prover_output, suggestion_strings)
@@ -70,9 +70,9 @@ pub fn generate_pr_comment(result: &FormattedResult, mode: BotMode) -> String {
         comment.push_str("### 💡 Suggested Tactics\n\n");
         for suggestion in &result.suggestions {
             comment.push_str(suggestion);
-            comment.push_str("\n");
+            comment.push('\n');
         }
-        comment.push_str("\n");
+        comment.push('\n');
     }
 
     // Enforcement notice (Regulator mode)

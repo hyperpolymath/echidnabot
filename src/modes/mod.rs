@@ -13,11 +13,12 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 
 /// Bot operating mode
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum BotMode {
     /// Silent pass/fail reporting
     /// Only reports verification success or failure with minimal details
+    #[default]
     Verifier,
 
     /// Provides suggestions on failing proofs
@@ -78,11 +79,6 @@ impl BotMode {
     }
 }
 
-impl Default for BotMode {
-    fn default() -> Self {
-        BotMode::Verifier
-    }
-}
 
 impl fmt::Display for BotMode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
