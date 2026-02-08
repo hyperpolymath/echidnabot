@@ -438,10 +438,8 @@ mod tests {
             async move {
                 let attempt = counter.fetch_add(1, Ordering::SeqCst) + 1;
                 if attempt < 3 {
-                    Err(Error::Http(reqwest::Error::from(std::io::Error::new(
-                        std::io::ErrorKind::ConnectionRefused,
-                        "connection refused",
-                    ))))
+                    // Use Echidna error with transient message (retryable)
+                    Err(Error::Echidna("503 unavailable".to_string()))
                 } else {
                     Ok(42)
                 }
@@ -463,10 +461,8 @@ mod tests {
             let counter = counter_clone.clone();
             async move {
                 counter.fetch_add(1, Ordering::SeqCst);
-                Err::<i32, _>(Error::Http(reqwest::Error::from(std::io::Error::new(
-                    std::io::ErrorKind::ConnectionRefused,
-                    "connection refused",
-                ))))
+                // Use Echidna error with transient message (retryable)
+                Err::<i32, _>(Error::Echidna("503 unavailable".to_string()))
             }
         })
         .await;
@@ -496,21 +492,25 @@ mod tests {
     #[test]
     fn test_is_transient_error() {
         // Transient errors
-        assert!(is_transient_error(&Error::Http(
-            reqwest::Error::from(std::io::Error::new(
-                std::io::ErrorKind::TimedOut,
-                "timeout"
-            ))
-        )));
         assert!(is_transient_error(&Error::Echidna("timeout".to_string())));
         assert!(is_transient_error(&Error::Echidna(
             "503 unavailable".to_string()
+        )));
+        assert!(is_transient_error(&Error::Echidna(
+            "rate limit exceeded".to_string()
+        )));
+        assert!(is_transient_error(&Error::Echidna(
+            "504 gateway timeout".to_string()
+        )));
+        assert!(is_transient_error(&Error::Echidna(
+            "temporary failure".to_string()
         )));
 
         // Non-transient errors
         assert!(!is_transient_error(&Error::InvalidInput("bad".to_string())));
         assert!(!is_transient_error(&Error::Config("bad config".to_string())));
         assert!(!is_transient_error(&Error::Timeout)); // Proof timeout -- don't retry
+        assert!(!is_transient_error(&Error::Internal("panic".to_string())));
     }
 
     // =========================================================================
