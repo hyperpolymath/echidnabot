@@ -17,7 +17,7 @@ use serde::Deserialize;
 use crate::adapters::Platform;
 use crate::config::Config;
 use crate::error::Result;
-use crate::modes::{self, BotMode};
+use crate::modes;
 use crate::scheduler::{JobPriority, JobScheduler, ProofJob};
 use crate::store::Store;
 use crate::store::models::ProofJobRecord;

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: PMPL-1.0-or-later
-//! Retry logic with exponential backoff for transient failures
+// SPDX-FileCopyrightText: 2025 Jonathan D.A. Jewell
+//! Retry logic with exponential backoff and circuit breaker
 //!
 //! Implements retry mechanism for:
 //! - Network timeouts
@@ -12,11 +13,18 @@
 //! - Retry 2: 2s
 //! - Retry 3: 4s
 //! - Max retries: 3
+//!
+//! Circuit breaker:
+//! - Opens after 5 consecutive failures
+//! - Auto-resets after 5 minutes
+//! - When open, all requests fail immediately
 
 use crate::error::{Error, Result};
-use std::time::Duration;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::time::{Duration, Instant};
+use tokio::sync::Mutex;
 use tokio::time::sleep;
-use tracing::{debug, warn};
+use tracing::{debug, info, warn};
 
 /// Retry configuration
 #[derive(Debug, Clone)]
@@ -45,7 +53,161 @@ impl Default for RetryConfig {
     }
 }
 
-/// Retry policy
+// =============================================================================
+// Circuit Breaker
+// =============================================================================
+
+/// Circuit breaker state
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CircuitState {
+    /// Normal operation -- requests pass through
+    Closed,
+    /// Too many failures -- requests fail immediately
+    Open,
+    /// Testing if the service has recovered
+    HalfOpen,
+}
+
+/// Circuit breaker for ECHIDNA API protection.
+///
+/// Opens after `failure_threshold` consecutive failures and auto-resets
+/// after `reset_timeout`. Prevents overwhelming a failing service.
+pub struct CircuitBreaker {
+    /// Current state
+    state: Mutex<CircuitState>,
+    /// Consecutive failure count
+    failure_count: AtomicUsize,
+    /// Threshold to trip the breaker
+    failure_threshold: usize,
+    /// Time to wait before attempting to close the circuit
+    reset_timeout: Duration,
+    /// When the circuit was last opened
+    last_failure_time: Mutex<Option<Instant>>,
+}
+
+impl CircuitBreaker {
+    /// Create a new circuit breaker.
+    ///
+    /// # Arguments
+    /// * `failure_threshold` - Number of consecutive failures before opening
+    /// * `reset_timeout` - Duration to wait before trying half-open
+    pub fn new(failure_threshold: usize, reset_timeout: Duration) -> Self {
+        Self {
+            state: Mutex::new(CircuitState::Closed),
+            failure_count: AtomicUsize::new(0),
+            failure_threshold,
+            reset_timeout,
+            last_failure_time: Mutex::new(None),
+        }
+    }
+
+    /// Create a circuit breaker with default ECHIDNA settings.
+    ///
+    /// Opens after 5 failures, resets after 5 minutes.
+    pub fn default_echidna() -> Self {
+        Self::new(5, Duration::from_secs(300))
+    }
+
+    /// Check if the circuit allows a request to pass through.
+    ///
+    /// Returns `Ok(())` if the request should proceed, or `Err` if the
+    /// circuit is open and the request should be rejected.
+    pub async fn check(&self) -> Result<()> {
+        let mut state = self.state.lock().await;
+
+        match *state {
+            CircuitState::Closed => Ok(()),
+            CircuitState::Open => {
+                // Check if reset timeout has elapsed
+                let last_failure = self.last_failure_time.lock().await;
+                if let Some(last) = *last_failure {
+                    if last.elapsed() >= self.reset_timeout {
+                        info!("Circuit breaker transitioning to half-open");
+                        *state = CircuitState::HalfOpen;
+                        return Ok(());
+                    }
+                }
+
+                warn!(
+                    "Circuit breaker is OPEN ({} consecutive failures). \
+                     Resets in {:?}.",
+                    self.failure_count.load(Ordering::Relaxed),
+                    self.reset_timeout,
+                );
+
+                Err(Error::Echidna(
+                    "Circuit breaker is open: ECHIDNA API has failed too many \
+                     consecutive times. Auto-resetting in 5 minutes."
+                        .to_string(),
+                ))
+            }
+            CircuitState::HalfOpen => {
+                // Allow one request through to test recovery
+                Ok(())
+            }
+        }
+    }
+
+    /// Record a successful operation.
+    pub async fn record_success(&self) {
+        self.failure_count.store(0, Ordering::Relaxed);
+        let mut state = self.state.lock().await;
+        if *state == CircuitState::HalfOpen {
+            info!("Circuit breaker closing (service recovered)");
+            *state = CircuitState::Closed;
+        }
+    }
+
+    /// Record a failed operation.
+    pub async fn record_failure(&self) {
+        let count = self.failure_count.fetch_add(1, Ordering::Relaxed) + 1;
+
+        if count >= self.failure_threshold {
+            let mut state = self.state.lock().await;
+            if *state != CircuitState::Open {
+                warn!(
+                    "Circuit breaker OPENING after {} consecutive failures",
+                    count,
+                );
+                *state = CircuitState::Open;
+                let mut last = self.last_failure_time.lock().await;
+                *last = Some(Instant::now());
+            }
+        }
+    }
+
+    /// Get the current circuit state.
+    pub async fn state(&self) -> CircuitState {
+        *self.state.lock().await
+    }
+
+    /// Get the consecutive failure count.
+    pub fn failure_count(&self) -> usize {
+        self.failure_count.load(Ordering::Relaxed)
+    }
+
+    /// Manually reset the circuit breaker.
+    pub async fn reset(&self) {
+        self.failure_count.store(0, Ordering::Relaxed);
+        let mut state = self.state.lock().await;
+        *state = CircuitState::Closed;
+        let mut last = self.last_failure_time.lock().await;
+        *last = None;
+        info!("Circuit breaker manually reset");
+    }
+}
+
+impl Default for CircuitBreaker {
+    fn default() -> Self {
+        Self::default_echidna()
+    }
+}
+
+// =============================================================================
+// Retry Policy
+// =============================================================================
+
+/// Retry policy with exponential backoff.
 pub struct RetryPolicy {
     config: RetryConfig,
 }
@@ -63,7 +225,7 @@ impl RetryPolicy {
         Self { config }
     }
 
-    /// Execute a fallible operation with retries
+    /// Execute a fallible operation with retries.
     ///
     /// # Arguments
     /// * `operation` - Async function to execute
@@ -133,15 +295,13 @@ impl RetryPolicy {
         }
     }
 
-    /// Execute with automatic retry on common transient errors
+    /// Execute with automatic retry on common transient errors.
     pub async fn execute_auto<F, Fut, T>(&self, operation: F) -> Result<T>
     where
         F: FnMut() -> Fut,
         Fut: std::future::Future<Output = Result<T>>,
     {
-        self.execute(operation, is_transient_error)
-            .await
-            .map_err(|e| e) // Error is already crate::Error
+        self.execute(operation, is_transient_error).await
     }
 }
 
@@ -151,8 +311,8 @@ impl Default for RetryPolicy {
     }
 }
 
-/// Determine if an error is transient and should be retried
-fn is_transient_error(error: &Error) -> bool {
+/// Determine if an error is transient and should be retried.
+pub fn is_transient_error(error: &Error) -> bool {
     match error {
         // Network errors - always retry
         Error::Http(_) => true,
@@ -167,6 +327,9 @@ fn is_transient_error(error: &Error) -> bool {
                 || msg_lower.contains("503")
                 || msg_lower.contains("504")
         }
+
+        // Proof timeout -- do NOT retry (intentional, resource-saving)
+        Error::Timeout => false,
 
         // Database errors - some are retryable
         Error::Sqlx(sqlx_err) => {
@@ -187,36 +350,39 @@ fn is_transient_error(error: &Error) -> bool {
     }
 }
 
-/// Retry helper for async operations
+/// Retry helper for async operations.
 ///
 /// # Example
 /// ```no_run
 /// use echidnabot::scheduler::retry::retry;
 ///
+/// # async fn example() {
 /// let result = retry(3, || async {
 ///     // Your async operation
-///     Ok(())
+///     Ok::<_, echidnabot::Error>(())
 /// }).await;
+/// # }
 /// ```
-pub async fn retry<F, Fut, T>(max_attempts: usize, mut operation: F) -> Result<T>
+pub async fn retry<F, Fut, T>(max_attempts: usize, operation: F) -> Result<T>
 where
     F: FnMut() -> Fut,
     Fut: std::future::Future<Output = Result<T>>,
 {
-    let policy = RetryPolicy::new();
-    let mut config = RetryConfig::default();
-    config.max_retries = max_attempts;
+    let config = RetryConfig {
+        max_retries: max_attempts,
+        ..Default::default()
+    };
 
     RetryPolicy::with_config(config)
         .execute_auto(operation)
         .await
 }
 
-/// Retry with custom backoff
+/// Retry with custom backoff.
 pub async fn retry_with_backoff<F, Fut, T>(
     max_attempts: usize,
     initial_backoff: Duration,
-    mut operation: F,
+    operation: F,
 ) -> Result<T>
 where
     F: FnMut() -> Fut,
@@ -232,6 +398,10 @@ where
         .execute_auto(operation)
         .await
 }
+
+// =============================================================================
+// Tests
+// =============================================================================
 
 #[cfg(test)]
 mod tests {
@@ -255,7 +425,7 @@ mod tests {
 
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), 42);
-        assert_eq!(counter.load(Ordering::SeqCst), 1); // Only 1 attempt
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
     }
 
     #[tokio::test]
@@ -281,7 +451,7 @@ mod tests {
 
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), 42);
-        assert_eq!(counter.load(Ordering::SeqCst), 3); // 3 attempts total
+        assert_eq!(counter.load(Ordering::SeqCst), 3);
     }
 
     #[tokio::test]
@@ -320,7 +490,7 @@ mod tests {
         .await;
 
         assert!(result.is_err());
-        assert_eq!(counter.load(Ordering::SeqCst), 1); // No retries for invalid input
+        assert_eq!(counter.load(Ordering::SeqCst), 1); // No retries
     }
 
     #[test]
@@ -333,10 +503,114 @@ mod tests {
             ))
         )));
         assert!(is_transient_error(&Error::Echidna("timeout".to_string())));
-        assert!(is_transient_error(&Error::Echidna("503 unavailable".to_string())));
+        assert!(is_transient_error(&Error::Echidna(
+            "503 unavailable".to_string()
+        )));
 
         // Non-transient errors
         assert!(!is_transient_error(&Error::InvalidInput("bad".to_string())));
         assert!(!is_transient_error(&Error::Config("bad config".to_string())));
+        assert!(!is_transient_error(&Error::Timeout)); // Proof timeout -- don't retry
+    }
+
+    // =========================================================================
+    // Circuit Breaker Tests
+    // =========================================================================
+
+    #[tokio::test]
+    async fn test_circuit_breaker_starts_closed() {
+        let cb = CircuitBreaker::new(3, Duration::from_secs(60));
+        assert_eq!(cb.state().await, CircuitState::Closed);
+        assert_eq!(cb.failure_count(), 0);
+        assert!(cb.check().await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_circuit_breaker_opens_after_threshold() {
+        let cb = CircuitBreaker::new(3, Duration::from_secs(60));
+
+        cb.record_failure().await;
+        assert_eq!(cb.state().await, CircuitState::Closed);
+
+        cb.record_failure().await;
+        assert_eq!(cb.state().await, CircuitState::Closed);
+
+        cb.record_failure().await;
+        assert_eq!(cb.state().await, CircuitState::Open);
+
+        // Should reject requests when open
+        let result = cb.check().await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_circuit_breaker_success_resets_count() {
+        let cb = CircuitBreaker::new(3, Duration::from_secs(60));
+
+        cb.record_failure().await;
+        cb.record_failure().await;
+        assert_eq!(cb.failure_count(), 2);
+
+        cb.record_success().await;
+        assert_eq!(cb.failure_count(), 0);
+        assert_eq!(cb.state().await, CircuitState::Closed);
+    }
+
+    #[tokio::test]
+    async fn test_circuit_breaker_manual_reset() {
+        let cb = CircuitBreaker::new(2, Duration::from_secs(60));
+
+        cb.record_failure().await;
+        cb.record_failure().await;
+        assert_eq!(cb.state().await, CircuitState::Open);
+
+        cb.reset().await;
+        assert_eq!(cb.state().await, CircuitState::Closed);
+        assert_eq!(cb.failure_count(), 0);
+        assert!(cb.check().await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_circuit_breaker_half_open_on_timeout() {
+        // Use a very short reset timeout for testing
+        let cb = CircuitBreaker::new(2, Duration::from_millis(50));
+
+        cb.record_failure().await;
+        cb.record_failure().await;
+        assert_eq!(cb.state().await, CircuitState::Open);
+
+        // Wait for reset timeout
+        tokio::time::sleep(Duration::from_millis(100)).await;
+
+        // Should transition to half-open on next check
+        assert!(cb.check().await.is_ok());
+        assert_eq!(cb.state().await, CircuitState::HalfOpen);
+    }
+
+    #[tokio::test]
+    async fn test_circuit_breaker_half_open_success_closes() {
+        let cb = CircuitBreaker::new(2, Duration::from_millis(50));
+
+        cb.record_failure().await;
+        cb.record_failure().await;
+
+        // Wait for reset timeout
+        tokio::time::sleep(Duration::from_millis(100)).await;
+
+        // Transition to half-open
+        cb.check().await.ok();
+        assert_eq!(cb.state().await, CircuitState::HalfOpen);
+
+        // Success should close the circuit
+        cb.record_success().await;
+        assert_eq!(cb.state().await, CircuitState::Closed);
+    }
+
+    #[tokio::test]
+    async fn test_circuit_breaker_default_echidna() {
+        let cb = CircuitBreaker::default_echidna();
+        // 5 failures, 5 minute timeout
+        assert_eq!(cb.failure_threshold, 5);
+        assert_eq!(cb.reset_timeout, Duration::from_secs(300));
     }
 }
