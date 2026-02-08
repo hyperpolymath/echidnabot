@@ -12,7 +12,7 @@
        (license . "PMPL-1.0-or-later")
        (authors . ("Jonathan D.A. Jewell <jonathan.jewell@open.ac.uk>"))
        (created . "2025-01-03")
-       (updated . "2026-01-29")
+       (updated . "2026-02-08")
        (repository . "https://github.com/hyperpolymath/echidnabot")))
 
     (architecture-decisions
@@ -25,49 +25,40 @@
           (consequences
             ((positive . ("Consistent behavior across platforms"
                          "Easy to add new platforms (just implement trait)"
-                         "Platform differences abstracted away"
                          "Testable in isolation with mocks"))
              (negative . ("Additional abstraction layer"
-                         "Platform-specific features harder to expose"
-                         "Trait may need evolution as platforms differ"))
+                         "Platform-specific features harder to expose"))
              (mitigation . ("Start with common subset of features"
-                           "Add platform-specific extensions as needed"
-                           "Use feature flags for platform-specific code"))))))
+                           "Add platform-specific extensions as needed"))))))
 
        (adr-002
          ((title . "GraphQL API for Job Management")
           (status . "accepted")
           (date . "2025-01-06")
           (context . "Need API for querying verification job status, submitting jobs, and monitoring provers")
-          (decision . "Use async-graphql for type-safe GraphQL schema with queries for job status and mutations for submission. Provides better introspection than REST.")
+          (decision . "Use async-graphql for type-safe GraphQL schema with queries for job status and mutations for submission.")
           (consequences
             ((positive . ("Type-safe schema with compile-time checking"
                          "Self-documenting API with introspection"
-                         "Efficient querying (client requests only needed fields)"
-                         "Real-time updates via subscriptions (future)"))
+                         "Efficient querying (client requests only needed fields)"))
              (negative . ("GraphQL learning curve for contributors"
-                         "More complex than simple REST"
-                         "Additional dependency"))
-             (mitigation . ("Provide example queries in documentation"
-                           "GraphQL Playground for interactive exploration"
+                         "More complex than simple REST"))
+             (mitigation . ("GraphQL Playground for interactive exploration"
                            "REST endpoints still available for webhooks"))))))
 
        (adr-003
-         ((title . "PostgreSQL for Job Queue and State")
+         ((title . "PostgreSQL/SQLite for Job Queue and State")
           (status . "accepted")
           (date . "2025-01-08")
           (context . "Need persistent storage for verification jobs, results, and repository metadata")
-          (decision . "Use PostgreSQL with sqlx for compile-time checked queries. Provides ACID guarantees and rich querying.")
+          (decision . "Use PostgreSQL (production) and SQLite (development) with sqlx for compile-time checked queries.")
           (consequences
             ((positive . ("ACID transactions for job state"
-                         "Complex queries for job history and statistics"
-                         "Compile-time query validation with sqlx macros"
-                         "Well-understood operational model"))
-             (negative . ("PostgreSQL installation required"
-                         "More heavyweight than SQLite for development"
+                         "Compile-time query validation with sqlx"
+                         "SQLite for easy local development"))
+             (negative . ("PostgreSQL installation required for production"
                          "Migration complexity"))
              (mitigation . ("SQLite support for local development"
-                           "Docker Compose for easy PostgreSQL setup"
                            "sqlx migrations for schema versioning"))))))
 
        (adr-004
@@ -79,51 +70,46 @@
           (consequences
             ((positive . ("Real-time response to code changes"
                          "No polling overhead"
-                         "Platform-native integration"
-                         "Scales with event volume"))
+                         "Platform-native integration"))
              (negative . ("Requires publicly accessible endpoint"
-                         "Webhook signature verification complexity"
-                         "Event delivery not guaranteed (need retry logic)"))
-             (mitigation . ("HMAC signature verification for all platforms"
-                           "Job queue with retries for failed verifications"
-                           "Health checks and monitoring for webhook endpoint"))))))
+                         "Webhook signature verification complexity"))
+             (mitigation . ("HMAC-SHA256 signature verification"
+                           "Job queue with retries for failed verifications"))))))
 
        (adr-005
          ((title . "Integration with ECHIDNA Core")
           (status . "accepted")
           (date . "2025-01-12")
           (context . "echidnabot needs to delegate actual proof verification to ECHIDNA's 12 prover backends")
-          (decision . "Use HTTP client (reqwest) to call ECHIDNA REST API at configured URL. echidnabot handles CI orchestration, ECHIDNA handles verification.")
+          (decision . "Use HTTP client (reqwest) to call ECHIDNA REST API. echidnabot handles CI orchestration, ECHIDNA handles verification.")
           (consequences
             ((positive . ("Clear separation of concerns"
                          "Can scale ECHIDNA independently"
-                         "Multiple echidnabot instances can share ECHIDNA"
                          "ECHIDNA upgrades don't require bot redeployment"))
              (negative . ("Network dependency between services"
-                         "Additional latency for HTTP roundtrip"
                          "Need to handle ECHIDNA unavailability"))
              (mitigation . ("Health checks for ECHIDNA availability"
-                           "Graceful degradation if ECHIDNA down"
-                           "Configurable timeouts and retries"
-                           "Local ECHIDNA instance for development"))))))
+                           "Circuit breaker with auto-reset"
+                           "Retry with exponential backoff"))))))
 
        (adr-006
-         ((title . "Container Isolation for Proof Verification")
+         ((title . "Container Isolation with Podman and Bubblewrap")
           (status . "accepted")
-          (date . "2025-01-15")
-          (context . "Running untrusted code from pull requests is dangerous - need security isolation")
-          (decision . "Each verification runs in isolated Docker container with read-only filesystem, limited CPU/memory, no network access")
+          (date . "2026-02-08")
+          (context . "Running untrusted code from pull requests is dangerous -- need security isolation")
+          (decision . "Use Podman rootless containers as primary isolation backend with bubblewrap (bwrap) as fallback. Fail-safe: refuse to run proofs if neither is available.")
           (consequences
-            ((positive . ("Security: malicious code can't escape container"
+            ((positive . ("Security: malicious code cannot escape container"
                          "Resource limits prevent DoS"
-                         "Reproducible environment for proofs"
-                         "Easy cleanup after verification"))
-             (negative . ("Docker dependency"
-                         "Container startup overhead"
-                         "More complex local development"))
-             (mitigation . ("Pre-built prover images to reduce startup time"
-                           "Container caching and reuse"
-                           "Development mode without containers for fast iteration"))))))
+                         "Podman is rootless (no daemon required)"
+                         "bwrap fallback for systems without Podman"
+                         "Fail-safe policy prevents unprotected execution"))
+             (negative . ("Container startup overhead"
+                         "Requires Podman or bwrap installed"
+                         "bwrap provides less isolation than Podman"))
+             (mitigation . ("Pre-built prover images to reduce startup time (future)"
+                           "bwrap uses unshare-all for namespace isolation"
+                           "Documentation clearly states isolation requirements"))))))
 
        (adr-007
          ((title . "Multi-Prover Support via ECHIDNA")
@@ -133,30 +119,43 @@
           (decision . "Support all 12 provers that ECHIDNA supports. Repository configuration specifies which provers to use.")
           (consequences
             ((positive . ("Support for diverse formal verification projects"
-                         "Users choose best prover for their domain"
-                         "Cross-prover validation possible"))
-             (negative . ("Complexity of supporting 12 different prover outputs"
-                         "Each prover has different error formats"))
+                         "Users choose best prover for their domain"))
+             (negative . ("Complexity of supporting 12 different prover outputs"))
              (mitigation . ("ECHIDNA abstracts prover differences"
-                           "Unified error reporting via ECHIDNA API"
-                           "Repository config enables only needed provers"))))))
+                           "Unified error reporting via ECHIDNA API"))))))
 
        (adr-008
          ((title . "Bot Modes: Verifier, Advisor, Consultant, Regulator")
           (status . "accepted")
           (date . "2025-01-20")
-          (context . "Different teams want different levels of bot interaction - some want silent checks, others want suggestions")
-          (decision . "Support 4 modes via repository config: Verifier (silent pass/fail), Advisor (suggests tactics on failure), Consultant (answers questions), Regulator (blocks merge on failure)")
+          (context . "Different teams want different levels of bot interaction")
+          (decision . "Support 4 modes via repository config (.bot_directives/echidnabot.scm): Verifier (silent pass/fail), Advisor (tactic suggestions), Consultant (interactive Q&A on explicit mention), Regulator (merge blocking).")
           (consequences
             ((positive . ("Flexible to team preferences"
-                         "Can evolve from silent to advisory as team learns"
-                         "Prevents merge of broken proofs when needed"))
+                         "Can evolve from silent to advisory"
+                         "Consultant mode avoids noise (trigger on mention only)"))
              (negative . ("More configuration complexity"
-                         "Need to implement all 4 modes"
-                         "User education needed"))
+                         "Need to implement all 4 modes"))
              (mitigation . ("Default to Verifier mode (simplest)"
-                           "Documentation with examples for each mode"
-                           "Gradual rollout: Verifier first, others as features mature"))))))))
+                           "Documentation with examples for each mode"))))))
+
+       (adr-009
+         ((title . "ECHIDNA Trust Bridge: Confidence, Integrity, Axioms")
+          (status . "accepted")
+          (date . "2026-02-08")
+          (context . "Proof verification results vary in trustworthiness depending on the prover's kernel size, certificate presence, and axiom usage")
+          (decision . "Implement three trust mechanisms: (1) 5-level confidence assessment based on prover kernel, certificates, and cross-checking; (2) solver binary integrity verification against SHA-256 manifest; (3) axiom usage tracking to detect sorry, Admitted, postulate, and other unsoundness indicators.")
+          (consequences
+            ((positive . ("Users can distinguish high-confidence from low-confidence results"
+                         "Detects tampered solver binaries before proof verification"
+                         "Flags incomplete proofs (sorry, Admitted) automatically"
+                         "3-tier severity enables appropriate responses"))
+             (negative . ("Additional complexity in result reporting"
+                         "SHA-256 manifest must be maintained per deployment"
+                         "Axiom pattern matching is heuristic (may miss obfuscated patterns)"))
+             (mitigation . ("Confidence levels have clear documentation"
+                           "Manifest is optional (Unchecked status, not failure)"
+                           "Universal patterns supplement prover-specific ones"))))))))
 
     (development-practices
       ((code-style
@@ -167,53 +166,52 @@
        (security
          ((principle . "Defense in depth")
           (practices . ("Webhook signature verification (HMAC-SHA256)"
-                       "Container isolation for proof execution"
+                       "Container isolation (Podman rootless + bwrap fallback)"
                        "Read-only filesystems in containers"
-                       "Resource limits (CPU/memory/time)"
+                       "Resource limits (CPU/memory/pids/time)"
                        "No network access from verification containers"
-                       "Input sanitization for all external data"
+                       "Fail-safe: no isolation = no proof execution"
+                       "Solver integrity verification (SHA-256)"
+                       "Constant-time hash comparison"
                        "Dependency scanning with cargo audit"))))
 
        (testing
-         ((unit-tests . "Every module has unit tests")
-          (integration-tests . "End-to-end webhook → verification flow")
-          (mock-adapters . "Platform adapters tested with mocks")
-          (database-tests . "Test migrations and queries with test DB")))
+         ((total-tests . 129)
+          (unit-tests . "99 tests across 12 modules")
+          (integration-tests . "30 tests covering end-to-end flows")
+          (test-approach . "Mocks for external services, real for internal logic")))
 
        (versioning
          ((scheme . "Semantic versioning (major.minor.patch)")
-          (policy . "Major: breaking API changes, Minor: new features, Patch: bugfixes")
-          (compatibility . "Maintain API compatibility within major version")))
+          (policy . "Major: breaking API changes, Minor: new features, Patch: bugfixes")))
 
        (documentation
          ((formats . ("AsciiDoc for README and guides"
                      "Rustdoc for Rust API documentation"
-                     "GraphQL introspection for API schema"))
-          (audiences . ("Developers: API reference, architecture"
-                       "Users: Setup guides, configuration reference"
-                       "Platform admins: Deployment, security"))))))
+                     "GraphQL introspection for API schema"
+                     "Guile Scheme for machine-readable metadata"))))))
 
     (design-rationale
       ((why-multi-platform-adapters
-         "Different teams use different platforms (GitHub, GitLab, Bitbucket). Supporting all three via unified trait means echidnabot works everywhere without platform lock-in.")
+         "Different teams use different platforms. Supporting all three via unified trait means echidnabot works everywhere without platform lock-in.")
 
        (why-graphql-api
-         "GraphQL provides type-safe, self-documenting API with efficient querying. Clients can request exactly the fields they need, reducing bandwidth. Introspection enables auto-generated client libraries.")
+         "GraphQL provides type-safe, self-documenting API with efficient querying. Clients request exactly the fields they need.")
 
-       (why-postgresql
-         "PostgreSQL provides ACID transactions for job state consistency, rich querying for analytics, and compile-time query validation via sqlx. Better than Redis/queue for complex state.")
+       (why-sqlite-and-postgresql
+         "SQLite for development simplicity, PostgreSQL for production ACID guarantees. sqlx supports both with compile-time query validation.")
 
        (why-webhooks-not-polling
-         "Webhooks provide real-time response to code changes with no polling overhead. Platform-native integration means check runs appear instantly in GitHub/GitLab UI.")
+         "Webhooks provide real-time response with no polling overhead. Check runs appear instantly in platform UI.")
 
        (why-echidna-integration
-         "echidnabot handles CI orchestration (webhooks, job queue, platform APIs), ECHIDNA handles verification (12 provers, ML suggestions, soundness). Clear separation of concerns.")
+         "echidnabot handles CI orchestration, ECHIDNA handles verification. Clear separation of concerns, independent scaling.")
 
-       (why-container-isolation
-         "Running untrusted code from PRs is dangerous. Docker containers provide security isolation with resource limits. Read-only filesystem + no network prevents malicious code from causing harm.")
+       (why-podman-not-docker
+         "Podman is rootless (no daemon), more secure by default. bwrap fallback ensures isolation even on minimal systems. Fail-safe policy prevents unprotected execution.")
 
-       (why-multi-prover-support
-         "Different projects use different provers. Coq for CompCert, Lean for mathlib, Z3 for SMT problems. Supporting all 12 via ECHIDNA means echidnabot works for all formal verification projects.")
+       (why-four-bot-modes
+         "Teams have different needs. Verifier for minimal noise, Advisor for learning, Consultant for on-demand analysis, Regulator for enforcement.")
 
-       (why-bot-modes
-         "Teams have different needs. Some want silent checks, others want suggestions. Modes let teams choose: Verifier (silent), Advisor (helpful), Consultant (interactive), Regulator (blocking).")))))
+       (why-trust-bridge
+         "Not all proof results are equally trustworthy. Small-kernel provers with certificates earn higher confidence than large-TCB systems. Axiom tracking catches incomplete proofs that pass syntactically.")))))

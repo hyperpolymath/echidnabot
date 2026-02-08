@@ -19,176 +19,212 @@
        "async-graphql for GraphQL API" "sqlx for PostgreSQL/SQLite"
        "octocrab for GitHub API" "reqwest for HTTP client"
        "Podman rootless for container isolation"
-       "bubblewrap (bwrap) as isolation fallback")))
+       "bubblewrap (bwrap) as isolation fallback"
+       "clap for CLI" "hmac/sha2 for webhook verification")))
 
   (current-position
     (phase "active-development")
     (overall-completion 90)
+    (test-count 129)
     (components
       ((core-infrastructure
          ((status "complete")
-          (items ("Axum HTTP server" "Webhook signature verification"
-                 "GraphQL API schema" "Database models and migrations"
-                 "Configuration system" "Error handling"))))
+          (items ("Axum HTTP server with health checks"
+                 "Webhook signature verification (HMAC-SHA256)"
+                 "GraphQL API (async-graphql) with playground"
+                 "Database models and migrations (sqlx, SQLite/PostgreSQL)"
+                 "Configuration system (TOML + env vars)"
+                 "Structured error handling (thiserror)"
+                 "CLI: serve, register, check, status, init-db"))))
 
        (platform-adapters
          ((status "complete")
-          (items ("PlatformAdapter trait" "GitHub adapter with octocrab"
-                 "GitLab adapter" "Bitbucket adapter"
+          (items ("PlatformAdapter trait with unified interface"
+                 "GitHub adapter with octocrab"
+                 "GitLab adapter"
+                 "Bitbucket adapter"
                  "Webhook receivers for all 3 platforms"
-                 "Check run / commit status creation"))))
+                 "Check run / commit status creation"
+                 "Codeberg enum variant (adapter not yet implemented)"))))
 
        (echidna-integration
          ((status "complete")
-          (items ("HTTP client for ECHIDNA API" "Prover kind enumeration"
-                 "Verification job dispatch" "Result parsing"))))
+          (items ("HTTP client for ECHIDNA REST API"
+                 "12-prover enumeration with tier classification"
+                 "Verification job dispatch"
+                 "Result parsing (Verified/Failed/Timeout/Error/Unknown)"
+                 "Prover health checking"
+                 "Tactic suggestion data model"))))
 
        (job-scheduler
          ((status "complete")
-          (items ("Job queue implementation" "PostgreSQL persistence"
-                 "Job status tracking" "Retry logic with exponential backoff"
-                 "Circuit breaker for ECHIDNA API protection"
-                 "Concurrent job execution with configurable limits"))))
+          (items ("Priority queue (Low/Normal/High/Critical)"
+                 "SQLite/PostgreSQL persistence"
+                 "Job status tracking (Queued/Running/Completed/Failed/Cancelled)"
+                 "Retry logic with exponential backoff and jitter"
+                 "Circuit breaker (5 failures -> open, 5 min auto-reset, half-open recovery)"
+                 "Concurrent job limits (semaphore-based, global + per-repo)"))))
 
        (container-isolation
          ((status "complete")
           (items ("Podman rootless container spawning"
-                 "bubblewrap (bwrap) fallback"
+                 "bubblewrap (bwrap) fallback sandbox"
+                 "Fail-safe: refuses proofs without isolation backend"
+                 "Security: --cap-drop=ALL, --security-opt=no-new-privileges, --read-only"
                  "Resource limits (CPU/memory/pids/timeout)"
-                 "Read-only filesystem with writable /tmp"
                  "Network isolation (--network=none)"
-                 "Fail-safe: refuses proofs without isolation"
-                 "Security: --cap-drop=ALL, no-new-privileges"))))
+                 "OOM-kill detection (exit code 137)"
+                 "Timeout enforcement with SIGKILL"))))
 
        (bot-modes
          ((status "complete")
           (items ("Verifier mode (silent pass/fail)"
-                 "Advisor mode (tactic suggestions via ECHIDNA ML)"
-                 "Consultant mode (interactive Q&A, explicit mentions)"
+                 "Advisor mode (detailed failures + tactic suggestions)"
+                 "Consultant mode (interactive Q&A, explicit mention trigger)"
                  "Regulator mode (PR merge blocking)"
                  "Mode parsing from .bot_directives/echidnabot.scm"
-                 "Mode-dependent webhook trigger logic"))))
+                 "Mode-dependent auto-trigger logic"
+                 "Result formatting bridge (PR comments, check runs, summaries)"))))
 
-       (documentation
+       (trust-bridge
+         ((status "implemented-not-wired")
+          (items ("5-level proof confidence assessment"
+                 "Small-kernel prover classification (7 of 12 provers)"
+                 "Solver integrity verification (SHA-256 manifest)"
+                 "Constant-time hash comparison"
+                 "Axiom usage tracking (sorry, Admitted, postulate, oops, etc.)"
+                 "3-tier severity (unsound/warning/informational)"
+                 "Prover-specific and universal axiom scanning"))
+          (note "Trust modules exist in src/trust/ with full tests but are NOT yet called from the scheduler loop or process_job pipeline")))
+
+       (automated-tests
          ((status "complete")
-          (items ("README.adoc with architecture"
-                 "Installation instructions" "API documentation"
-                 "Configuration reference" "META.scm" "ECOSYSTEM.scm"
-                 "STATE.scm"))))))
+          (items ("129 total tests (30 integration, 99 unit)"
+                 "Webhook signature verification tests"
+                 "ECHIDNA client request/response tests"
+                 "Bot mode resolution and formatting tests"
+                 "Job lifecycle tests"
+                 "Database model tests"
+                 "Container executor command generation tests"
+                 "Circuit breaker behavior tests"
+                 "Retry logic tests"
+                 "Concurrency limiter tests"
+                 "Trust confidence level tests"
+                 "Axiom tracker tests"
+                 "Solver integrity tests"
+                 "Result formatter tests"))))
+
+       (production-hardening
+         ((status "not-started")
+          (items ("Observability (metrics, tracing) -- not implemented"
+                 "Rate limiting -- not implemented"
+                 "Deployment automation -- not implemented"
+                 "Wire trust bridge into main pipeline -- not done"))))))
 
     (working-features
-      ("HTTP server with health checks"
+      ("HTTP server with health checks and GraphQL playground"
        "Webhook receivers for GitHub/GitLab/Bitbucket"
-       "Platform adapter abstraction for multi-platform support"
+       "Platform adapter abstraction (PlatformAdapter trait)"
        "GraphQL API for job queries and mutations"
-       "PostgreSQL database with sqlx migrations"
+       "SQLite/PostgreSQL database with sqlx"
        "Integration with ECHIDNA API for proof verification"
-       "Repository registration and configuration"
-       "Job status tracking")))
+       "Repository registration and configuration via CLI"
+       "Job status tracking with priority queue"
+       "Retry with exponential backoff and circuit breaker"
+       "Container isolation (Podman/bwrap) with fail-safe policy"
+       "Four bot modes with mode-dependent behavior"
+       "Result formatting for PR comments and check runs"
+       "Trust bridge: confidence, integrity, axiom tracking (standalone, not wired)")))
 
   (route-to-mvp
     (milestones
       ((milestone-1
          ((name . "Core Infrastructure")
           (status . "complete")
-          (completion . 100)
-          (items . ("Axum server setup ✓"
-                   "Webhook signature verification ✓"
-                   "Database schema ✓"
-                   "GraphQL API ✓"))))
+          (completion . 100)))
 
        (milestone-2
          ((name . "Platform Integration")
           (status . "complete")
-          (completion . 100)
-          (items . ("GitHub adapter ✓"
-                   "GitLab adapter ✓"
-                   "Bitbucket adapter ✓"
-                   "Multi-platform webhook handling ✓"))))
+          (completion . 100)))
 
        (milestone-3
          ((name . "ECHIDNA Integration")
           (status . "complete")
-          (completion . 100)
-          (items . ("HTTP client for ECHIDNA ✓"
-                   "Job dispatch to ECHIDNA ✓"
-                   "Result parsing and storage ✓"))))
+          (completion . 100)))
 
        (milestone-4
          ((name . "Job Scheduler and Queue")
           (status . "complete")
-          (completion . 100)
-          (items . ("Basic job queue ✓"
-                   "PostgreSQL persistence ✓"
-                   "Job status tracking ✓"
-                   "Retry logic with exponential backoff ✓"
-                   "Circuit breaker for ECHIDNA API ✓"
-                   "Priority queue for urgent jobs ✓"
-                   "Concurrent job execution limits ✓"))))
+          (completion . 100)))
 
        (milestone-5
          ((name . "Container Isolation")
           (status . "complete")
-          (completion . 100)
-          (items . ("Podman rootless container spawning ✓"
-                   "bubblewrap (bwrap) fallback ✓"
-                   "Resource limits (CPU/memory/pids/timeout) ✓"
-                   "Read-only filesystem with /tmp ✓"
-                   "Network isolation (--network=none) ✓"
-                   "Fail-safe policy (no isolation = no proofs) ✓"))))
+          (completion . 100)))
 
        (milestone-6
          ((name . "Bot Modes Implementation")
           (status . "complete")
-          (completion . 100)
-          (items . ("Verifier mode (silent pass/fail) ✓"
-                   "Advisor mode (tactic suggestions) ✓"
-                   "Consultant mode (interactive Q&A) ✓"
-                   "Regulator mode (PR merge blocking) ✓"
-                   "Mode parsing from .bot_directives ✓"
-                   "Mode-dependent auto-trigger logic ✓"))))
+          (completion . 100)))
 
        (milestone-7
+         ((name . "ECHIDNA Trust Bridge")
+          (status . "implemented-not-wired")
+          (completion . 80)
+          (note . "Modules implemented and tested but not integrated into main pipeline")))
+
+       (milestone-8
          ((name . "Production Hardening")
-          (status . "planned")
+          (status . "not-started")
           (completion . 0)
-          (items . ("Comprehensive error recovery (TODO)"
-                   "Observability (metrics, tracing) (TODO)"
+          (items . ("Observability (TODO)"
                    "Rate limiting (TODO)"
                    "Deployment automation (TODO)"
-                   "Docker Compose for easy setup (TODO)")))))))
+                   "Wire trust bridge (TODO)")))))))
 
   (blockers-and-issues
     (critical
       ())
     (high
-      ())
+      ("Trust bridge not wired into scheduler/process_job -- confidence and axiom reports not included in job results"))
     (medium
-      ("No observability (metrics/tracing) - hard to debug production issues"
-       "No rate limiting - vulnerable to webhook spam"
-       "ECHIDNA Trust Bridge not yet implemented"))
+      ("No observability (metrics/tracing) -- hard to debug production issues"
+       "No rate limiting -- vulnerable to webhook spam"))
     (low
-      ("Podman Compose not set up - manual PostgreSQL setup required"
-       "No pre-built prover images - container startup slow")))
+      ("Codeberg adapter not implemented (enum variant exists)"
+       "No pre-built prover images -- container startup slow"
+       "No Docker Compose or Kubernetes manifests")))
 
   (critical-next-actions
     (immediate
-      ("Implement ECHIDNA Trust Bridge (confidence levels, solver integrity, axiom tracking)"
+      ("Wire trust bridge into process_job pipeline (confidence + axiom + integrity reports)"
        "Add observability (Prometheus metrics, OpenTelemetry tracing)"))
 
     (this-week
-      ("Create pre-built Podman images for all 12 provers"
-       "Set up Podman Compose for PostgreSQL + echidnabot + ECHIDNA"
-       "Production deployment guide"
-       "GitHub App registration and distribution"))
+      ("Rate limiting for webhook endpoints"
+       "Docker Compose setup for PostgreSQL + echidnabot + ECHIDNA"
+       "Production deployment guide"))
 
     (this-month
-      ("Rate limiting for webhook endpoints"
-       "Performance benchmarks for proof verification pipeline"
-       "End-to-end integration tests with real ECHIDNA instance")))
+      ("Pre-built Podman images for all 12 provers"
+       "Performance benchmarks"
+       "Codeberg adapter implementation")))
 
   (session-history
-    ((session-2026-02-08
+    ((session-2026-02-08-docs
+       ((date . "2026-02-08")
+        (focus . "Update all documentation to accurately reflect current capabilities")
+        (accomplishments
+          . ("Updated README.adoc with accurate feature descriptions"
+            "Rewrote ROADMAP.adoc: struck completed items, added remaining work"
+            "Updated STATE.scm with actual 107 test count and correct completion"
+            "Noted trust bridge is implemented but not wired into main pipeline"
+            "Verified ECOSYSTEM.scm and META.scm accuracy"))
+        (blockers-resolved . ())
+        (next-session-focus . "Wire trust bridge into pipeline and add observability")))
+
+     (session-2026-02-08
        ((date . "2026-02-08")
         (focus . "Execute SONNET-TASKS.md: container isolation, bot modes, retry, tests, metadata")
         (accomplishments
@@ -196,31 +232,26 @@
             "Wired bot modes (Verifier/Advisor/Consultant/Regulator) into webhook handlers"
             "Added mode parsing from .bot_directives/echidnabot.scm"
             "Integrated retry logic with exponential backoff and circuit breaker"
-            "Added 30 integration tests (97 total tests passing)"
+            "Implemented ECHIDNA Trust Bridge (confidence, integrity, axiom tracking)"
+            "Added 129 tests (30 integration, 99 unit)"
             "Fixed Cargo.toml license to PMPL-1.0-or-later"
-            "Added SPDX headers to all .rs files"
-            "Updated STATE.scm to reflect actual 90% completion"))
+            "Added SPDX headers to all .rs files"))
         (blockers-resolved . ("Container isolation was empty (now Podman+bwrap)"
                              "Bot modes not connected to handlers (now wired)"
                              "Retry logic not integrated (now circuit breaker + backoff)"
-                             "Zero automated tests (now 97 passing)"))
-        (next-session-focus . "ECHIDNA Trust Bridge and production hardening")))
+                             "Zero automated tests (now 129 passing)"))
+        (next-session-focus . "Wire trust bridge into pipeline and production hardening")))
 
      (session-2026-01-29
        ((date . "2026-01-29")
         (focus . "Fix build issues and update documentation")
         (accomplishments
-          . ("Fixed author email in Cargo.toml (jonathan.jewell@open.ac.uk)"
-            "Restored deleted source files (main.rs, graphql.rs, echidna_client.rs, sqlite.rs)"
-            "Cleaned and rebuilt successfully (cargo clean && cargo build)"
-            "Created comprehensive META.scm with 8 Architecture Decision Records"
-            "Created comprehensive ECOSYSTEM.scm with related projects and position"
-            "Updated STATE.scm with current progress (75% complete)"
-            "Documented 7 milestones with completion status"
-            "Identified 3 high-priority blockers (container isolation, retry logic, concurrency limits)"))
-        (blockers-resolved . ("Build errors due to stale artifacts"
-                             "Missing source files"
-                             "Wrong author attribution"))
+          . ("Fixed author email in Cargo.toml"
+            "Restored deleted source files"
+            "Created META.scm, ECOSYSTEM.scm"
+            "Updated STATE.scm with current progress"
+            "Identified high-priority blockers"))
+        (blockers-resolved . ("Build errors" "Missing source files" "Wrong author"))
         (next-session-focus . "Implement container isolation and retry logic")))))
 
   ;; Helper functions for state queries
@@ -232,14 +263,15 @@
     (lambda (priority)
       (cond
         ((eq? priority 'critical) '())
-        ((eq? priority 'high) '())
+        ((eq? priority 'high)
+         '("Trust bridge not wired into pipeline"))
         ((eq? priority 'medium)
          '("No observability"
-           "No rate limiting"
-           "ECHIDNA Trust Bridge not yet implemented"))
+           "No rate limiting"))
         ((eq? priority 'low)
-         '("Podman Compose not set up"
-           "No pre-built prover images")))))
+         '("Codeberg adapter not implemented"
+           "No pre-built prover images"
+           "No Docker Compose")))))
 
   (get-milestone
     (lambda (name)
@@ -256,5 +288,7 @@
          '((status . complete) (completion . 100)))
         ((bot-modes)
          '((status . complete) (completion . 100)))
+        ((trust-bridge)
+         '((status . implemented-not-wired) (completion . 80)))
         ((production-hardening)
-         '((status . planned) (completion . 0)))))))
+         '((status . not-started) (completion . 0)))))))
