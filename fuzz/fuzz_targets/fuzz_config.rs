@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: PMPL-1.0
+// SPDX-License-Identifier: PMPL-1.0-or-later
+// SPDX-FileCopyrightText: 2025 Jonathan D.A. Jewell
 //! Fuzz target for configuration parsing
 
 #![no_main]

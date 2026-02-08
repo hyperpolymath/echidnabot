@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+// SPDX-FileCopyrightText: 2025 Jonathan D.A. Jewell
 //! echidnabot - Proof-aware CI bot for theorem prover repositories
 //!
 //! This crate provides the core functionality for monitoring code repositories
