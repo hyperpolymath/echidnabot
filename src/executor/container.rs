@@ -1,16 +1,24 @@
 // SPDX-License-Identifier: PMPL-1.0-or-later
+// SPDX-FileCopyrightText: 2025 Jonathan D.A. Jewell
 //! Container isolation for prover execution
 //!
-//! Wraps proof verification in Docker containers with gVisor for additional
-//! sandboxing. Prevents arbitrary code execution from malicious proof scripts.
+//! Wraps proof verification in Podman containers (rootless) with bubblewrap
+//! (bwrap) as a fallback. Prevents arbitrary code execution from malicious
+//! proof scripts.
 //!
 //! Security model:
 //! - Read-only filesystem (except /tmp)
-//! - No network access
-//! - Memory limits
-//! - CPU limits
-//! - Timeout enforcement
-//! - gVisor runtime (runsc) for kernel-level isolation
+//! - No network access (`--network=none`)
+//! - Memory limits (`--memory=512m` default, configurable)
+//! - CPU limits (`--cpus=2` default, configurable)
+//! - Timeout enforcement with SIGKILL
+//! - Drop ALL capabilities (`--cap-drop=ALL`)
+//! - No new privileges (`--security-opt=no-new-privileges`)
+//!
+//! Isolation backend selection:
+//! 1. Podman (preferred, rootless)
+//! 2. bubblewrap (bwrap) as lighter alternative
+//! 3. Fail-safe: refuse to run proofs if neither is available
 
 use crate::dispatcher::ProverKind;
 use crate::error::{Error, Result};
@@ -23,183 +31,242 @@ use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 use tracing::{debug, info, warn};
 
-/// Security profile for container execution
+/// Available isolation backends
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum SecurityProfile {
-    /// Maximum isolation (gVisor + read-only FS + no network)
-    Maximum,
-    /// Standard isolation (Docker + read-only FS + no network)
-    Standard,
-    /// Minimal isolation (Docker only)
-    Minimal,
+pub enum IsolationBackend {
+    /// Rootless Podman container (preferred)
+    Podman,
+    /// bubblewrap lightweight sandbox (fallback)
+    Bubblewrap,
+    /// No isolation available -- refuse to run proofs
+    None,
 }
 
 /// Container execution result
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExecutionResult {
+    /// Whether the proof verification succeeded (exit code 0)
     pub success: bool,
+    /// Standard output captured from the container
     pub stdout: String,
+    /// Standard error captured from the container
     pub stderr: String,
+    /// Process exit code (None if killed by signal)
     pub exit_code: Option<i32>,
+    /// Wall-clock duration in milliseconds
     pub duration_ms: u64,
+    /// Whether the execution was terminated due to timeout
     pub timed_out: bool,
+    /// Whether the process was killed due to OOM
     pub oom_killed: bool,
+    /// Which isolation backend was used
+    pub backend: IsolationBackend,
 }
 
-/// Container executor for secure prover execution
-pub struct ContainerExecutor {
-    /// Docker image to use (default: echidna-provers:latest)
+/// Podman-based container executor for secure prover execution.
+///
+/// Runs proof verification inside rootless Podman containers with strict
+/// resource limits and security constraints. Falls back to bubblewrap if
+/// Podman is unavailable, or refuses to run if neither is present.
+pub struct PodmanExecutor {
+    /// Container image to use (default: echidna-provers:latest)
     image: String,
-    /// Security profile
-    profile: SecurityProfile,
-    /// Memory limit (MB)
-    memory_limit_mb: usize,
-    /// CPU limit (cores)
-    cpu_limit: f32,
-    /// Execution timeout
+    /// Execution timeout -- container is killed after this
     timeout: Duration,
-    /// Working directory in container
-    work_dir: PathBuf,
-    /// Use gVisor runtime (runsc)
-    use_gvisor: bool,
+    /// Memory limit string for Podman (e.g. "512m")
+    memory_limit: String,
+    /// CPU limit (number of cores)
+    cpu_limit: f64,
+    /// Whether to allow network access (should be false for proof checking)
+    network: bool,
+    /// Detected isolation backend
+    backend: IsolationBackend,
 }
 
-impl Default for ContainerExecutor {
+impl Default for PodmanExecutor {
     fn default() -> Self {
         Self {
             image: "echidna-provers:latest".to_string(),
-            profile: SecurityProfile::Standard,
-            memory_limit_mb: 2048, // 2GB
-            cpu_limit: 2.0,        // 2 cores
             timeout: Duration::from_secs(300), // 5 minutes
-            work_dir: PathBuf::from("/workspace"),
-            use_gvisor: false, // Auto-detect on first use
+            memory_limit: "512m".to_string(),
+            cpu_limit: 2.0,
+            network: false, // No network for proof checking
+            backend: IsolationBackend::None, // Detect on init
         }
     }
 }
 
-impl ContainerExecutor {
-    /// Create a new container executor with defaults
-    pub fn new() -> Self {
-        Self::default()
+impl PodmanExecutor {
+    /// Create a new executor and detect the available isolation backend.
+    ///
+    /// Checks for Podman first, then bubblewrap. If neither is found,
+    /// the executor will refuse to run any proofs (fail-safe).
+    pub async fn new() -> Self {
+        let mut executor = Self::default();
+        executor.backend = Self::detect_backend().await;
+
+        match executor.backend {
+            IsolationBackend::Podman => {
+                info!("Using Podman for container isolation (rootless)");
+            }
+            IsolationBackend::Bubblewrap => {
+                warn!("Podman not available, using bubblewrap (bwrap) as fallback");
+            }
+            IsolationBackend::None => {
+                warn!("Neither Podman nor bubblewrap available -- proof execution DISABLED");
+            }
+        }
+
+        executor
     }
 
-    /// Set Docker image
+    /// Set container image
     pub fn with_image(mut self, image: impl Into<String>) -> Self {
         self.image = image.into();
         self
     }
 
-    /// Set security profile
-    pub fn with_profile(mut self, profile: SecurityProfile) -> Self {
-        self.profile = profile;
-        self
-    }
-
-    /// Set memory limit in MB
-    pub fn with_memory_limit(mut self, mb: usize) -> Self {
-        self.memory_limit_mb = mb;
-        self
-    }
-
-    /// Set CPU limit (cores)
-    pub fn with_cpu_limit(mut self, cores: f32) -> Self {
-        self.cpu_limit = cores;
-        self
-    }
-
-    /// Set timeout
+    /// Set execution timeout
     pub fn with_timeout(mut self, timeout: Duration) -> Self {
         self.timeout = timeout;
         self
     }
 
-    /// Check if Docker is available
-    pub async fn check_docker() -> Result<bool> {
-        let output = Command::new("docker")
+    /// Set memory limit (e.g. "512m", "2g")
+    pub fn with_memory_limit(mut self, limit: impl Into<String>) -> Self {
+        self.memory_limit = limit.into();
+        self
+    }
+
+    /// Set CPU limit (number of cores)
+    pub fn with_cpu_limit(mut self, cores: f64) -> Self {
+        self.cpu_limit = cores;
+        self
+    }
+
+    /// Set network access (should be false for proof checking)
+    pub fn with_network(mut self, enabled: bool) -> Self {
+        self.network = enabled;
+        self
+    }
+
+    /// Override the isolation backend (for testing)
+    pub fn with_backend(mut self, backend: IsolationBackend) -> Self {
+        self.backend = backend;
+        self
+    }
+
+    /// Detect the best available isolation backend.
+    ///
+    /// Checks Podman first, then bubblewrap, returns None if neither works.
+    pub async fn detect_backend() -> IsolationBackend {
+        if Self::check_podman().await {
+            IsolationBackend::Podman
+        } else if Self::check_bubblewrap().await {
+            IsolationBackend::Bubblewrap
+        } else {
+            IsolationBackend::None
+        }
+    }
+
+    /// Check if Podman is available and functional
+    pub async fn check_podman() -> bool {
+        let output = Command::new("podman")
             .arg("version")
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .status()
             .await;
 
-        Ok(output.map(|s| s.success()).unwrap_or(false))
+        output.map(|s| s.success()).unwrap_or(false)
     }
 
-    /// Check if gVisor (runsc) is available
-    pub async fn check_gvisor() -> Result<bool> {
-        // Check if runsc runtime is available
-        let output = Command::new("docker")
-            .args(&["info", "--format", "{{.Runtimes}}"])
-            .output()
+    /// Check if bubblewrap (bwrap) is available
+    pub async fn check_bubblewrap() -> bool {
+        let output = Command::new("bwrap")
+            .arg("--version")
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
             .await;
 
-        match output {
-            Ok(out) if out.status.success() => {
-                let stdout = String::from_utf8_lossy(&out.stdout);
-                Ok(stdout.contains("runsc"))
-            }
-            _ => Ok(false),
-        }
+        output.map(|s| s.success()).unwrap_or(false)
     }
 
-    /// Execute a proof verification in an isolated container
+    /// Get the current isolation backend
+    pub fn backend(&self) -> IsolationBackend {
+        self.backend
+    }
+
+    /// Execute a proof verification in an isolated environment.
+    ///
+    /// Routes to Podman or bubblewrap depending on the detected backend.
+    /// Refuses to run if no isolation backend is available.
     ///
     /// # Arguments
     /// * `prover` - Which prover to use
     /// * `proof_content` - The proof file content
-    /// * `additional_files` - Optional additional files to mount
+    /// * `_additional_files` - Optional additional files (reserved for future use)
     ///
     /// # Returns
-    /// ExecutionResult with stdout/stderr and exit status
+    /// `ExecutionResult` with stdout/stderr and exit status
     pub async fn execute_proof(
-        &mut self,
+        &self,
         prover: ProverKind,
         proof_content: &str,
-        additional_files: Option<HashMap<String, String>>,
+        _additional_files: Option<HashMap<String, String>>,
     ) -> Result<ExecutionResult> {
-        // Auto-detect gVisor on first use
-        if !self.use_gvisor && self.profile == SecurityProfile::Maximum {
-            self.use_gvisor = Self::check_gvisor().await?;
-            if !self.use_gvisor {
-                warn!("gVisor not available, falling back to standard Docker isolation");
+        match self.backend {
+            IsolationBackend::Podman => {
+                self.execute_with_podman(prover, proof_content).await
+            }
+            IsolationBackend::Bubblewrap => {
+                self.execute_with_bubblewrap(prover, proof_content).await
+            }
+            IsolationBackend::None => {
+                Err(Error::Internal(
+                    "No isolation backend available. Install podman or bubblewrap (bwrap) \
+                     to enable proof execution. Refusing to run proofs without isolation \
+                     (fail-safe policy)."
+                        .to_string(),
+                ))
             }
         }
+    }
 
+    /// Execute a proof using Podman (rootless container).
+    async fn execute_with_podman(
+        &self,
+        prover: ProverKind,
+        proof_content: &str,
+    ) -> Result<ExecutionResult> {
         let start = std::time::Instant::now();
 
-        // Build Docker run command
-        let mut cmd = Command::new("docker");
+        let mut cmd = Command::new("podman");
         cmd.arg("run")
-            .arg("--rm") // Remove container after execution
-            .arg("--network=none"); // No network access
+            .arg("--rm"); // Remove container after execution
 
-        // Add gVisor runtime if available and requested
-        if self.use_gvisor && self.profile == SecurityProfile::Maximum {
-            cmd.arg("--runtime=runsc");
-            debug!("Using gVisor runtime for maximum isolation");
+        // Network isolation
+        if !self.network {
+            cmd.arg("--network=none");
         }
 
         // Resource limits
-        cmd.arg(format!("--memory={}m", self.memory_limit_mb))
+        cmd.arg(format!("--memory={}", self.memory_limit))
             .arg(format!("--cpus={}", self.cpu_limit))
-            .arg("--pids-limit=100"); // Limit number of processes
+            .arg("--pids-limit=100"); // Limit process count
 
-        // Security options
-        match self.profile {
-            SecurityProfile::Maximum | SecurityProfile::Standard => {
-                cmd.arg("--read-only") // Read-only root filesystem
-                    .arg("--tmpfs=/tmp:rw,noexec,nosuid,size=100m") // Writable /tmp
-                    .arg("--security-opt=no-new-privileges") // Prevent privilege escalation
-                    .arg("--cap-drop=ALL"); // Drop all capabilities
-            }
-            SecurityProfile::Minimal => {
-                // Minimal restrictions
-            }
-        }
+        // Security hardening
+        cmd.arg("--read-only") // Read-only root filesystem
+            .arg("--tmpfs=/tmp:rw,noexec,nosuid,size=100m") // Writable /tmp
+            .arg("--security-opt=no-new-privileges") // Prevent privilege escalation
+            .arg("--cap-drop=ALL"); // Drop all capabilities
+
+        // Timeout enforcement
+        cmd.arg(format!("--timeout={}", self.timeout.as_secs()));
 
         // Working directory
-        cmd.arg("-w").arg(&self.work_dir);
+        cmd.arg("-w").arg("/workspace");
 
         // Environment variables
         cmd.arg("-e")
@@ -211,29 +278,29 @@ impl ContainerExecutor {
             .arg("sh")
             .arg("-c");
 
-        // Command to execute inside container
+        // Command to execute inside container: save proof, run prover
         let container_cmd = format!(
-            "cat > /tmp/proof{} && {} /tmp/proof{}",
-            prover_extension(prover),
-            prover_command(prover),
-            prover_extension(prover)
+            "cat > /tmp/proof{ext} && {cmd} /tmp/proof{ext}",
+            ext = prover_extension(prover),
+            cmd = prover_command(prover),
         );
         cmd.arg(&container_cmd);
 
-        // Spawn process
+        // Set up I/O
         cmd.stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
 
         info!(
-            "Executing {} proof in container (profile: {:?}, timeout: {}s)",
+            "Executing {} proof in Podman container (timeout: {}s, memory: {}, cpus: {})",
             prover.display_name(),
-            self.profile,
-            self.timeout.as_secs()
+            self.timeout.as_secs(),
+            self.memory_limit,
+            self.cpu_limit,
         );
 
         let mut child = cmd.spawn().map_err(|e| {
-            Error::Internal(format!("Failed to spawn Docker container: {}", e))
+            Error::Internal(format!("Failed to spawn Podman container: {}", e))
         })?;
 
         // Write proof content to stdin
@@ -241,23 +308,174 @@ impl ContainerExecutor {
             stdin
                 .write_all(proof_content.as_bytes())
                 .await
-                .map_err(|e| Error::Internal(format!("Failed to write to container stdin: {}", e)))?;
+                .map_err(|e| {
+                    Error::Internal(format!("Failed to write to container stdin: {}", e))
+                })?;
             stdin.shutdown().await.ok(); // Close stdin
         }
 
         // Wait for completion with timeout
-        let wait_result = tokio::time::timeout(self.timeout, child.wait()).await;
+        let wait_result =
+            tokio::time::timeout(self.timeout + Duration::from_secs(5), child.wait_with_output())
+                .await;
+
+        let duration = start.elapsed();
+
+        match wait_result {
+            Ok(Ok(output)) => {
+                let success = output.status.success();
+                let exit_code = output.status.code();
+                let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+                let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+
+                debug!(
+                    "Podman container finished: exit={:?}, stdout={}B, stderr={}B",
+                    exit_code,
+                    stdout.len(),
+                    stderr.len(),
+                );
+
+                Ok(ExecutionResult {
+                    success,
+                    stdout,
+                    stderr,
+                    exit_code,
+                    duration_ms: duration.as_millis() as u64,
+                    timed_out: false,
+                    oom_killed: exit_code == Some(137), // SIGKILL (OOM)
+                    backend: IsolationBackend::Podman,
+                })
+            }
+            Ok(Err(e)) => Err(Error::Internal(format!(
+                "Podman container execution failed: {}",
+                e
+            ))),
+            Err(_) => {
+                // Timeout exceeded even the grace period
+                warn!(
+                    "Podman container timed out after {}s",
+                    self.timeout.as_secs()
+                );
+                // child is consumed by wait_with_output, so we cannot kill it
+                // here. Podman's --timeout flag handles the kill for us.
+
+                Ok(ExecutionResult {
+                    success: false,
+                    stdout: String::new(),
+                    stderr: format!(
+                        "Execution timed out after {}s",
+                        self.timeout.as_secs()
+                    ),
+                    exit_code: None,
+                    duration_ms: duration.as_millis() as u64,
+                    timed_out: true,
+                    oom_killed: false,
+                    backend: IsolationBackend::Podman,
+                })
+            }
+        }
+    }
+
+    /// Execute a proof using bubblewrap (bwrap) as a lighter alternative.
+    ///
+    /// Provides filesystem isolation, read-only root, and timeout enforcement
+    /// but without the full container namespace isolation of Podman.
+    async fn execute_with_bubblewrap(
+        &self,
+        prover: ProverKind,
+        proof_content: &str,
+    ) -> Result<ExecutionResult> {
+        let start = std::time::Instant::now();
+
+        // Create a temp directory for the proof file
+        let temp_dir = tempfile::tempdir().map_err(|e| {
+            Error::Internal(format!("Failed to create temp directory: {}", e))
+        })?;
+        let proof_path = temp_dir
+            .path()
+            .join(format!("proof{}", prover_extension(prover)));
+
+        // Write proof content to temp file
+        tokio::fs::write(&proof_path, proof_content).await.map_err(|e| {
+            Error::Internal(format!("Failed to write proof file: {}", e))
+        })?;
+
+        // Build bwrap command
+        let mut cmd = Command::new("bwrap");
+        cmd.arg("--ro-bind")
+            .arg("/usr")
+            .arg("/usr") // Read-only /usr
+            .arg("--ro-bind")
+            .arg("/lib")
+            .arg("/lib") // Read-only /lib
+            .arg("--ro-bind")
+            .arg("/lib64")
+            .arg("/lib64") // Read-only /lib64 (if exists)
+            .arg("--ro-bind")
+            .arg("/bin")
+            .arg("/bin") // Read-only /bin
+            .arg("--ro-bind")
+            .arg("/sbin")
+            .arg("/sbin") // Read-only /sbin
+            .arg("--tmpfs")
+            .arg("/tmp") // Writable /tmp
+            .arg("--proc")
+            .arg("/proc") // proc filesystem
+            .arg("--dev")
+            .arg("/dev") // dev filesystem
+            .arg("--ro-bind")
+            .arg(temp_dir.path())
+            .arg("/workspace") // Mount proof dir read-only
+            .arg("--unshare-all") // Unshare all namespaces
+            .arg("--die-with-parent") // Kill sandbox when parent dies
+            .arg("--new-session"); // New session
+
+        // Network isolation (unshare-net is included in unshare-all)
+
+        // Set environment
+        cmd.arg("--setenv")
+            .arg("PROVER")
+            .arg(prover_to_env_name(prover));
+
+        // Command to run inside sandbox
+        let prover_cmd = prover_command(prover);
+        cmd.arg("sh")
+            .arg("-c")
+            .arg(format!(
+                "cp /workspace/proof{ext} /tmp/proof{ext} && {cmd} /tmp/proof{ext}",
+                ext = prover_extension(prover),
+                cmd = prover_cmd,
+            ));
+
+        cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
+
+        info!(
+            "Executing {} proof in bubblewrap sandbox (timeout: {}s)",
+            prover.display_name(),
+            self.timeout.as_secs(),
+        );
+
+        let mut child = cmd.spawn().map_err(|e| {
+            Error::Internal(format!("Failed to spawn bubblewrap sandbox: {}", e))
+        })?;
+
+        // Wait with timeout. We use wait() instead of wait_with_output()
+        // so we can kill the child on timeout.
+        let wait_result =
+            tokio::time::timeout(self.timeout, child.wait()).await;
 
         let duration = start.elapsed();
 
         match wait_result {
             Ok(Ok(status)) => {
-                // Process completed within timeout
                 let success = status.success();
                 let exit_code = status.code();
 
-                // Note: stdout/stderr were piped but not captured since we used wait() not wait_with_output()
-                // This is acceptable for proof verification where we mainly care about exit status
+                debug!(
+                    "Bubblewrap sandbox finished: exit={:?}",
+                    exit_code,
+                );
+
                 Ok(ExecutionResult {
                     success,
                     stdout: String::new(),
@@ -265,37 +483,49 @@ impl ContainerExecutor {
                     exit_code,
                     duration_ms: duration.as_millis() as u64,
                     timed_out: false,
-                    oom_killed: status.code() == Some(137), // SIGKILL (OOM)
+                    oom_killed: exit_code == Some(137),
+                    backend: IsolationBackend::Bubblewrap,
                 })
             }
-            Ok(Err(e)) => Err(Error::Internal(format!("Container execution failed: {}", e))),
+            Ok(Err(e)) => Err(Error::Internal(format!(
+                "Bubblewrap sandbox execution failed: {}",
+                e
+            ))),
             Err(_) => {
-                // Timeout - kill container
-                warn!("Container execution timed out after {}s", self.timeout.as_secs());
-
-                // Try to kill the container gracefully
+                warn!(
+                    "Bubblewrap sandbox timed out after {}s, killing",
+                    self.timeout.as_secs()
+                );
                 let _ = child.kill().await;
 
                 Ok(ExecutionResult {
                     success: false,
                     stdout: String::new(),
-                    stderr: format!("Execution timed out after {}s", self.timeout.as_secs()),
+                    stderr: format!(
+                        "Execution timed out after {}s",
+                        self.timeout.as_secs()
+                    ),
                     exit_code: None,
                     duration_ms: duration.as_millis() as u64,
                     timed_out: true,
                     oom_killed: false,
+                    backend: IsolationBackend::Bubblewrap,
                 })
             }
         }
     }
 
-    /// Pull the Docker image if not already present
+    /// Pull the container image if not already present (Podman only).
     pub async fn ensure_image(&self) -> Result<()> {
-        info!("Checking for Docker image: {}", self.image);
+        if self.backend != IsolationBackend::Podman {
+            debug!("Image pull skipped: not using Podman backend");
+            return Ok(());
+        }
 
-        // Check if image exists locally
-        let check = Command::new("docker")
-            .args(&["image", "inspect", &self.image])
+        info!("Checking for container image: {}", self.image);
+
+        let check = Command::new("podman")
+            .args(["image", "inspect", &self.image])
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .status()
@@ -307,12 +537,14 @@ impl ContainerExecutor {
                 Ok(())
             }
             _ => {
-                info!("Pulling Docker image: {}", self.image);
-                let output = Command::new("docker")
-                    .args(&["pull", &self.image])
+                info!("Pulling container image: {}", self.image);
+                let output = Command::new("podman")
+                    .args(["pull", &self.image])
                     .output()
                     .await
-                    .map_err(|e| Error::Internal(format!("Failed to pull Docker image: {}", e)))?;
+                    .map_err(|e| {
+                        Error::Internal(format!("Failed to pull container image: {}", e))
+                    })?;
 
                 if output.status.success() {
                     info!("Successfully pulled image: {}", self.image);
@@ -326,9 +558,53 @@ impl ContainerExecutor {
             }
         }
     }
+
+    /// Build Podman command-line arguments for inspection/testing.
+    ///
+    /// Returns the full argument list that would be passed to Podman.
+    pub fn build_podman_args(&self, prover: ProverKind) -> Vec<String> {
+        let mut args = vec![
+            "run".to_string(),
+            "--rm".to_string(),
+        ];
+
+        if !self.network {
+            args.push("--network=none".to_string());
+        }
+
+        args.push(format!("--memory={}", self.memory_limit));
+        args.push(format!("--cpus={}", self.cpu_limit));
+        args.push("--pids-limit=100".to_string());
+        args.push("--read-only".to_string());
+        args.push("--tmpfs=/tmp:rw,noexec,nosuid,size=100m".to_string());
+        args.push("--security-opt=no-new-privileges".to_string());
+        args.push("--cap-drop=ALL".to_string());
+        args.push(format!("--timeout={}", self.timeout.as_secs()));
+        args.push("-w".to_string());
+        args.push("/workspace".to_string());
+        args.push("-e".to_string());
+        args.push(format!("PROVER={}", prover_to_env_name(prover)));
+        args.push("-i".to_string());
+        args.push(self.image.clone());
+        args.push("sh".to_string());
+        args.push("-c".to_string());
+
+        let container_cmd = format!(
+            "cat > /tmp/proof{ext} && {cmd} /tmp/proof{ext}",
+            ext = prover_extension(prover),
+            cmd = prover_command(prover),
+        );
+        args.push(container_cmd);
+
+        args
+    }
 }
 
-/// Get environment variable name for prover
+// =============================================================================
+// Prover Mapping Helpers
+// =============================================================================
+
+/// Get environment variable name for a prover backend.
 fn prover_to_env_name(prover: ProverKind) -> &'static str {
     match prover {
         ProverKind::Coq => "COQ",
@@ -346,7 +622,7 @@ fn prover_to_env_name(prover: ProverKind) -> &'static str {
     }
 }
 
-/// Get file extension for prover
+/// Get the file extension for proof files of a given prover.
 fn prover_extension(prover: ProverKind) -> &'static str {
     match prover {
         ProverKind::Coq => ".v",
@@ -364,7 +640,7 @@ fn prover_extension(prover: ProverKind) -> &'static str {
     }
 }
 
-/// Get prover command to execute
+/// Get the shell command to invoke a prover.
 fn prover_command(prover: ProverKind) -> &'static str {
     match prover {
         ProverKind::Coq => "coqc",
@@ -382,37 +658,177 @@ fn prover_command(prover: ProverKind) -> &'static str {
     }
 }
 
+// =============================================================================
+// Tests
+// =============================================================================
+
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[tokio::test]
-    async fn test_docker_available() {
-        // This test requires Docker to be installed
-        let available = ContainerExecutor::check_docker().await;
-        assert!(available.is_ok());
-    }
 
     #[test]
     fn test_prover_extensions() {
         assert_eq!(prover_extension(ProverKind::Coq), ".v");
         assert_eq!(prover_extension(ProverKind::Lean), ".lean");
         assert_eq!(prover_extension(ProverKind::Metamath), ".mm");
+        assert_eq!(prover_extension(ProverKind::Z3), ".smt2");
+        assert_eq!(prover_extension(ProverKind::Agda), ".agda");
     }
 
     #[test]
-    fn test_security_profiles() {
-        let executor = ContainerExecutor::new().with_profile(SecurityProfile::Maximum);
-        assert_eq!(executor.profile, SecurityProfile::Maximum);
+    fn test_prover_env_names() {
+        assert_eq!(prover_to_env_name(ProverKind::Coq), "COQ");
+        assert_eq!(prover_to_env_name(ProverKind::HolLight), "HOL_LIGHT");
+        assert_eq!(prover_to_env_name(ProverKind::Cvc5), "CVC5");
     }
 
     #[test]
-    fn test_resource_limits() {
-        let executor = ContainerExecutor::new()
-            .with_memory_limit(4096)
-            .with_cpu_limit(4.0);
+    fn test_prover_commands() {
+        assert_eq!(prover_command(ProverKind::Coq), "coqc");
+        assert_eq!(prover_command(ProverKind::Lean), "lean");
+        assert_eq!(prover_command(ProverKind::Z3), "z3");
+    }
 
-        assert_eq!(executor.memory_limit_mb, 4096);
+    #[test]
+    fn test_default_executor() {
+        let executor = PodmanExecutor::default();
+        assert_eq!(executor.image, "echidna-provers:latest");
+        assert_eq!(executor.timeout, Duration::from_secs(300));
+        assert_eq!(executor.memory_limit, "512m");
+        assert_eq!(executor.cpu_limit, 2.0);
+        assert!(!executor.network);
+        assert_eq!(executor.backend, IsolationBackend::None);
+    }
+
+    #[test]
+    fn test_builder_pattern() {
+        let executor = PodmanExecutor::default()
+            .with_image("custom-provers:v2")
+            .with_timeout(Duration::from_secs(600))
+            .with_memory_limit("2g")
+            .with_cpu_limit(4.0)
+            .with_network(false)
+            .with_backend(IsolationBackend::Podman);
+
+        assert_eq!(executor.image, "custom-provers:v2");
+        assert_eq!(executor.timeout, Duration::from_secs(600));
+        assert_eq!(executor.memory_limit, "2g");
         assert_eq!(executor.cpu_limit, 4.0);
+        assert!(!executor.network);
+        assert_eq!(executor.backend, IsolationBackend::Podman);
+    }
+
+    #[test]
+    fn test_podman_args_contain_security_flags() {
+        let executor = PodmanExecutor::default()
+            .with_backend(IsolationBackend::Podman);
+
+        let args = executor.build_podman_args(ProverKind::Coq);
+
+        assert!(args.contains(&"--rm".to_string()));
+        assert!(args.contains(&"--network=none".to_string()));
+        assert!(args.contains(&"--read-only".to_string()));
+        assert!(args.contains(&"--cap-drop=ALL".to_string()));
+        assert!(args.contains(&"--security-opt=no-new-privileges".to_string()));
+        assert!(args.contains(&"--pids-limit=100".to_string()));
+        assert!(args.contains(&"--memory=512m".to_string()));
+        assert!(args.contains(&"--cpus=2".to_string()));
+        assert!(args.contains(&"--timeout=300".to_string()));
+    }
+
+    #[test]
+    fn test_podman_args_contain_prover_env() {
+        let executor = PodmanExecutor::default()
+            .with_backend(IsolationBackend::Podman);
+
+        let args = executor.build_podman_args(ProverKind::Lean);
+        assert!(args.contains(&"PROVER=LEAN".to_string()));
+
+        let args = executor.build_podman_args(ProverKind::Coq);
+        assert!(args.contains(&"PROVER=COQ".to_string()));
+    }
+
+    #[test]
+    fn test_podman_args_network_enabled() {
+        let executor = PodmanExecutor::default()
+            .with_network(true)
+            .with_backend(IsolationBackend::Podman);
+
+        let args = executor.build_podman_args(ProverKind::Z3);
+        assert!(!args.contains(&"--network=none".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_no_backend_fails_safe() {
+        let executor = PodmanExecutor::default()
+            .with_backend(IsolationBackend::None);
+
+        let result = executor
+            .execute_proof(ProverKind::Coq, "Theorem test : True.", None)
+            .await;
+
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(
+            err_msg.contains("No isolation backend available"),
+            "Expected fail-safe error, got: {}",
+            err_msg
+        );
+    }
+
+    #[test]
+    fn test_execution_result_fields() {
+        let result = ExecutionResult {
+            success: true,
+            stdout: "All proofs verified".to_string(),
+            stderr: String::new(),
+            exit_code: Some(0),
+            duration_ms: 1234,
+            timed_out: false,
+            oom_killed: false,
+            backend: IsolationBackend::Podman,
+        };
+
+        assert!(result.success);
+        assert_eq!(result.exit_code, Some(0));
+        assert!(!result.timed_out);
+        assert!(!result.oom_killed);
+        assert_eq!(result.backend, IsolationBackend::Podman);
+    }
+
+    #[test]
+    fn test_timeout_result() {
+        let result = ExecutionResult {
+            success: false,
+            stdout: String::new(),
+            stderr: "Execution timed out after 300s".to_string(),
+            exit_code: None,
+            duration_ms: 300_000,
+            timed_out: true,
+            oom_killed: false,
+            backend: IsolationBackend::Podman,
+        };
+
+        assert!(!result.success);
+        assert!(result.timed_out);
+        assert!(result.exit_code.is_none());
+    }
+
+    #[test]
+    fn test_oom_killed_detection() {
+        let result = ExecutionResult {
+            success: false,
+            stdout: String::new(),
+            stderr: "Killed".to_string(),
+            exit_code: Some(137),
+            duration_ms: 5000,
+            timed_out: false,
+            oom_killed: true,
+            backend: IsolationBackend::Bubblewrap,
+        };
+
+        assert!(!result.success);
+        assert!(result.oom_killed);
+        assert_eq!(result.exit_code, Some(137));
     }
 }
