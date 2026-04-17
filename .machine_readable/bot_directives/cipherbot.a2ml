@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# Bot directive — migrated from SCM on 2026-04-17
+# Media-Type: application/vnd.bot-directive+a2ml
+
+schema_version = "1.0"
+directive_type = "bot-directive"
+bot = "cipherbot"
+scope = "cryptographic hygiene and post-quantum readiness"
+allow = ["crypto analysis", "algorithm strength auditing", "pq-readiness checks"]
+deny = ["key material access", "credential handling", "core logic changes"]
+notes = "Specialist tier; audits crypto usage, never handles actual secrets"
