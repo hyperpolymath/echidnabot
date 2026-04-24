@@ -18,6 +18,13 @@ path = "src/lib.rs"
 name = "echidnabot"
 path = "src/main.rs"
 
+# Temporary native MCP server — documented exception to the estate-wide
+# "all MCP through BoJ" rule until the BoJ Zig adapter is rebuilt.
+# See docs/MCP-TEMPORARY-EXCEPTION.adoc for migration path.
+[[bin]]
+name = "echidnabot-mcp"
+path = "src/bin/mcp_server.rs"
+
 [dependencies]
 # Fleet coordination
 gitbot-shared-context = { path = "../../fleet-ecosystem/git-automation-ecosystem/gitbot-fleet/shared-context" }
