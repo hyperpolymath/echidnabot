@@ -7,7 +7,7 @@
     (version "0.1.0")
     (schema-version "1.0")
     (created "2026-01-03")
-    (updated "2026-02-08")
+    (updated "2026-04-24")
     (project "echidnabot")
     (repo "github.com/hyperpolymath/echidnabot"))
 
@@ -119,7 +119,25 @@
           (items ("Observability (metrics, tracing) -- not implemented"
                  "Rate limiting -- not implemented"
                  "Deployment automation -- not implemented"
-                 "Wire trust bridge into main pipeline -- not done"))))))
+                 "Wire trust bridge into main pipeline -- not done"))))
+
+       (double-loop-feedback
+         ((status "partial")
+          (items ("7b-1 DONE: tactic_outcome table, fingerprint helper, CRUD (commit 0cc4b4a)"
+                 "7b-2 DONE: history-weighted reranker, Laplace smoothing, global fallback (commit b6ef652)"
+                 "7b-3 DONE-with-gap: CorpusDelta writer + trigger_refresh (commit 1e26340)"
+                 "7b-4 PENDING: native MCP server bin (temporary BoJ exception)"
+                 "7b-5 PENDING: dogfood proofs committed to proofs/ exercising echidnabot.yml"
+                 "7b-6 PENDING: 6a2 sweep + project memory on BoJ MCP exception"))
+          (known-gap ("7b-3 schema mismatch: CorpusDelta emits delta_YYYY-MM-DD.jsonl with "
+                      "{timestamp, prover, goal_state, chosen_tactic, succeeded, duration_ms, source}. "
+                      "Echidna's merge_corpus.jl expects proof_states_*.jsonl with "
+                      "{id, prover, theorem, goal, context[], source, proof_type} and consumes only "
+                      "files in its hardcoded PER_PROVER_FILES whitelist. "
+                      "Successful deltas are NOT auto-ingested by just corpus-refresh until "
+                      "(a) CorpusDelta also emits echidna-schema rows for successes, or "
+                      "(b) echidna/scripts/merge_corpus.jl is extended to include echidnabot deltas. "
+                      "Coordination needed with Session A owning the retrainer."))))))
 
     (working-features
       ("HTTP server with health checks and GraphQL playground"
