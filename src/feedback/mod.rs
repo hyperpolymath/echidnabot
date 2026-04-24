@@ -8,6 +8,8 @@
 //! plus the corpus-delta trigger that feeds successful proofs back to
 //! `echidna/training_data/` for the retrainer (Package 5 / `just corpus-refresh`).
 
+pub mod corpus_delta;
 pub mod reranker;
 
+pub use corpus_delta::{CorpusDelta, DeltaRow, DeltaSource, RefreshStatus};
 pub use reranker::Reranker;

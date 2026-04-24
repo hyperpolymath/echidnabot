@@ -3,7 +3,7 @@
 //! Configuration management for echidnabot
 
 use serde::Deserialize;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::error::Result;
 use crate::modes::BotMode;
@@ -35,9 +35,37 @@ pub struct Config {
     #[serde(default)]
     pub scheduler: SchedulerConfig,
 
+    /// Corpus-delta / retrain-trigger configuration (feedback loop).
+    #[serde(default)]
+    pub corpus: CorpusConfig,
+
     /// Bot operating mode
     #[serde(default)]
     pub bot_mode: BotMode,
+}
+
+/// Corpus-delta writer + retrain-trigger settings. Disabled by default —
+/// opt-in to avoid accidentally writing into ECHIDNA's training_data from
+/// dev / CI environments.
+#[derive(Debug, Deserialize, Clone, Default)]
+pub struct CorpusConfig {
+    /// Master switch. When false, callers should not instantiate a CorpusDelta.
+    #[serde(default)]
+    pub enabled: bool,
+
+    /// Directory where delta JSONL files are written.
+    /// Typically `{echidna_root}/training_data`.
+    #[serde(default)]
+    pub training_data_dir: Option<PathBuf>,
+
+    /// Root of the ECHIDNA repo — working directory for `just corpus-refresh`.
+    #[serde(default)]
+    pub echidna_root: Option<PathBuf>,
+
+    /// Fire the retrain trigger automatically after N successful records.
+    /// `None` requires an explicit caller (MCP tool, scheduled job).
+    #[serde(default)]
+    pub auto_trigger_threshold: Option<u32>,
 }
 
 #[derive(Debug, Deserialize, Clone, Copy)]
