@@ -88,3 +88,13 @@ deps/
 .cache/
 build/
 dist/
+
+# Coq build artefacts (proofs/ dogfood fixtures)
+proofs/**/.*.aux
+proofs/**/*.vo
+proofs/**/*.vok
+proofs/**/*.vos
+proofs/**/*.glob
+
+# Lean build artefacts
+proofs/**/*.olean
