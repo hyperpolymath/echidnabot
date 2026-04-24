@@ -80,7 +80,7 @@
            ((relationship . "verified-via-echidna")
             (description . "Metamath minimal proof checker")
             (interaction . "echidnabot → ECHIDNA → Metamath verification")
-            (url . "http://us.metamath.org")))
+            (url . "https://us.metamath.org")))
 
          (hol-light
            ((relationship . "verified-via-echidna")
@@ -110,7 +110,7 @@
            ((relationship . "verified-via-echidna")
             (description . "Mizar proof checker")
             (interaction . "echidnabot → ECHIDNA → Mizar verification")
-            (url . "http://mizar.org")))))
+            (url . "https://mizar.org")))))
 
       (rust-ecosystem
         ((tokio

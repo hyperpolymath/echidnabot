@@ -576,6 +576,8 @@ async fn process_job(
         });
     }
 
+    const MAX_OUTPUT_BYTES: usize = 1024 * 1024; // 1 MiB cap on accumulated prover output
+
     let mut verified = Vec::new();
     let mut failed = Vec::new();
     let mut prover_output = String::new();
@@ -593,8 +595,10 @@ async fn process_job(
         } else {
             failed.push(path.to_string());
         }
-        if !result.prover_output.trim().is_empty() {
-            prover_output.push_str(&result.prover_output);
+        if !result.prover_output.trim().is_empty() && prover_output.len() < MAX_OUTPUT_BYTES {
+            let remaining = MAX_OUTPUT_BYTES - prover_output.len();
+            let chunk = &result.prover_output[..result.prover_output.len().min(remaining)];
+            prover_output.push_str(chunk);
             prover_output.push('\n');
         }
     }
@@ -693,12 +697,25 @@ async fn clone_repo_via_git(base_url: &str, repo: &RepoId, commit: &str) -> Resu
     Ok(clone_path)
 }
 
+const MAX_PROOF_FILES: usize = 10_000;
+
 fn collect_files_by_extension(root: &Path, extensions: &[String]) -> Vec<PathBuf> {
     let mut results = Vec::new();
+    collect_files_inner(root, extensions, &mut results);
+    results
+}
+
+fn collect_files_inner(root: &Path, extensions: &[String], results: &mut Vec<PathBuf>) {
+    if results.len() >= MAX_PROOF_FILES {
+        return;
+    }
     let Ok(entries) = std::fs::read_dir(root) else {
-        return results;
+        return;
     };
     for entry in entries.flatten() {
+        if results.len() >= MAX_PROOF_FILES {
+            break;
+        }
         let path = entry.path();
         if path.is_dir() {
             if let Some(name) = path.file_name().and_then(|s| s.to_str()) {
@@ -706,12 +723,11 @@ fn collect_files_by_extension(root: &Path, extensions: &[String]) -> Vec<PathBuf
                     continue;
                 }
             }
-            results.extend(collect_files_by_extension(&path, extensions));
+            collect_files_inner(&path, extensions, results);
         } else if let Some(name) = path.file_name().and_then(|s| s.to_str()) {
             if extensions.iter().any(|ext| name.ends_with(ext)) {
                 results.push(path);
             }
         }
     }
-    results
 }

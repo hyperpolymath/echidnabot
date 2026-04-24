@@ -112,6 +112,9 @@
 
       (echidna-integration
         ((configuration
+           ;; echidna:8080 is the Docker Compose / Podman internal service address —
+           ;; an internal overlay-network URL, not an external endpoint. Use HTTPS
+           ;; (ECHIDNA_URL=https://...) in production with a service mesh or TLS proxy.
            ((env-var . "ECHIDNA_URL=http://echidna:8080")
             (timeout . "300 seconds")
             (retry-strategy . "3 attempts with exponential backoff")

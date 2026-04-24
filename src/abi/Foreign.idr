@@ -180,24 +180,16 @@ public export
 Callback : Type
 Callback = Bits64 -> Bits32 -> Bits32
 
-||| Register a callback
+||| Register a callback (primitive declaration — see Zig FFI layer for safe use)
+|||
+||| Idris functions cannot be marshalled to C function pointers without
+||| unsound coercions (believe_me is banned estate-wide). Callback
+||| registration must go through the Zig FFI layer using a callback-ID
+||| table: register the Zig-exported handler, pass its integer ID here.
+||| See ffi/zig/src/callbacks.zig for the implementation.
 export
 %foreign "C:{{project}}_register_callback, lib{{project}}"
 prim__registerCallback : Bits64 -> AnyPtr -> PrimIO Bits32
-
-||| Safe callback registration
-export
-registerCallback : Handle -> Callback -> IO (Either Result ())
-registerCallback h cb = do
-  result <- primIO (prim__registerCallback (handlePtr h) (believe_me cb))
-  pure $ case resultFromInt result of
-    Just Ok => Right ()
-    Just err => Left err
-    Nothing => Left Error
-  where
-    resultFromInt : Bits32 -> Maybe Result
-    resultFromInt 0 = Just Ok
-    resultFromInt _ = Just Error
 
 --------------------------------------------------------------------------------
 -- Utility Functions

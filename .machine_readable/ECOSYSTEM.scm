@@ -88,7 +88,7 @@
             (tier . 2)
             (small-kernel . #t)
             (description . "Metamath minimal proof checker")
-            (url . "http://us.metamath.org")))
+            (url . "https://us.metamath.org")))
 
          (hol-light
            ((relationship . "verified-via-echidna")
@@ -102,7 +102,7 @@
             (tier . 2)
             (small-kernel . #f)
             (description . "Mizar proof checker")
-            (url . "http://mizar.org")))
+            (url . "https://mizar.org")))
 
          (pvs
            ((relationship . "verified-via-echidna")
