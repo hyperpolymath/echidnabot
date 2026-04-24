@@ -11,9 +11,10 @@ use async_trait::async_trait;
 use uuid::Uuid;
 
 use crate::adapters::Platform;
+use crate::dispatcher::ProverKind;
 use crate::error::Result;
 use crate::scheduler::JobId;
-use models::{Repository, ProofJobRecord, ProofResultRecord};
+use models::{Repository, ProofJobRecord, ProofResultRecord, TacticOutcomeRecord};
 
 /// Abstract store trait for different database backends
 #[async_trait]
@@ -41,6 +42,21 @@ pub trait Store: Send + Sync {
     // Result operations
     async fn save_result(&self, result: &ProofResultRecord) -> Result<()>;
     async fn get_result_for_job(&self, job_id: JobId) -> Result<Option<ProofResultRecord>>;
+
+    // Tactic-outcome operations (double-loop feedback, Package 7b)
+    async fn record_tactic_outcome(&self, outcome: &TacticOutcomeRecord) -> Result<()>;
+    async fn list_tactic_outcomes_by_fingerprint(
+        &self,
+        prover: ProverKind,
+        goal_fingerprint: &str,
+        limit: usize,
+    ) -> Result<Vec<TacticOutcomeRecord>>;
+    async fn list_tactic_outcomes_by_tactic(
+        &self,
+        prover: ProverKind,
+        tactic: &str,
+        limit: usize,
+    ) -> Result<Vec<TacticOutcomeRecord>>;
 
     // Utility
     async fn health_check(&self) -> Result<bool>;

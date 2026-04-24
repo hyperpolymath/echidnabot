@@ -129,3 +129,83 @@ pub struct CheckRunRecord {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
+
+/// Tactic outcome record — feeds the double-loop reranker (Package 7b).
+/// `job_id` is optional so ad-hoc calls (MCP tool invocations, CLI) can record
+/// outcomes even when no webhook-driven proof job exists.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TacticOutcomeRecord {
+    pub id: Uuid,
+    pub job_id: Option<Uuid>,
+    pub prover: ProverKind,
+    pub goal_fingerprint: String,
+    pub tactic: String,
+    pub succeeded: bool,
+    pub duration_ms: i64,
+    pub created_at: DateTime<Utc>,
+}
+
+impl TacticOutcomeRecord {
+    pub fn new(
+        job_id: Option<Uuid>,
+        prover: ProverKind,
+        goal_fingerprint: String,
+        tactic: String,
+        succeeded: bool,
+        duration_ms: i64,
+    ) -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            job_id,
+            prover,
+            goal_fingerprint,
+            tactic,
+            succeeded,
+            duration_ms,
+            created_at: Utc::now(),
+        }
+    }
+}
+
+/// Stable fingerprint of a goal-state string for reranker similarity lookups.
+/// Normalises whitespace + case, then SHA-256 hex. Not a cryptographic identity;
+/// lexically-identical goals collide by design so the reranker can aggregate.
+pub fn goal_fingerprint(goal_state: &str) -> String {
+    use sha2::{Digest, Sha256};
+    let normalised = goal_state
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_lowercase();
+    let digest = Sha256::digest(normalised.as_bytes());
+    let mut out = String::with_capacity(64);
+    for byte in digest.iter() {
+        use std::fmt::Write;
+        let _ = write!(out, "{:02x}", byte);
+    }
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fingerprint_is_whitespace_and_case_insensitive() {
+        let a = goal_fingerprint("forall x : Nat, x + 0 = x");
+        let b = goal_fingerprint("FORALL   x : Nat,\n  x  +  0 = x");
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn fingerprint_distinguishes_distinct_goals() {
+        let a = goal_fingerprint("forall x, x = x");
+        let b = goal_fingerprint("forall x, x = 0");
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn fingerprint_is_sha256_hex_length() {
+        assert_eq!(goal_fingerprint("any").len(), 64);
+    }
+}

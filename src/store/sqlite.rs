@@ -110,6 +110,44 @@ impl SqliteStore {
         .execute(&self.pool)
         .await?;
 
+        // Tactic-outcome table — feedback-loop substrate (Package 7b).
+        // `job_id` is nullable so outcomes recorded via MCP / CLI (no webhook
+        // job) can still be ingested.
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS tactic_outcomes (
+                id TEXT PRIMARY KEY,
+                job_id TEXT REFERENCES proof_jobs(id),
+                prover TEXT NOT NULL,
+                goal_fingerprint TEXT NOT NULL,
+                tactic TEXT NOT NULL,
+                succeeded INTEGER NOT NULL,
+                duration_ms INTEGER NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            "#,
+        )
+        .execute(&self.pool)
+        .await?;
+
+        sqlx::query(
+            r#"
+            CREATE INDEX IF NOT EXISTS idx_tactic_outcomes_prover_fp
+                ON tactic_outcomes(prover, goal_fingerprint);
+            "#,
+        )
+        .execute(&self.pool)
+        .await?;
+
+        sqlx::query(
+            r#"
+            CREATE INDEX IF NOT EXISTS idx_tactic_outcomes_prover_tactic
+                ON tactic_outcomes(prover, tactic);
+            "#,
+        )
+        .execute(&self.pool)
+        .await?;
+
         Ok(())
     }
 }
@@ -356,6 +394,69 @@ impl Store for SqliteStore {
         row.map(|r| r.try_into()).transpose()
     }
 
+    async fn record_tactic_outcome(&self, outcome: &TacticOutcomeRecord) -> Result<()> {
+        sqlx::query(
+            r#"
+            INSERT INTO tactic_outcomes (
+                id, job_id, prover, goal_fingerprint, tactic,
+                succeeded, duration_ms, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            "#,
+        )
+        .bind(outcome.id.to_string())
+        .bind(outcome.job_id.map(|id| id.to_string()))
+        .bind(format!("{:?}", outcome.prover))
+        .bind(&outcome.goal_fingerprint)
+        .bind(&outcome.tactic)
+        .bind(outcome.succeeded)
+        .bind(outcome.duration_ms)
+        .bind(outcome.created_at.to_rfc3339())
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    async fn list_tactic_outcomes_by_fingerprint(
+        &self,
+        prover: ProverKind,
+        goal_fingerprint: &str,
+        limit: usize,
+    ) -> Result<Vec<TacticOutcomeRecord>> {
+        let rows: Vec<OutcomeRow> = sqlx::query_as(
+            "SELECT * FROM tactic_outcomes \
+             WHERE prover = ? AND goal_fingerprint = ? \
+             ORDER BY created_at DESC LIMIT ?",
+        )
+        .bind(format!("{:?}", prover))
+        .bind(goal_fingerprint)
+        .bind(limit as i64)
+        .fetch_all(&self.pool)
+        .await?;
+
+        rows.into_iter().map(|r| r.try_into()).collect()
+    }
+
+    async fn list_tactic_outcomes_by_tactic(
+        &self,
+        prover: ProverKind,
+        tactic: &str,
+        limit: usize,
+    ) -> Result<Vec<TacticOutcomeRecord>> {
+        let rows: Vec<OutcomeRow> = sqlx::query_as(
+            "SELECT * FROM tactic_outcomes \
+             WHERE prover = ? AND tactic = ? \
+             ORDER BY created_at DESC LIMIT ?",
+        )
+        .bind(format!("{:?}", prover))
+        .bind(tactic)
+        .bind(limit as i64)
+        .fetch_all(&self.pool)
+        .await?;
+
+        rows.into_iter().map(|r| r.try_into()).collect()
+    }
+
     async fn health_check(&self) -> Result<bool> {
         let result: (i32,) = sqlx::query_as("SELECT 1")
             .fetch_one(&self.pool)
@@ -520,6 +621,43 @@ impl TryFrom<ResultRow> for ProofResultRecord {
     }
 }
 
+#[derive(sqlx::FromRow)]
+struct OutcomeRow {
+    id: String,
+    job_id: Option<String>,
+    prover: String,
+    goal_fingerprint: String,
+    tactic: String,
+    succeeded: bool,
+    duration_ms: i64,
+    created_at: String,
+}
+
+impl TryFrom<OutcomeRow> for TacticOutcomeRecord {
+    type Error = Error;
+
+    fn try_from(row: OutcomeRow) -> Result<Self> {
+        let prover = parse_prover(&row.prover)?;
+        let job_id = row
+            .job_id
+            .map(|s| Uuid::parse_str(&s).map_err(|e| Error::Internal(e.to_string())))
+            .transpose()?;
+
+        Ok(TacticOutcomeRecord {
+            id: Uuid::parse_str(&row.id).map_err(|e| Error::Internal(e.to_string()))?,
+            job_id,
+            prover,
+            goal_fingerprint: row.goal_fingerprint,
+            tactic: row.tactic,
+            succeeded: row.succeeded,
+            duration_ms: row.duration_ms,
+            created_at: chrono::DateTime::parse_from_rfc3339(&row.created_at)
+                .map_err(|e| Error::Internal(e.to_string()))?
+                .with_timezone(&chrono::Utc),
+        })
+    }
+}
+
 fn parse_prover(s: &str) -> Result<ProverKind> {
     match s {
         "Agda" => Ok(ProverKind::Agda),
@@ -535,5 +673,112 @@ fn parse_prover(s: &str) -> Result<ProverKind> {
         "Acl2" => Ok(ProverKind::Acl2),
         "Hol4" => Ok(ProverKind::Hol4),
         _ => Err(Error::InvalidProver(s.to_string())),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::store::models::{goal_fingerprint, TacticOutcomeRecord};
+
+    async fn fresh_store() -> (SqliteStore, std::path::PathBuf) {
+        let path = std::env::temp_dir()
+            .join(format!("echidnabot-store-test-{}.db", Uuid::new_v4()));
+        let url = format!("sqlite://{}?mode=rwc", path.display());
+        let store = SqliteStore::new(&url).await.expect("open store");
+        (store, path)
+    }
+
+    #[tokio::test]
+    async fn tactic_outcome_insert_then_lookup_by_fingerprint() {
+        let (store, path) = fresh_store().await;
+        let fp = goal_fingerprint("forall x : Nat, x = x");
+
+        let first = TacticOutcomeRecord::new(
+            None, ProverKind::Coq, fp.clone(), "reflexivity".into(), true, 12,
+        );
+        let second = TacticOutcomeRecord::new(
+            None, ProverKind::Coq, fp.clone(), "auto".into(), false, 30,
+        );
+        store.record_tactic_outcome(&first).await.unwrap();
+        store.record_tactic_outcome(&second).await.unwrap();
+
+        let found = store
+            .list_tactic_outcomes_by_fingerprint(ProverKind::Coq, &fp, 10)
+            .await
+            .unwrap();
+        assert_eq!(found.len(), 2);
+        // DESC by created_at — second row (auto) is newer
+        assert_eq!(found[0].tactic, "auto");
+        assert!(!found[0].succeeded);
+        assert_eq!(found[1].tactic, "reflexivity");
+        assert!(found[1].succeeded);
+
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[tokio::test]
+    async fn tactic_outcome_filters_by_prover() {
+        let (store, path) = fresh_store().await;
+        let fp = goal_fingerprint("P /\\ Q -> P");
+
+        store
+            .record_tactic_outcome(&TacticOutcomeRecord::new(
+                None, ProverKind::Coq, fp.clone(), "split".into(), true, 5,
+            ))
+            .await
+            .unwrap();
+        store
+            .record_tactic_outcome(&TacticOutcomeRecord::new(
+                None, ProverKind::Lean, fp.clone(), "exact".into(), true, 5,
+            ))
+            .await
+            .unwrap();
+
+        let coq_hits = store
+            .list_tactic_outcomes_by_fingerprint(ProverKind::Coq, &fp, 10)
+            .await
+            .unwrap();
+        let lean_hits = store
+            .list_tactic_outcomes_by_fingerprint(ProverKind::Lean, &fp, 10)
+            .await
+            .unwrap();
+        assert_eq!(coq_hits.len(), 1);
+        assert_eq!(coq_hits[0].tactic, "split");
+        assert_eq!(lean_hits.len(), 1);
+        assert_eq!(lean_hits[0].tactic, "exact");
+
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[tokio::test]
+    async fn tactic_outcome_lookup_by_tactic() {
+        let (store, path) = fresh_store().await;
+        let fp1 = goal_fingerprint("goal 1");
+        let fp2 = goal_fingerprint("goal 2");
+
+        store
+            .record_tactic_outcome(&TacticOutcomeRecord::new(
+                None, ProverKind::Coq, fp1, "intros".into(), true, 3,
+            ))
+            .await
+            .unwrap();
+        store
+            .record_tactic_outcome(&TacticOutcomeRecord::new(
+                None, ProverKind::Coq, fp2, "intros".into(), false, 99,
+            ))
+            .await
+            .unwrap();
+
+        let hits = store
+            .list_tactic_outcomes_by_tactic(ProverKind::Coq, "intros", 10)
+            .await
+            .unwrap();
+        assert_eq!(hits.len(), 2);
+        // Both rows share the tactic name but have different fingerprints
+        let successes = hits.iter().filter(|h| h.succeeded).count();
+        assert_eq!(successes, 1);
+
+        let _ = std::fs::remove_file(&path);
     }
 }
