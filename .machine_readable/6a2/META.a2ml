@@ -20,18 +20,33 @@ status       = "accepted-temporary"
 title        = "Native MCP server (echidnabot-mcp) as documented BoJ-only-MCP exception"
 context      = """
 Estate policy (memory: feedback_boj_only_mcp) requires all MCP tools to route
-through the BoJ server. BoJ is currently unreachable on this workstation: its
-V-lang adapter was removed during the V-lang ban (2026-04-10) and the Zig
-replacement at boj-server/adapter/zig/src/ is empty. Package 7 needs MCP
-exposure so echidnabot is directly callable by AI assistants — waiting for the
-BoJ Zig rewrite would indefinitely block the double-loop actuation work.
+through the BoJ server. Two reinforcing reasons this bot currently cannot:
+
+  (a) Operational: the BoJ V-lang adapter was removed during the V-lang ban
+      (2026-04-10) and the Zig replacement at boj-server/adapter/zig/src/ is
+      empty. The BoJ server is therefore unreachable on this workstation.
+
+  (b) Protocol: BoJ's cartridge transport is async message-bus; echidnabot is
+      invoked synchronously by proof-operation agents (Sonnet executors,
+      Haiku scouts) that need call-and-response semantics, matching the
+      Bullshit Field double-loop design. BoJ does not yet provide that
+      transport.
+
+Package 7 needs MCP exposure so echidnabot is directly callable by AI
+assistants — waiting for both (a) and (b) to resolve would indefinitely block
+the double-loop actuation work.
 """
 decision     = """
 Ship a standalone binary `echidnabot-mcp` (src/bin/mcp_server.rs) implementing
 MCP JSON-RPC 2.0 over stdio with four tools: suggest_tactics,
-record_tactic_outcome, list_outcome_history, corpus_refresh. The BoJ-only rule
-remains canonical; this is a single-binary documented exception, not a policy
-revision.
+record_tactic_outcome, list_outcome_history, corpus_refresh. The BoJ-only
+rule remains canonical; this is a single-binary documented exception, not a
+policy revision.
+
+Exception block declared in AGENTIC.a2ml [exceptions.boj-only-mcp] with rule,
+status, decision-date, reason, scope, sunset-condition, sunset-action,
+upstream-tracking. Sunset is tied to BoJ supporting the double-loop feedback
+protocol (reason b); the operational reason (a) resolves along the way.
 """
 consequences = """
 Positive: Package 7 double-loop actuation unblocked; echidnabot directly
@@ -41,15 +56,26 @@ stays in the library crate, so it is reusable when the cartridge is restored.
 Negative: Second MCP surface to maintain until retirement; drift risk if the
 BoJ revival lags. Mitigated by: (a) retirement plan in
 docs/MCP-TEMPORARY-EXCEPTION.adoc; (b) project memory
-project_boj_mcp_temporary_exception.md; (c) no new standalone MCP servers
+feedback_boj_mcp_exception_echidnabot; (c) no new standalone MCP servers
 green-lit by this exception.
 """
 retirement   = """
-When the BoJ Zig adapter lands: port the four tool handlers into the existing
-boj-server/cartridges/echidna-llm-mcp/ cartridge, remove the [[bin]] entry
-from Cargo.toml, delete src/bin/mcp_server.rs, delete
-docs/MCP-TEMPORARY-EXCEPTION.adoc, and delete the project memory.
+Triggered by: BoJ cartridge supports the double-loop feedback protocol
+(tracked in boj-server STATE.a2ml, quarterly review).
+
+Steps: port the four tool handlers into the existing
+boj-server/cartridges/echidna-llm-mcp/ cartridge, verify parity against the
+current direct-callable surface, remove the [[bin]] entry from Cargo.toml,
+delete src/bin/mcp_server.rs, delete docs/MCP-TEMPORARY-EXCEPTION.adoc,
+delete the [exceptions.boj-only-mcp] block in AGENTIC.a2ml, update the
+memory file feedback_boj_mcp_exception_echidnabot to mark closed.
 """
+cross-refs   = [
+  "AGENTIC.a2ml [exceptions.boj-only-mcp]",
+  "docs/MCP-TEMPORARY-EXCEPTION.adoc",
+  "memory: feedback_boj_mcp_exception_echidnabot.md",
+  "memory: feedback_boj_only_mcp.md (canonical policy — unchanged)",
+]
 
 [development-practices]
 versioning = "SemVer"
