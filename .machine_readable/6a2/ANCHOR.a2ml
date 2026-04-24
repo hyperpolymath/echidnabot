@@ -1,0 +1,43 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+#
+# ⚓ ANCHOR: echidnabot
+# Canonical identity + recalibration anchor for the echidnabot gitbot-fleet
+# member. Echidnabot acts as the webhook-driven actuation layer between CI
+# events and the echidna proof engine.
+
+id      = "org.hyperpolymath.echidnabot"
+version = "1.0.0"
+clade   = "bot"
+status  = "active"
+
+# No SSG: echidnabot is a daemon/CLI, not a static site.
+# The bot's behaviour surface is webhook endpoints + GraphQL API,
+# not generated HTML.
+
+[relationships]
+# Primary upstream: the echidna proof engine this bot dispatches to.
+# Fleet: part of gitbot-fleet orchestration.
+parents = [
+  "org.hyperpolymath.echidna",
+  "org.hyperpolymath.gitbot-fleet",
+]
+
+# Bots echidnabot coordinates with in the fleet:
+siblings = [
+  "org.hyperpolymath.rhodibot",
+  "org.hyperpolymath.panicbot",
+  "org.hyperpolymath.sustainabot",
+]
+
+[recalibration]
+# When this anchor becomes stale, walk the following:
+# 1. Verify echidna API compatibility (src/dispatcher/echidna_client.rs)
+# 2. Check fleet integration (gitbot-shared-context version)
+# 3. Reconfirm BoJ-only-MCP exception still justified (AGENTIC.a2ml [exceptions.boj-only-mcp])
+# 4. Review webhook handler modes vs current fleet policy
+triggers = [
+  "echidna major version bump",
+  "gitbot-fleet protocol change",
+  "BoJ double-loop feedback protocol ship (sunsets MCP exception)",
+]
