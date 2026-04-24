@@ -127,7 +127,7 @@
                  "7b-2 DONE: history-weighted reranker, Laplace smoothing, global fallback (commit b6ef652)"
                  "7b-3 DONE-with-gap: CorpusDelta writer + trigger_refresh (commit 1e26340)"
                  "7b-4 PENDING: native MCP server bin (temporary BoJ exception)"
-                 "7b-5 PENDING: dogfood proofs committed to proofs/ exercising echidnabot.yml"
+                 "7b-5 DONE: dogfood proofs in proofs/coq/ + proofs/lean/ exercising echidnabot.yml"
                  "7b-6 PENDING: 6a2 sweep + project memory on BoJ MCP exception"))
           (known-gap ("7b-3 schema mismatch: CorpusDelta emits delta_YYYY-MM-DD.jsonl with "
                       "{timestamp, prover, goal_state, chosen_tactic, succeeded, duration_ms, source}. "
