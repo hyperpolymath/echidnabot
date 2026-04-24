@@ -1,13 +1,15 @@
 ## Machine-Readable Artefacts
 
-The following files in `.machine_readable/` contain structured project metadata:
+The following files in `.machine_readable/6a2/` contain structured project metadata
+(TOML-flavoured A2ML, migrated from Guile Scheme in `bdbc5a4`):
 
-- `STATE.scm` - Current project state and progress
-- `META.scm` - Architecture decisions and development practices
-- `ECOSYSTEM.scm` - Position in the ecosystem and related projects
-- `AGENTIC.scm` - AI agent interaction patterns
-- `NEUROSYM.scm` - Neurosymbolic integration config
-- `PLAYBOOK.scm` - Operational runbook
+- `STATE.a2ml` - Current project state and progress
+- `META.a2ml` - Architecture decisions and development practices
+- `ECOSYSTEM.a2ml` - Position in the ecosystem and related projects
+- `AGENTIC.a2ml` - AI agent interaction patterns (incl. `[exceptions.boj-only-mcp]`)
+- `NEUROSYM.a2ml` - Neurosymbolic integration config
+- `PLAYBOOK.a2ml` - Operational runbook
+- `ANCHOR.a2ml` - Canonical identity + recalibration triggers
 
 ---
 
@@ -28,7 +30,8 @@ The following files in `.machine_readable/` contain structured project metadata:
 | **Bash/POSIX Shell** | Scripts, automation | Keep minimal |
 | **JavaScript** | Only where ReScript cannot | MCP protocol glue, Deno APIs |
 | **Nickel** | Configuration language | For complex configs |
-| **Guile Scheme** | State/meta files | STATE.scm, META.scm, ECOSYSTEM.scm |
+| **Guile Scheme** | Guix packages | guix.scm, manifests/*.scm |
+| **A2ML (TOML)** | State/meta files | .machine_readable/6a2/*.a2ml |
 | **Julia** | Batch scripts, data processing | Per RSR |
 | **OCaml** | AffineScript compiler | Language-specific |
 | **Ada** | Safety-critical systems | Where required |
