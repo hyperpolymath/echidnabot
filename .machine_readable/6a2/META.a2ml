@@ -4,16 +4,52 @@
 # META.a2ml — Echidnabot meta-level information
 [metadata]
 version = "0.1.0"
-last-updated = "2026-04-11"
+last-updated = "2026-04-24"
 
 [project-info]
 license = "PMPL-1.0-or-later"
 author = "Jonathan D.A. Jewell (hyperpolymath)"
 
 [architecture-decisions]
-decisions = [
-  # No ADRs recorded
-]
+# ADRs listed chronologically. Use `status = "superseded"` when replacing.
+
+[[architecture-decisions.decision]]
+id           = "ADR-001"
+date         = "2026-04-24"
+status       = "accepted-temporary"
+title        = "Native MCP server (echidnabot-mcp) as documented BoJ-only-MCP exception"
+context      = """
+Estate policy (memory: feedback_boj_only_mcp) requires all MCP tools to route
+through the BoJ server. BoJ is currently unreachable on this workstation: its
+V-lang adapter was removed during the V-lang ban (2026-04-10) and the Zig
+replacement at boj-server/adapter/zig/src/ is empty. Package 7 needs MCP
+exposure so echidnabot is directly callable by AI assistants — waiting for the
+BoJ Zig rewrite would indefinitely block the double-loop actuation work.
+"""
+decision     = """
+Ship a standalone binary `echidnabot-mcp` (src/bin/mcp_server.rs) implementing
+MCP JSON-RPC 2.0 over stdio with four tools: suggest_tactics,
+record_tactic_outcome, list_outcome_history, corpus_refresh. The BoJ-only rule
+remains canonical; this is a single-binary documented exception, not a policy
+revision.
+"""
+consequences = """
+Positive: Package 7 double-loop actuation unblocked; echidnabot directly
+testable by Claude Desktop / Claude Code. Tool logic (Reranker, CorpusDelta)
+stays in the library crate, so it is reusable when the cartridge is restored.
+
+Negative: Second MCP surface to maintain until retirement; drift risk if the
+BoJ revival lags. Mitigated by: (a) retirement plan in
+docs/MCP-TEMPORARY-EXCEPTION.adoc; (b) project memory
+project_boj_mcp_temporary_exception.md; (c) no new standalone MCP servers
+green-lit by this exception.
+"""
+retirement   = """
+When the BoJ Zig adapter lands: port the four tool handlers into the existing
+boj-server/cartridges/echidna-llm-mcp/ cartridge, remove the [[bin]] entry
+from Cargo.toml, delete src/bin/mcp_server.rs, delete
+docs/MCP-TEMPORARY-EXCEPTION.adoc, and delete the project memory.
+"""
 
 [development-practices]
 versioning = "SemVer"

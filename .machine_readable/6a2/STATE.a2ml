@@ -4,35 +4,110 @@
 # STATE.a2ml — Echidnabot project state
 [metadata]
 project = "echidnabot"
-version = "0.0.1"
-last-updated = "2026-01-03"
+version = "0.1.0"
+last-updated = "2026-04-24"
 status = "active"
-session = "converted from scheme — 2026-04-11"
+session = "7b double-loop actuation (Opus side), scm→a2ml migrated 2026-04-11"
 
 [project-context]
 name = "Echidnabot"
-purpose = """"""
-completion-percentage = 0
+purpose = """
+Tier-1 Verifier bot in the gitbot-fleet. Bridges webhook events from
+GitHub/GitLab/Bitbucket to the ECHIDNA proof engine, schedules verification
+jobs with isolation, and reports findings back to the fleet. Exposes
+double-loop feedback: reranks ECHIDNA's ML suggestions by local tactic
+history, feeds successful proofs into echidna's retrain corpus.
+"""
+completion-percentage = 80
 
 [position]
-phase = "initial"   # design | implementation | testing | maintenance | archived
-maturity = "experimental"  # experimental | alpha | beta | production | lts
+phase = "implementation"
+maturity = "beta"
 
 [route-to-mvp]
 milestones = [
-  # No milestones recorded
+  "7a: Sonnet — wire bot modes (Advisor/Consultant/Regulator) into webhook handlers + container executor",
+  "7b: Opus — double-loop actuation (this session)",
+  "integration: 7a + 7b seam test via dogfood proofs/",
 ]
 
 [blockers-and-issues]
 issues = [
-  # No blockers recorded
+  "7b-3 schema gap: CorpusDelta emits delta_YYYY-MM-DD.jsonl; echidna merge_corpus.jl expects proof_states_*.jsonl in a hardcoded whitelist. Successful deltas not yet auto-ingested. Coordination ticket with Session A.",
+  "BoJ server unreachable on this workstation (V adapter removed, Zig rewrite empty). Native MCP shipped as temporary documented exception — see ADR-001 in META.a2ml.",
 ]
+
+[known-drift]
+# Standing structural issues that are not bugs but need eventual cleanup.
+# Each entry MUST name the drift, its blast radius, and its resolution path.
+
+[[known-drift.entry]]
+id             = "DRIFT-001"
+name           = "dual-truth monorepo + standalone"
+description    = """
+echidnabot is registered in the parent echidna repo's .gitmodules but its
+contents are checked in as regular files (not a live submodule). This creates
+two sources of truth: changes to .machine_readable/, src/, etc. must land in
+both this standalone repo and the monorepo copy at
+echidna/echidnabot/ — otherwise the two diverge silently.
+
+Pattern catalogued in memory: project_gitbot_fleet_dual_truth_pattern.md.
+"""
+blast-radius   = "all edits to .machine_readable/, src/, docs/ must be mirrored"
+detection      = "git diff against monorepo copy; CI could be added to fail on divergence"
+resolution     = "either (a) promote to real submodule with .gitmodules resolving, or (b) delete the .gitmodules entry and treat as pure monorepo subdir. Pick one, not both."
+status         = "acknowledged, no scheduled fix"
+discovered     = "2026-04-24 (by parallel Claude session during Package 7 sweep)"
 
 [critical-next-actions]
 actions = [
-  # No actions recorded
+  "7a mode wiring (Sonnet): process_job pipeline + Advisor/Consultant PR comments + Regulator merge-block",
+  "Session A + 7b-3 schema bridge: either (a) echidnabot emits echidna-schema rows for successes, or (b) merge_corpus.jl learns to consume delta files",
+  "Close BoJ Zig adapter so echidnabot-mcp can be folded into a BoJ cartridge and retired",
 ]
 
 [maintenance-status]
-last-run-utc = "2026-01-03T00:00:00Z"
-last-result = "unknown"  # unknown | pass | warn | fail
+last-run-utc = "2026-04-24T18:00:00Z"
+last-result = "pass"  # 119/119 lib tests + 6/6 echidnabot-mcp tests
+
+[components.double-loop-feedback]
+status = "mostly-done"
+completion = 80
+notes = "7b-1..5 DONE, 7b-6 in progress, schema-gap carve-out in (blockers-and-issues)"
+
+[[components.double-loop-feedback.subtask]]
+id      = "7b-1"
+title   = "tactic_outcome table + fingerprint helper"
+status  = "done"
+commit  = "0cc4b4a"
+
+[[components.double-loop-feedback.subtask]]
+id      = "7b-2"
+title   = "history-weighted reranker (Laplace-smoothed)"
+status  = "done"
+commit  = "b6ef652"
+
+[[components.double-loop-feedback.subtask]]
+id      = "7b-3"
+title   = "CorpusDelta writer + trigger_refresh"
+status  = "done-with-gap"
+commit  = "1e26340"
+gap     = "Schema mismatch with echidna merge_corpus.jl — see issues list"
+
+[[components.double-loop-feedback.subtask]]
+id      = "7b-4"
+title   = "native echidnabot-mcp binary (temporary BoJ exception)"
+status  = "done"
+commit  = "b01cc07"  # landed as part of the EXPLAINME commit scoop
+adr     = "ADR-001"
+
+[[components.double-loop-feedback.subtask]]
+id      = "7b-5"
+title   = "dogfood proofs (2 Coq + 2 Lean) under proofs/"
+status  = "done"
+commit  = "ec25aae"
+
+[[components.double-loop-feedback.subtask]]
+id      = "7b-6"
+title   = "6a2 sweep + project memory for BoJ exception"
+status  = "in-progress"
