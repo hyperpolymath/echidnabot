@@ -1,0 +1,113 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+= echidnabot — Show Me The Receipts
+:toc:
+:icons: font
+
+The README makes claims. This file backs them up with evidence, with
+caveats where evidence is partial.
+
+== Key Claims From README
+
+[quote, README "Current Status (v0.1.0)"]
+____
+Overall completion: ~90% — Core infrastructure, platform adapters,
+ECHIDNA integration, container isolation, bot modes, retry/circuit
+breaker, and trust bridge are implemented. 129 automated tests across
+unit and integration suites.
+____
+
+*Evidence — test count*: `cargo test --lib` reports 119 unit tests + 14
+new feedback-loop tests (Package 7b-1 landed 2026-04-24) = 133 passing.
+The 129 figure in README is slightly stale — the 7b-1 / 7b-2 / 7b-3
+commits (`0cc4b4a`, `b6ef652`, `1e26340`) added the feedback tests
+above what README was written against.
+
+*Evidence — "90% complete"*: the claim aggregates across components
+with uneven depth. Platform adapters + webhook signature verification
++ SQLite/Postgres persistence are concretely implemented (see
+`src/platform/`, `src/store/`). Container isolation (`src/executor/container.rs`)
+was previously empty and is in active development on Session B's
+branch. The 90% figure overstates the bot-modes dimension — see next
+claim.
+
+[quote, README "Bot Modes"]
+____
+Four bot modes: Verifier (block on failure), Advisor (comment only),
+Consultant (on-demand), Regulator (coverage thresholds).
+____
+
+*Evidence*: the `BotMode` enum is defined with all four variants
+(`src/modes/mod.rs`). Only **Verifier** is actively wired into the
+webhook handlers. Advisor / Consultant / Regulator are defined but
+their webhook-handler dispatch paths were not implemented at last
+audit — they are selectable via config but do not change behaviour.
+Session B's `SONNET-TASKS.md` Task 2 is the remaining wiring work.
+
+*Caveat*: do not rely on mode selection for production gating until
+Task 2 ships. Set `mode = "verifier"` in `.bot_directives/echidnabot.a2ml`
+to match actual behaviour.
+
+[quote, README "ECHIDNA Integration"]
+____
+12-prover enumeration with tier classification, job dispatch, result
+parsing, prover health checking.
+____
+
+*Evidence*: `src/dispatcher/echidna_client.rs` implements HTTP client
+against ECHIDNA's REST + GraphQL APIs. The enum covers 12 provers.
+
+*Caveat — upstream drift*: the upstream echidna engine supports **105
+prover backends** (see echidna's `src/rust/provers/mod.rs::ProverKind`,
+113 variants after `c8c0acf` added 8 more). Echidnabot sees only 12 of
+these. Consumers who need the full surface today should go through the
+BoJ-only-MCP cartridge at `boj-server/cartridges/echidna-llm-mcp`,
+which exposes all 105. Drift tracked in `docs/handover/` and in the
+upstream-tracking field of AGENTIC.a2ml's [exceptions.boj-only-mcp]
+block.
+
+[quote, README "The Solution" diagram]
+____
+Check Runs / Comments ← echidnabot ← webhook (push/PR)
+____
+
+*Evidence*: `.github/workflows/echidnabot.yml` triggers on proof-file
+changes across 7 extensions (`*.v`, `*.lean`, `*.agda`, `*.lagda*`,
+`*.smt2`, `*.mm`, `*.thy`). PR comments via `octocrab` GitHub adapter.
+
+*Caveat — dogfood proofs missing*: echidnabot's own `proofs/` directory
+is currently empty, so the dogfood CI path exists but is unexercised
+against real proof files. Session B's 7b-5 (dogfood proofs Coq/Lean) is
+the fix.
+
+== What Exists But Is Not Yet In README
+
+=== Double-loop learning (Package 7b, landed 2026-04-24)
+
+- `TacticOutcomeRecord` table + CRUD (`src/store/models.rs`, `src/store/sqlite.rs`)
+- History-weighted tactic reranker (`0cc4b4a`, `b6ef652`, `1e26340`)
+- Corpus-update writer emitting both `delta_*.jsonl` (audit) and
+  `proof_states_echidnabot_*.jsonl` (echidna ingest schema)
+
+=== BoJ-only-MCP exception
+
+A documented carve-out from the estate-wide "all MCP through BoJ" rule.
+See `.machine_readable/6a2/AGENTIC.a2ml` `[exceptions.boj-only-mcp]`.
+Scope: this repo only. Sunset: when BoJ cartridge supports the
+double-loop feedback protocol.
+
+=== Dual-truth: monorepo + standalone
+
+echidnabot is registered in the parent `echidna` repo's `.gitmodules`
+but checked in as regular files (dual-truth pattern, see
+`project_gitbot_fleet_dual_truth_pattern` memory). Changes to
+`.machine_readable/` must land in both the standalone repo (this one)
+and the monorepo copy at `echidna/echidnabot/`. Proper fix (promote to
+real submodule, or delete the `.gitmodules` entry) is tracked in
+STATE.a2ml's known-drift section.
+
+== What The README Doesn't Claim
+
+Echidnabot does *not* itself verify proofs — it dispatches to echidna
+and reports back. Proof correctness is echidna's responsibility. If
+echidna's `/api/verify` is down or misconfigured, echidnabot will
+report "unavailable", never "verified".
