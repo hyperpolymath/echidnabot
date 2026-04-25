@@ -1,11 +1,42 @@
 # SPDX-License-Identifier: PMPL-1.0-or-later
-# Bot directive — migrated from SCM on 2026-04-17
+# Bot directive — migrated from SCM on 2026-04-17, extended for mode
+# resolver on 2026-04-25.
 # Media-Type: application/vnd.bot-directive+a2ml
 
 schema_version = "1.0"
 directive_type = "bot-directive"
-bot = "echidnabot"
+target_bot = "echidnabot"  # was `bot = "..."` pre-2026-04-25; renamed so the
+                           # `[bot]` table below isn't shadowed by a top-level
+                           # field of the same name.
 scope = "formal verification, fuzzing, proof checking"
 allow = ["self-analysis", "proof validation", "fuzzing", "solver integrity checks"]
 deny = ["self-modification without approval"]
 notes = "Self-scan for proof correctness; code changes require explicit approval"
+
+# ─── Mode resolver block (read by echidnabot/src/modes/directives.rs) ────────
+[bot]
+# Self-mode: Advisor.
+#
+# Reasoning: echidnabot dogfoods on its own dogfood-proofs, which include
+# DELIBERATELY FAILING fixtures (proofs/coq/admitted_stub.v + proofs/lean/
+# sorry_stub.lean from commit ec25aae) used to exercise the failure path
+# of the bot's own CI. Regulator mode would block our own merges every
+# time the dogfood proofs ran. Advisor surfaces the failures + suggestions
+# without gating; Verifier would lose the suggestions.
+mode = "advisor"
+
+[bot.notes]
+on-future-real-proofs = """
+The intentional-failure dogfood fixtures live alongside any future real
+proofs. If those land, we should split:
+  - this directive = advisor (dogfood)
+  - a real-proof subdirectory with its own bot_directives/echidnabot.a2ml
+    set to mode = regulator
+or use a Regulator-mode "exclude" pattern keyed off the *_stub.{v,lean}
+filename suffix.
+"""
+on-boj-revival = """
+When the BoJ-only-MCP exception sunsets (per AGENTIC.a2ml
+[exceptions.boj-only-mcp]), echidnabot-mcp folds into BoJ. This
+directive's behaviour is unaffected — only the transport changes.
+"""
