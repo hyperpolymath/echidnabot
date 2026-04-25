@@ -24,6 +24,131 @@ completion-percentage = 80
 phase = "implementation"
 maturity = "beta"
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# CRG (Critical Reception Grade) advancement — D→C→B
+# Per memory rule: B-grade requires [external-targets]≥6, [issues-fed-back],
+# [field-signal] populated.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+[external-targets]
+[[external-targets.target]]
+name = "gitbot-fleet"
+relationship = "fleet-member"
+contract = "Tier-1 Verifier per fleet topology; coordinates with rhodibot/panicbot/sustainabot via shared-context"
+discovered = "ECOSYSTEM.a2ml + bot directives in target repos"
+
+[[external-targets.target]]
+name = "echidna (upstream proof engine)"
+relationship = "consumer-of"
+contract = "REST/GraphQL via dispatcher/echidna_client.rs; 12 of 113 ProverKind variants currently surfaced"
+discovered = "src/dispatcher/echidna_client.rs"
+
+[[external-targets.target]]
+name = "AI assistants (Claude Desktop / Claude Code)"
+relationship = "consumer-via-mcp"
+contract = "JSON-RPC over stdio via echidnabot-mcp bin (4 tools: suggest_tactics, record_tactic_outcome, list_outcome_history, corpus_refresh)"
+discovered = "Package 7b-4 — temporary BoJ-only-MCP exception (ADR-001)"
+
+[[external-targets.target]]
+name = "GitHub / GitLab / Bitbucket"
+relationship = "webhook-source"
+contract = "PlatformAdapter trait per platform; HMAC-SHA256 signature verification when webhook_secret configured"
+discovered = "src/adapters/{github,gitlab,bitbucket}.rs"
+
+[[external-targets.target]]
+name = "boj-server / cartridges / echidna-llm-mcp"
+relationship = "future-absorption"
+contract = "When BoJ loader supports double-loop feedback protocol, echidnabot-mcp folds into the BoJ cartridge per ADR-001 sunset clause"
+discovered = "AGENTIC.a2ml [exceptions.boj-only-mcp]"
+
+[[external-targets.target]]
+name = "hypatia (estate-wide neurosym CI)"
+relationship = "sibling-consumer"
+contract = "Hypatia scanning workflow consumes echidnabot fleet status as part of CI signals"
+discovered = ".github/workflows/hypatia-scan.yml"
+
+[[external-targets.target]]
+name = "proof-bearing repos (registered)"
+relationship = "monitored-targets"
+contract = "Repos that `register` with echidnabot become subjects of webhook-driven proof verification; per-repo provers/modes stored in `repositories` table"
+discovered = "src/main.rs `register` subcommand + repositories schema"
+
+[issues-fed-back]
+[[issues-fed-back.issue]]
+source = "SONNET-TASKS.md Task 1"
+date = "2026-04 (pre-session)"
+issue = "src/executor/container.rs is empty — proofs ran without isolation, malicious proof could execute arbitrary code"
+status = "open — Sonnet's territory; tracked in SONNET-TASKS.md"
+
+[[issues-fed-back.issue]]
+source = "SONNET-TASKS.md Task 2 + EXPLAINME.adoc caveat"
+date = "2026-04-24"
+issue = "Bot modes Advisor/Consultant/Regulator defined but not wired into webhook handlers; only Verifier path executes"
+status = "open — full bot-mode pipeline (PR comments, check runs, merge gate) not connected; result_formatter.rs built but never called"
+
+[[issues-fed-back.issue]]
+source = "echidnabot-mcp 7b-3 schema gap"
+date = "2026-04-24"
+issue = "CorpusDelta delta_*.jsonl format didn't match merge_corpus.jl PER_PROVER_FILES expectations"
+status = "resolved upstream — echidna commit d16347d added glob ingest"
+
+[[issues-fed-back.issue]]
+source = "e2e test 2026-04-24 — webhook_secret unset"
+date = "2026-04-24"
+issue = "Empty-body POST to /webhooks/github returned 200 without signature verification when no webhook_secret configured"
+status = "resolved — startup warning added in commit fa692dd"
+
+[[issues-fed-back.issue]]
+source = "e2e test 2026-04-24 — serve subcommand TOML override"
+date = "2026-04-24"
+issue = "`serve` subcommand had hardcoded clap defaults that silently overrode TOML [server] section"
+status = "resolved — flags now Option-typed, fall back to config in commit e018ce8"
+
+[[issues-fed-back.issue]]
+source = "DRIFT-001 dual-truth pattern"
+date = "2026-04-24"
+issue = "echidnabot tracked twice: as files in echidna parent + standalone repo. Edits diverged silently."
+status = "resolved — echidna commit 9218f77 deleted the embedded copy; standalone canonical"
+
+[field-signal]
+[[field-signal.signal]]
+source = "cargo test --lib + --bin echidnabot-mcp"
+metric = "test pass rate"
+value = "119/119 lib + 6/6 mcp = 125 green"
+collected = "2026-04-25 (post-reqwest 0.12 port 7f403e0)"
+
+[[field-signal.signal]]
+source = "Dependabot scanner"
+metric = "open vulnerability count"
+value = "0 open / 9 fixed (post 1ff7647 + 7f403e0)"
+collected = "2026-04-25"
+
+[[field-signal.signal]]
+source = "e2e test 2026-04-24 (5:42 uptime, 18 jobs dispatched)"
+metric = "process stability"
+value = "RSS 30.9 MB stable (no leak); zero crashes; zero panics; no .unwrap() failures despite 100 sites"
+collected = "2026-04-24 e2e simulation"
+
+[[field-signal.signal]]
+source = "e2e test 2026-04-24 — webhook intake"
+metric = "successful intake under load"
+value = "9/9 webhooks accepted with HTTP 200 (1 init + 8 loop), all enqueued + processed"
+collected = "2026-04-24 e2e simulation"
+
+[[field-signal.signal]]
+source = "e2e test 2026-04-24 — graceful degradation"
+metric = "ECHIDNA-unavailable handling"
+value = "All 18 jobs correctly marked Failed with consistent error; no cascading failures; fleet skipped without exception"
+collected = "2026-04-24 e2e simulation"
+
+[[field-signal.signal]]
+source = "BoJ V-lang adapter status"
+metric = "MCP cartridge fallback dependency"
+value = "BoJ V-lang adapter removed (V-lang ban 2026-04-10); Zig replacement empty source dir; native echidnabot-mcp shipped as documented exception until BoJ re-enabled"
+collected = "ADR-001 in META.a2ml"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+
 [route-to-mvp]
 milestones = [
   "7a: Sonnet — wire bot modes (Advisor/Consultant/Regulator) into webhook handlers + container executor",
