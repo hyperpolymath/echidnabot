@@ -43,13 +43,15 @@ struct Cli {
 enum Commands {
     /// Start the webhook server
     Serve {
-        /// Host to bind to
-        #[arg(short = 'H', long, default_value = "0.0.0.0")]
-        host: String,
+        /// Host to bind to. If omitted, reads `[server].host` from the TOML
+        /// config (which itself defaults to `0.0.0.0` if unset there).
+        #[arg(short = 'H', long)]
+        host: Option<String>,
 
-        /// Port to bind to
-        #[arg(short, long, default_value = "8080")]
-        port: u16,
+        /// Port to bind to. If omitted, reads `[server].port` from the TOML
+        /// config (which itself defaults to `8080` if unset there).
+        #[arg(short, long)]
+        port: Option<u16>,
     },
 
     /// Register a repository for monitoring
@@ -109,6 +111,9 @@ async fn main() -> Result<()> {
 
     match cli.command {
         Commands::Serve { host, port } => {
+            // CLI flag wins; otherwise honour the TOML [server] section.
+            let host = host.unwrap_or_else(|| config.server.host.clone());
+            let port = port.unwrap_or(config.server.port);
             tracing::info!("Starting echidnabot server on {}:{}", host, port);
             serve(&config, &host, port).await
         }
