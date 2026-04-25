@@ -132,6 +132,8 @@ fn test_proof_result_parsing() {
         prover_output: "Proof complete.".to_string(),
         duration_ms: 1234,
         artifacts: vec!["proof.cert".to_string()],
+        confidence: None,
+        axioms: None,
     };
 
     assert_eq!(result.status, ProofStatus::Verified);
@@ -198,6 +200,8 @@ fn test_result_formatter_truncates_long_output() {
         prover_output: long_output,
         duration_ms: 100,
         artifacts: vec![],
+        confidence: None,
+        axioms: None,
     };
 
     let formatted = format_proof_result(BotMode::Advisor, &proof_result, ProverKind::Coq, vec![]);
@@ -291,6 +295,8 @@ fn test_job_complete_success() {
         duration_ms: 50,
         verified_files: vec!["test.smt2".to_string()],
         failed_files: vec![],
+        confidence: None,
+        axioms: None,
     };
 
     job.complete(result);
@@ -316,6 +322,8 @@ fn test_job_complete_failure() {
         duration_ms: 200,
         verified_files: vec![],
         failed_files: vec!["test.lean".to_string()],
+        confidence: None,
+        axioms: None,
     };
 
     job.complete(result);
@@ -386,6 +394,8 @@ fn test_proof_result_record() {
         duration_ms: 500,
         verified_files: vec!["a.mm".to_string(), "b.mm".to_string()],
         failed_files: vec![],
+        confidence: None,
+        axioms: None,
     };
 
     let record = ProofResultRecord::new(job_id, &result);
@@ -480,6 +490,8 @@ async fn test_scheduler_enqueue_dequeue_cycle() {
         duration_ms: 100,
         verified_files: vec!["theorem.v".to_string()],
         failed_files: vec![],
+        confidence: None,
+        axioms: None,
     };
 
     scheduler.complete_job(job_id, result).await;

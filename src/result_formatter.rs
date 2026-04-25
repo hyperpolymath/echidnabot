@@ -143,6 +143,8 @@ mod tests {
             prover_output: "All goals discharged successfully".to_string(),
             duration_ms: 150,
             artifacts: vec![],
+            confidence: None,
+            axioms: None,
         }
     }
 
@@ -153,6 +155,8 @@ mod tests {
             prover_output: "Error: Goal not discharged at line 42".to_string(),
             duration_ms: 80,
             artifacts: vec![],
+            confidence: None,
+            axioms: None,
         }
     }
 

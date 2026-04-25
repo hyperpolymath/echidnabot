@@ -9,6 +9,10 @@ use std::time::Duration;
 use super::{ProofResult, ProofStatus, ProverKind, TacticSuggestion};
 use crate::config::{EchidnaApiMode, EchidnaConfig};
 use crate::error::{Error, Result};
+use crate::trust::{
+    axiom_tracker::AxiomTracker,
+    confidence::assess_confidence,
+};
 use tracing::warn;
 
 /// Client for ECHIDNA Core GraphQL API
@@ -164,12 +168,25 @@ impl EchidnaClient {
             .data
             .ok_or_else(|| Error::Echidna("No data in response".to_string()))?;
 
+        let status = parse_proof_status(&data.verify_proof.status);
+        let prover_output = data.verify_proof.prover_output;
+        let artifacts = data.verify_proof.artifacts;
+        let has_cert = artifacts.iter().any(|a| {
+            a.ends_with(".alethe")
+                || a.ends_with(".lrat")
+                || a.ends_with(".drat")
+                || a.ends_with(".tstp")
+        });
+        let axioms = AxiomTracker::scan(prover, &prover_output);
+        let confidence = assess_confidence(prover, status, has_cert, 1);
         Ok(ProofResult {
-            status: parse_proof_status(&data.verify_proof.status),
+            status,
             message: data.verify_proof.message,
-            prover_output: data.verify_proof.prover_output,
+            prover_output,
             duration_ms: data.verify_proof.duration_ms,
-            artifacts: data.verify_proof.artifacts,
+            artifacts,
+            confidence: Some(confidence),
+            axioms: Some(axioms),
         })
     }
 
@@ -319,20 +336,23 @@ impl EchidnaClient {
         }
 
         let data: RestVerifyResponse = response.json().await.map_err(Error::Http)?;
+        let status = if data.valid { ProofStatus::Verified } else { ProofStatus::Failed };
+        // REST endpoint returns no raw output; axiom scan over empty string = clean.
+        let prover_output = String::new();
+        let axioms = AxiomTracker::scan(prover, &prover_output);
+        let confidence = assess_confidence(prover, status, false, 1);
         Ok(ProofResult {
-            status: if data.valid {
-                ProofStatus::Verified
-            } else {
-                ProofStatus::Failed
-            },
+            status,
             message: if data.valid {
                 "Proof verified successfully".to_string()
             } else {
                 "Proof verification failed".to_string()
             },
-            prover_output: String::new(),
+            prover_output,
             duration_ms: 0,
             artifacts: Vec::new(),
+            confidence: Some(confidence),
+            axioms: Some(axioms),
         })
     }
 

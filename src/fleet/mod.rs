@@ -203,6 +203,8 @@ mod tests {
             duration_ms: 1234,
             verified_files: vec!["test.v".to_string()],
             failed_files: vec![],
+            confidence: None,
+            axioms: None,
         };
 
         coordinator.publish_finding(&job, &result).unwrap();
@@ -241,6 +243,8 @@ mod tests {
             duration_ms: 567,
             verified_files: vec![],
             failed_files: vec!["test.lean".to_string()],
+            confidence: None,
+            axioms: None,
         };
 
         coordinator.publish_finding(&job, &result).unwrap();
@@ -278,6 +282,8 @@ mod tests {
             duration_ms: 100,
             verified_files: vec!["test.smt2".to_string()],
             failed_files: vec![],
+            confidence: None,
+            axioms: None,
         };
 
         // Should not error when not connected

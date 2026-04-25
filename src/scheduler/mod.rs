@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::dispatcher::ProverKind;
+use crate::trust::{axiom_tracker::AxiomReport, confidence::ConfidenceReport};
 
 /// Unique job identifier
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -152,7 +153,7 @@ pub enum JobPriority {
     Critical = 3, // Manual triggers
 }
 
-/// Result of a completed job
+/// Result of a completed job, including trust-bridge data propagated from ECHIDNA.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JobResult {
     pub success: bool,
@@ -161,4 +162,10 @@ pub struct JobResult {
     pub duration_ms: u64,
     pub verified_files: Vec<String>,
     pub failed_files: Vec<String>,
+    /// Confidence level assessed over the aggregated prover output.
+    #[serde(default)]
+    pub confidence: Option<ConfidenceReport>,
+    /// Axiom usage flags found in the aggregated prover output.
+    #[serde(default)]
+    pub axioms: Option<AxiomReport>,
 }

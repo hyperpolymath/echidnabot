@@ -544,6 +544,8 @@ async fn run_scheduler_loop(
                         duration_ms: 0,
                         verified_files: vec![],
                         failed_files: vec![],
+                        confidence: None,
+                        axioms: None,
                     }
                 }
             };
@@ -632,6 +634,8 @@ async fn report_to_platform(
         prover_output: job_result.prover_output.clone(),
         duration_ms: job_result.duration_ms as u64,
         artifacts: vec![],
+        confidence: job_result.confidence.clone(),
+        axioms: job_result.axioms.clone(),
     };
 
     // Tactic suggestions for Advisor / Consultant / Regulator. Verifier
@@ -912,6 +916,8 @@ async fn process_job(
             duration_ms: start.elapsed().as_millis() as u64,
             verified_files: vec![],
             failed_files: vec![],
+            confidence: None,
+            axioms: None,
         });
     }
 
@@ -1013,6 +1019,13 @@ async fn process_job(
         format!("Failed {} file(s)", failed.len())
     };
 
+    let final_status = if success {
+        echidnabot::dispatcher::ProofStatus::Verified
+    } else {
+        echidnabot::dispatcher::ProofStatus::Failed
+    };
+    let axioms = echidnabot::trust::axiom_tracker::AxiomTracker::scan(job.prover, &prover_output);
+    let confidence = echidnabot::trust::confidence::assess_confidence(job.prover, final_status, false, 1);
     Ok(echidnabot::scheduler::JobResult {
         success,
         message,
@@ -1020,6 +1033,8 @@ async fn process_job(
         duration_ms: start.elapsed().as_millis() as u64,
         verified_files: verified,
         failed_files: failed,
+        confidence: Some(confidence),
+        axioms: Some(axioms),
     })
 }
 

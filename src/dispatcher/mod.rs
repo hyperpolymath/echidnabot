@@ -8,7 +8,9 @@ pub use echidna_client::EchidnaClient;
 
 use serde::{Deserialize, Serialize};
 
-/// Proof verification result from ECHIDNA
+use crate::trust::{axiom_tracker::AxiomReport, confidence::ConfidenceReport};
+
+/// Proof verification result from ECHIDNA, enriched with trust-bridge data.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProofResult {
     pub status: ProofStatus,
@@ -16,6 +18,14 @@ pub struct ProofResult {
     pub prover_output: String,
     pub duration_ms: u64,
     pub artifacts: Vec<String>,
+    /// Trust confidence level assessed from prover kind and certificate presence.
+    /// None when the result was synthesised without calling ECHIDNA (e.g. error
+    /// fall-through or REST path with no output).
+    #[serde(default)]
+    pub confidence: Option<ConfidenceReport>,
+    /// Axiom usage flags scanned from prover output.
+    #[serde(default)]
+    pub axioms: Option<AxiomReport>,
 }
 
 /// Proof verification status
