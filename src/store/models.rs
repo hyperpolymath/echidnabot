@@ -32,6 +32,18 @@ pub struct Repository {
     /// directive overrides this when present). See `modes::resolve_mode`.
     #[serde(default)]
     pub mode: BotMode,
+    /// Regulator-mode coverage threshold (percent, 0..=100).
+    /// A commit's check run is marked Failure (= branch protection blocks
+    /// merge) only when proven_count * 100 / total_count < this threshold.
+    /// 100 means "every proof must pass" (the simplest Regulator); lower
+    /// values tolerate flake during incremental coverage growth. Ignored
+    /// for non-Regulator modes.
+    #[serde(default = "default_regulator_threshold")]
+    pub regulator_coverage_threshold: u8,
+}
+
+fn default_regulator_threshold() -> u8 {
+    100
 }
 
 impl Repository {
@@ -52,6 +64,7 @@ impl Repository {
             created_at: now,
             updated_at: now,
             mode: BotMode::default(), // Verifier
+            regulator_coverage_threshold: default_regulator_threshold(),
         }
     }
 

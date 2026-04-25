@@ -16,6 +16,28 @@ use crate::error::Result;
 use crate::scheduler::JobId;
 use models::{Repository, ProofJobRecord, ProofResultRecord, TacticOutcomeRecord};
 
+/// Per-commit coverage view — total proof attempts vs successful ones.
+/// Empty results means no jobs run yet for that commit.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CommitCoverage {
+    pub total: u64,
+    pub proven: u64,
+}
+
+impl CommitCoverage {
+    /// Coverage as a 0–100 percentage. Returns 100 for the empty case
+    /// (no jobs run) so threshold checks default to "passing" before any
+    /// proof has been attempted; the check run won't post until at least
+    /// one job has finalized anyway, so this is a no-op corner.
+    pub fn percent(&self) -> u8 {
+        if self.total == 0 {
+            100
+        } else {
+            ((self.proven * 100) / self.total).min(100) as u8
+        }
+    }
+}
+
 /// Abstract store trait for different database backends
 #[async_trait]
 pub trait Store: Send + Sync {
@@ -42,6 +64,15 @@ pub trait Store: Send + Sync {
     // Result operations
     async fn save_result(&self, result: &ProofResultRecord) -> Result<()>;
     async fn get_result_for_job(&self, job_id: JobId) -> Result<Option<ProofResultRecord>>;
+
+    /// Coverage for the (repo_id, commit_sha) tuple — counts of total
+    /// and successful proof_jobs at that commit. Used by Regulator mode
+    /// to decide whether the threshold is met before blocking a merge.
+    async fn commit_coverage(
+        &self,
+        repo_id: Uuid,
+        commit_sha: &str,
+    ) -> Result<CommitCoverage>;
 
     // Tactic-outcome operations (double-loop feedback, Package 7b)
     async fn record_tactic_outcome(&self, outcome: &TacticOutcomeRecord) -> Result<()>;

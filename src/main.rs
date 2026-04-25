@@ -80,6 +80,14 @@ enum Commands {
         /// One of: `verifier`, `advisor`, `consultant`, `regulator`.
         #[arg(short, long, default_value = "verifier")]
         mode: String,
+
+        /// Regulator-mode coverage threshold (percent, 0..=100). The
+        /// merge gate releases when proven_count * 100 / total_count >=
+        /// this value. 100 = "every proof must pass" (strictest);
+        /// lower values tolerate flake during incremental coverage growth.
+        /// Ignored for non-Regulator modes. Default: 100.
+        #[arg(long, default_value = "100", value_parser = clap::value_parser!(u8))]
+        regulator_threshold: u8,
     },
 
     /// Manually trigger a proof check
@@ -135,15 +143,25 @@ async fn main() -> Result<()> {
             platform,
             provers,
             mode,
+            regulator_threshold,
         } => {
             tracing::info!(
-                "Registering {} on {} with provers: {} (mode: {})",
+                "Registering {} on {} with provers: {} (mode: {}, regulator_threshold: {})",
                 repo,
                 platform,
                 provers,
                 mode,
+                regulator_threshold,
             );
-            register(&config, &repo, &platform, &provers, &mode).await
+            register(
+                &config,
+                &repo,
+                &platform,
+                &provers,
+                &mode,
+                regulator_threshold,
+            )
+            .await
         }
         Commands::Check {
             repo,
@@ -289,6 +307,7 @@ async fn register(
     platform: &str,
     provers: &str,
     mode: &str,
+    regulator_threshold: u8,
 ) -> Result<()> {
     let store = SqliteStore::new(&config.database.url).await?;
     let platform = parse_platform(platform)?;
@@ -309,12 +328,17 @@ async fn register(
             ))
         })?;
 
+    // Clamp threshold to 0..=100 (clap's u8 parser already enforces u8
+    // bounds, but we don't want 200% to silently become valid here).
+    repo_record.regulator_coverage_threshold = regulator_threshold.min(100);
+
     store.create_repository(&repo_record).await?;
     tracing::info!(
-        "Registered repository {} on {:?} in {} mode",
+        "Registered repository {} on {:?} in {} mode (regulator threshold {}%)",
         repo_record.full_name(),
         repo_record.platform,
         repo_record.mode,
+        repo_record.regulator_coverage_threshold,
     );
     Ok(())
 }
@@ -597,24 +621,65 @@ async fn report_to_platform(
         name: repo.name.clone(),
     };
 
+    // For Regulator mode, compute per-commit coverage now so the
+    // threshold check (Bit 5b) can override the simple block-on-any-failure
+    // path. Coverage is a running tally — each job that finalizes sees the
+    // most recent counts, including its own contribution if save_result
+    // already ran (it did, in finalize_job above).
+    let coverage_for_regulator = if matches!(mode, BotMode::Regulator) {
+        store.commit_coverage(repo.id, &job.commit_sha).await.ok()
+    } else {
+        None
+    };
+
     let conclusion = match formatted.check_status {
         echidnabot::modes::CheckStatus::Success => CheckConclusion::Success,
         echidnabot::modes::CheckStatus::Failure => match mode {
-            // Regulator wants a hard 'failure' so branch protection
-            // gates the merge. Other modes use 'neutral' to advise
-            // without blocking.
-            BotMode::Regulator => CheckConclusion::Failure,
+            BotMode::Regulator => {
+                // Block merge only when overall coverage is below the
+                // configured threshold; tolerate single-job flake when
+                // the rest of the commit is solid.
+                if let Some(c) = coverage_for_regulator {
+                    if c.percent() >= repo.regulator_coverage_threshold {
+                        CheckConclusion::Neutral
+                    } else {
+                        CheckConclusion::Failure
+                    }
+                } else {
+                    // Couldn't compute coverage — fall back to strict
+                    // block-on-any-failure to be safe.
+                    CheckConclusion::Failure
+                }
+            }
             _ => CheckConclusion::Neutral,
         },
         echidnabot::modes::CheckStatus::Neutral => CheckConclusion::Neutral,
     };
+
+    // Augment the per-mode summary with coverage detail for Regulator,
+    // so the GitHub Checks UI shows the threshold context inline.
+    let mut summary = result_formatter::check_run_summary(&formatted, mode);
+    if let Some(c) = coverage_for_regulator {
+        summary.push_str(&format!(
+            "\n\nCoverage: **{}/{}** ({}%) vs threshold **{}%** — {}",
+            c.proven,
+            c.total,
+            c.percent(),
+            repo.regulator_coverage_threshold,
+            if c.percent() >= repo.regulator_coverage_threshold {
+                "passing"
+            } else {
+                "below threshold; merge blocked"
+            },
+        ));
+    }
 
     let check = CheckRun {
         name: format!("echidnabot/{:?}", job.prover),
         head_sha: job.commit_sha.clone(),
         status: AdapterCheckStatus::Completed {
             conclusion,
-            summary: result_formatter::check_run_summary(&formatted, mode),
+            summary,
         },
         details_url: None,
     };
@@ -639,7 +704,27 @@ async fn report_to_platform(
     );
     if wants_comment {
         if let Some(pr_number) = job.pr_number {
-            let body = result_formatter::generate_pr_comment(&formatted, mode);
+            let mut body = result_formatter::generate_pr_comment(&formatted, mode);
+            // For Regulator, append the coverage stanza so the PR comment
+            // tells the reviewer exactly where the commit sits relative to
+            // the configured threshold.
+            if let Some(c) = coverage_for_regulator {
+                body.push_str(&format!(
+                    "\n\n### 🎯 Coverage gate\n\n\
+                     Provers passing: **{}/{}** (**{}%**)  \n\
+                     Threshold: **{}%**  \n\
+                     Status: **{}**\n",
+                    c.proven,
+                    c.total,
+                    c.percent(),
+                    repo.regulator_coverage_threshold,
+                    if c.percent() >= repo.regulator_coverage_threshold {
+                        "✅ passing"
+                    } else {
+                        "🚫 below threshold — merge blocked"
+                    },
+                ));
+            }
             let pr_id = PrId(pr_number.to_string());
             if let Err(err) = adapter.create_comment(&repo_id, pr_id, &body).await {
                 tracing::warn!(

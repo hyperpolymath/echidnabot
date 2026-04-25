@@ -50,6 +50,7 @@ impl SqliteStore {
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
                 mode TEXT NOT NULL DEFAULT 'verifier',
+                regulator_coverage_threshold INTEGER NOT NULL DEFAULT 100,
                 UNIQUE(platform, owner, name)
             )
             "#,
@@ -86,6 +87,7 @@ impl SqliteStore {
             "ALTER TABLE proof_jobs ADD COLUMN pr_number INTEGER",
             "ALTER TABLE proof_jobs ADD COLUMN delivery_id TEXT",
             "ALTER TABLE repositories ADD COLUMN mode TEXT NOT NULL DEFAULT 'verifier'",
+            "ALTER TABLE repositories ADD COLUMN regulator_coverage_threshold INTEGER NOT NULL DEFAULT 100",
         ] {
             match sqlx::query(ddl).execute(&self.pool).await {
                 Ok(_) => {}
@@ -185,8 +187,9 @@ impl Store for SqliteStore {
             INSERT INTO repositories (
                 id, platform, owner, name, webhook_secret, enabled_provers,
                 check_on_push, check_on_pr, auto_comment, enabled,
-                last_checked_commit, created_at, updated_at, mode
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                last_checked_commit, created_at, updated_at, mode,
+                regulator_coverage_threshold
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             "#,
         )
         .bind(repo.id.to_string())
@@ -203,6 +206,7 @@ impl Store for SqliteStore {
         .bind(repo.created_at.to_rfc3339())
         .bind(repo.updated_at.to_rfc3339())
         .bind(serde_json::to_value(&repo.mode)?.as_str().unwrap_or("verifier"))
+        .bind(repo.regulator_coverage_threshold as i64)
         .execute(&self.pool)
         .await?;
 
@@ -421,6 +425,36 @@ impl Store for SqliteStore {
         row.map(|r| r.try_into()).transpose()
     }
 
+    async fn commit_coverage(
+        &self,
+        repo_id: Uuid,
+        commit_sha: &str,
+    ) -> Result<super::CommitCoverage> {
+        // LEFT JOIN proof_results onto proof_jobs so jobs without results
+        // (still running) are counted as not-proven. Coverage is a
+        // running tally — Regulator runs at each finalize_job, so the
+        // last job to finalize for a commit gets the final say.
+        let row: (i64, i64) = sqlx::query_as(
+            r#"
+            SELECT
+                COUNT(*) as total,
+                COALESCE(SUM(CASE WHEN pr.success = 1 THEN 1 ELSE 0 END), 0) as proven
+            FROM proof_jobs pj
+            LEFT JOIN proof_results pr ON pr.job_id = pj.id
+            WHERE pj.repo_id = ? AND pj.commit_sha = ?
+            "#,
+        )
+        .bind(repo_id.to_string())
+        .bind(commit_sha)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(super::CommitCoverage {
+            total: row.0.max(0) as u64,
+            proven: row.1.max(0) as u64,
+        })
+    }
+
     async fn record_tactic_outcome(&self, outcome: &TacticOutcomeRecord) -> Result<()> {
         sqlx::query(
             r#"
@@ -513,6 +547,8 @@ struct RepoRow {
     updated_at: String,
     #[sqlx(default)]
     mode: Option<String>,
+    #[sqlx(default)]
+    regulator_coverage_threshold: Option<i64>,
 }
 
 impl TryFrom<RepoRow> for Repository {
@@ -561,6 +597,10 @@ impl TryFrom<RepoRow> for Repository {
                 .map_err(|e| Error::Internal(e.to_string()))?
                 .with_timezone(&chrono::Utc),
             mode,
+            regulator_coverage_threshold: row
+                .regulator_coverage_threshold
+                .map(|v| v.clamp(0, 100) as u8)
+                .unwrap_or(100),
         })
     }
 }
