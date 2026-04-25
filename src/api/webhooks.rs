@@ -6,6 +6,7 @@ use axum::{
     body::Bytes,
     extract::State,
     http::{HeaderMap, StatusCode},
+    middleware,
     response::IntoResponse,
     routing::post,
     Router,
@@ -17,6 +18,7 @@ use std::sync::Arc;
 use serde::Deserialize;
 
 use crate::adapters::{Platform, PrId, RepoId};
+use crate::api::rate_limit::{rate_limit_middleware, WebhookRateLimiter};
 use crate::config::Config;
 use crate::error::Result;
 use crate::modes;
@@ -30,14 +32,20 @@ pub struct AppState {
     pub config: Arc<Config>,
     pub store: Arc<dyn Store>,
     pub scheduler: Arc<JobScheduler>,
+    /// Per-IP sliding-window rate limiter for webhook endpoints. `None` = unlimited.
+    pub rate_limiter: Option<Arc<WebhookRateLimiter>>,
 }
 
-/// Create webhook router
-pub fn webhook_router() -> Router<AppState> {
+/// Create webhook router with optional per-IP rate limiting.
+///
+/// `state` is cloned into the rate-limit middleware so it can access the
+/// `rate_limiter` field without going through the router's state layer.
+pub fn webhook_router(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/webhooks/github", post(handle_github_webhook))
         .route("/webhooks/gitlab", post(handle_gitlab_webhook))
         .route("/webhooks/bitbucket", post(handle_bitbucket_webhook))
+        .layer(middleware::from_fn_with_state(state, rate_limit_middleware))
 }
 
 /// GitHub webhook handler

@@ -5,7 +5,7 @@
 use clap::{Parser, Subcommand};
 use echidnabot::{Config, Result};
 use echidnabot::adapters::{
-    CheckConclusion, CheckRun, CheckRunId, CheckStatus as AdapterCheckStatus, Platform,
+    CheckConclusion, CheckRun, CheckStatus as AdapterCheckStatus, Platform,
     PlatformAdapter, PrId, RepoId,
 };
 use echidnabot::adapters::bitbucket::BitbucketAdapter;
@@ -19,7 +19,11 @@ use echidnabot::modes::{self, BotMode};
 use echidnabot::result_formatter;
 use echidnabot::scheduler::{JobScheduler, ProofJob};
 use echidnabot::store::{SqliteStore, Store};
-use echidnabot::store::models::{ProofResultRecord, Repository as StoreRepository};
+use echidnabot::feedback::corpus_delta::{CorpusDelta, DeltaRow, DeltaSource};
+use echidnabot::store::models::{
+    ProofResultRecord, Repository as StoreRepository, TacticOutcomeRecord,
+};
+use echidnabot::store::models::goal_fingerprint;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
@@ -235,14 +239,24 @@ async fn serve(config: &Config, host: &str, port: u16) -> Result<()> {
     };
     let schema = create_schema(graphql_state);
 
+    let rate_limiter = config.server.rate_limit_rpm.map(|rpm| {
+        tracing::info!("Webhook rate limiting enabled: {} requests/minute per IP", rpm);
+        Arc::new(echidnabot::api::rate_limit::WebhookRateLimiter::new(rpm))
+    });
+    if rate_limiter.is_none() {
+        tracing::warn!("Webhook rate limiting is disabled — set [server] rate_limit_rpm to enable");
+    }
+
     let app_state = echidnabot::api::webhooks::AppState {
         config: Arc::new(config.clone()),
         store: store.clone(),
         scheduler: scheduler.clone(),
+        rate_limiter,
     };
 
     let app = Router::new()
         .route("/health", get(health))
+        .route("/metrics", get(metrics))
         .route("/", get(root))
         .route(
             "/graphql",
@@ -254,7 +268,7 @@ async fn serve(config: &Config, host: &str, port: u16) -> Result<()> {
             )
             .get(graphql_playground),
         )
-        .merge(webhook_router())
+        .merge(webhook_router(app_state.clone()))
         .layer(Extension(schema))
         .with_state(app_state.clone());
 
@@ -268,7 +282,11 @@ async fn serve(config: &Config, host: &str, port: u16) -> Result<()> {
     let listener = tokio::net::TcpListener::bind(format!("{}:{}", host, port)).await?;
     tracing::info!("Listening on http://{}:{}", host, port);
 
-    axum::serve(listener, app).await?;
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+    )
+    .await?;
     Ok(())
 }
 
@@ -295,6 +313,34 @@ async fn graphql_playground() -> &'static str {
 
 async fn health() -> &'static str {
     "OK"
+}
+
+/// Prometheus-compatible text exposition of key counters.
+///
+/// Exposes scheduler queue depth and build metadata. Full Prometheus
+/// integration (using `prometheus` or `metrics-exporter-prometheus` crates)
+/// is a future hardening item; this endpoint provides the shape and format
+/// that operators expect so dashboards and alerts can be wired now.
+async fn metrics(
+    axum::extract::State(state): axum::extract::State<echidnabot::api::webhooks::AppState>,
+) -> (axum::http::StatusCode, String) {
+    let queued = state.scheduler.queue_depth();
+    let running = state.scheduler.running_count();
+    let body = format!(
+        "# HELP echidnabot_jobs_queued Number of jobs waiting in the proof queue\n\
+         # TYPE echidnabot_jobs_queued gauge\n\
+         echidnabot_jobs_queued {queued}\n\
+         # HELP echidnabot_jobs_running Number of jobs currently being verified\n\
+         # TYPE echidnabot_jobs_running gauge\n\
+         echidnabot_jobs_running {running}\n\
+         # HELP echidnabot_build_info Static build metadata\n\
+         # TYPE echidnabot_build_info gauge\n\
+         echidnabot_build_info{{version=\"{version}\"}} 1\n",
+        queued = queued,
+        running = running,
+        version = env!("CARGO_PKG_VERSION"),
+    );
+    (axum::http::StatusCode::OK, body)
 }
 
 async fn root() -> &'static str {
@@ -365,7 +411,7 @@ async fn check(config: &Config, repo: &str, commit: Option<&str>, prover: Option
         .and_then(parse_prover_arg)
         .or(inferred_prover);
 
-    if let Some(kind) = selected_prover {
+    if let Some(ref kind) = selected_prover {
         let status = client.prover_status(kind).await?;
         tracing::info!(
             "Prover {} status: {}",
@@ -375,8 +421,8 @@ async fn check(config: &Config, repo: &str, commit: Option<&str>, prover: Option
     }
 
     if let Some(content) = proof_content {
-        let kind = selected_prover.unwrap_or(ProverKind::new("metamath"));
-        let result = client.verify_proof(kind, &content).await?;
+        let kind = selected_prover.unwrap_or_else(|| ProverKind::new("metamath"));
+        let result = client.verify_proof(&kind, &content).await?;
         tracing::info!(
             "Proof result: {:?} ({} ms)",
             result.status,
@@ -554,6 +600,11 @@ async fn run_scheduler_loop(
                 tracing::warn!("Failed to finalize job {}: {}", job.id, err);
             }
 
+            // Phase 2b: record double-loop feedback — tactic outcomes + corpus delta.
+            // Best-effort: errors are logged and swallowed so they never stall the
+            // scheduler. Both writes are gated by `config.corpus.enabled`.
+            record_feedback(&job, &result, store.clone(), &config).await;
+
             // Phase 3: report the outcome back to the originating platform
             // (check run + optional PR comment) per the resolved bot mode.
             // Errors here are logged but never block the scheduler — the DB
@@ -656,10 +707,10 @@ async fn report_to_platform(
         } else {
             &job_result.prover_output
         };
-        match echidna.suggest_tactics(job.prover, "", goal_state).await {
+        match echidna.suggest_tactics(&job.prover, "", goal_state).await {
             Ok(raw) if !raw.is_empty() => {
                 let reranker = echidnabot::feedback::Reranker::new(store.clone());
-                match reranker.rerank(job.prover, goal_state, raw).await {
+                match reranker.rerank(&job.prover, goal_state, raw).await {
                     Ok(reranked) => reranked.into_iter().take(5).collect(),
                     Err(e) => {
                         tracing::debug!("Reranker error ({}); using raw suggestions", e);
@@ -681,7 +732,7 @@ async fn report_to_platform(
     };
 
     let formatted =
-        result_formatter::format_proof_result(mode, &proof_result, job.prover, suggestions);
+        result_formatter::format_proof_result(mode, &proof_result, job.prover.clone(), suggestions);
 
     let repo_id = RepoId {
         platform: repo.platform,
@@ -853,6 +904,76 @@ async fn finalize_job(
     Ok(())
 }
 
+/// Phase 2b: write double-loop feedback after a job finalizes.
+///
+/// Two writes:
+///   1. `store.record_tactic_outcome` — per-file success/failure keyed by
+///      prover + goal fingerprint. Uses prover_output as the goal-state
+///      proxy (the first 2 kB, to cap DB row size). The "tactic" recorded
+///      here is the string "proof_accepted" / "proof_rejected" — a CI-level
+///      sentinel that captures the overall prover verdict, not a specific
+///      in-proof tactic. Fine-grained per-tactic recording comes from the
+///      GraphQL `recordTacticOutcome` mutation, called by LLM agents that
+///      observe individual tactic steps.
+///   2. `CorpusDelta.record` — appends a JSONL row to the echidna training
+///      corpus for any job that succeeded. Only fires when
+///      `config.corpus.enabled = true`. Errors are logged but never returned
+///      so a misconfigured corpus path never breaks the scheduler.
+async fn record_feedback(
+    job: &ProofJob,
+    result: &echidnabot::scheduler::JobResult,
+    store: Arc<dyn Store>,
+    config: &Config,
+) {
+    let goal_state_proxy = if result.prover_output.len() > 2048 {
+        &result.prover_output[..2048]
+    } else {
+        &result.prover_output
+    };
+    let fingerprint = goal_fingerprint(goal_state_proxy);
+    let tactic_label = if result.success { "proof_accepted" } else { "proof_rejected" };
+
+    let outcome = TacticOutcomeRecord::new(
+        Some(job.id.0),
+        job.prover.clone(),
+        fingerprint,
+        tactic_label.to_string(),
+        result.success,
+        result.duration_ms as i64,
+    );
+    if let Err(e) = store.record_tactic_outcome(&outcome).await {
+        tracing::debug!("record_tactic_outcome failed for job {}: {}", job.id, e);
+    }
+
+    if result.success && config.corpus.enabled {
+        if let Some(ref dir) = config.corpus.training_data_dir {
+            let mut cd = CorpusDelta::new(dir.clone());
+            if let Some(ref root) = config.corpus.echidna_root {
+                cd = cd.with_trigger(root.clone());
+            }
+            if let Some(t) = config.corpus.auto_trigger_threshold {
+                cd = cd.with_auto_trigger(t);
+            }
+            let row = DeltaRow::new(
+                job.prover.clone(),
+                goal_state_proxy.to_string(),
+                tactic_label.to_string(),
+                true,
+                result.duration_ms as i64,
+                DeltaSource::Webhook,
+            );
+            if let Err(e) = cd.record(&row).await {
+                tracing::warn!(
+                    "corpus_delta.record failed for job {} ({}): {}",
+                    job.id,
+                    job.prover,
+                    e
+                );
+            }
+        }
+    }
+}
+
 async fn process_job(
     job: &ProofJob,
     store: &dyn Store,
@@ -867,7 +988,7 @@ async fn process_job(
         ));
     }
 
-    let status = echidna.prover_status(job.prover).await?;
+    let status = echidna.prover_status(&job.prover).await?;
     if status != ProverStatus::Available {
         return Err(echidnabot::Error::Echidna(format!(
             "Prover {} not available (status: {})",
@@ -938,7 +1059,7 @@ async fn process_job(
         // specialised for its binaries (smaller, faster cold-start,
         // narrower attack surface). Falls back to the default
         // container_image when no per-prover entry exists.
-        if let Some(img) = config.executor.image_for(job.prover) {
+        if let Some(img) = config.executor.image_for(job.prover.clone()) {
             ex = ex.with_image(img);
         }
         if let Some(ref mem) = config.executor.memory_limit {
@@ -977,7 +1098,7 @@ async fn process_job(
             // Local sandboxed path. ExecutionResult is success on
             // exit_code == 0; non-zero (including timeout-kill) is
             // treated as failure with the captured stderr.
-            match ex.execute_proof(job.prover, &content, None).await {
+            match ex.execute_proof(job.prover.clone(), &content, None).await {
                 Ok(exec) => {
                     let combined = if exec.stdout.trim().is_empty() {
                         exec.stderr.clone()
@@ -992,7 +1113,7 @@ async fn process_job(
             }
         } else {
             // ECHIDNA-delegated path (default).
-            let result = echidna.verify_proof(job.prover, &content).await?;
+            let result = echidna.verify_proof(&job.prover, &content).await?;
             (
                 result.status == echidnabot::dispatcher::ProofStatus::Verified,
                 result.prover_output,
@@ -1024,8 +1145,8 @@ async fn process_job(
     } else {
         echidnabot::dispatcher::ProofStatus::Failed
     };
-    let axioms = echidnabot::trust::axiom_tracker::AxiomTracker::scan(job.prover, &prover_output);
-    let confidence = echidnabot::trust::confidence::assess_confidence(job.prover, final_status, false, 1);
+    let axioms = echidnabot::trust::axiom_tracker::AxiomTracker::scan(&job.prover, &prover_output);
+    let confidence = echidnabot::trust::confidence::assess_confidence(&job.prover, final_status, false, 1);
     Ok(echidnabot::scheduler::JobResult {
         success,
         message,

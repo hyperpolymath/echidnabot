@@ -168,6 +168,9 @@ pub struct ServerConfig {
 
     #[serde(default = "default_port")]
     pub port: u16,
+
+    /// Maximum webhook requests per IP per minute (None = unlimited).
+    pub rate_limit_rpm: Option<u32>,
 }
 
 impl Default for ServerConfig {
@@ -175,6 +178,7 @@ impl Default for ServerConfig {
         Self {
             host: default_host(),
             port: default_port(),
+            rate_limit_rpm: None,
         }
     }
 }

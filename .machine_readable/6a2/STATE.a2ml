@@ -7,7 +7,7 @@ project = "echidnabot"
 version = "0.1.0"
 last-updated = "2026-04-25"
 status = "active"
-session = "Task E enum→slug migration (Haiku side), 7b double-loop closed (Opus)"
+session = "Rate-limit webhook endpoints; double-loop + GraphQL tactic API + /metrics complete"
 
 [project-context]
 name = "Echidnabot"
@@ -18,7 +18,7 @@ jobs with isolation, and reports findings back to the fleet. Exposes
 double-loop feedback: reranks ECHIDNA's ML suggestions by local tactic
 history, feeds successful proofs into echidna's retrain corpus.
 """
-completion-percentage = 80
+completion-percentage = 92
 
 [position]
 phase = "implementation"

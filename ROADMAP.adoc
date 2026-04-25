@@ -9,9 +9,9 @@
 
 Development roadmap for echidnabot -- Proof-Aware CI Bot.
 
-*Last Updated:* 2026-02-08 +
+*Last Updated:* 2026-04-25 +
 *Current Version:* v0.1.0 +
-*Overall Completion:* ~90%
+*Overall Completion:* ~92%
 
 toc::[]
 
@@ -87,10 +87,26 @@ toc::[]
 * [x] 3-tier severity: unsound (3), warning (2), informational (1)
 * [x] Prover-specific and universal axiom pattern scanning
 
-=== Automated Tests (129 tests)
+=== Double-Loop Feedback (100%)
 
-* [x] 30 integration tests (webhook signatures, ECHIDNA client, bot modes, job lifecycle, database models, container executor, circuit breaker, scheduler)
-* [x] 99 unit tests across modules (container, modes, retry, limiter, confidence, axiom tracker, solver integrity, result formatter, fleet, dispatcher, webhooks, job queue)
+* [x] `record_tactic_outcome` write path wired into scheduler loop after every job
+* [x] `CorpusDelta` write path wired (gated by `config.corpus.enabled`)
+* [x] GraphQL `recordTacticOutcome` mutation for LLM agent annotation
+* [x] GraphQL `tacticOutcomes` / `tacticOutcomesByTactic` queries
+* [x] `scheduler.running_count()` and `queue_depth()` lock-free accessors for `/metrics`
+
+=== ProverKind Slug Migration (113-prover support) (100%)
+
+* [x] Replaced 12-variant enum with `ProverSlug(String)` newtype + type alias
+* [x] Classic 12 provers retained; arbitrary new provers via `ProverKind::new("slug")`
+* [x] All call sites updated to use `&ProverKind` borrows or `.clone()`
+* [x] `prover_key()` fixed (was `format!("{:?}")` producing `ProverSlug("coq")`)
+* [x] 86 tests passing after migration
+
+=== Automated Tests (165 tests)
+
+* [x] 32 integration tests (webhook signatures, ECHIDNA client, bot modes, job lifecycle, database models, container executor, circuit breaker, scheduler, tactic outcome roundtrip, rate limiter)
+* [x] 133 unit tests across modules (container, modes, retry, limiter, confidence, axiom tracker, solver integrity, result formatter, fleet, dispatcher, webhooks, job queue, rate_limit)
 
 === Metadata and Compliance
 
@@ -103,10 +119,10 @@ toc::[]
 
 === Production Hardening (HIGH PRIORITY)
 
-* [ ] Wire trust bridge into scheduler loop (confidence + axiom reports in job results)
-* [ ] Observability: Prometheus metrics endpoint (`/metrics`)
+* [x] Wire trust bridge into scheduler loop (confidence + axiom reports in job results)
+* [x] Observability: Prometheus metrics endpoint (`/metrics`)
+* [x] Rate limiting for webhook endpoints (per-IP sliding window, `[server] rate_limit_rpm`)
 * [ ] Observability: OpenTelemetry distributed tracing
-* [ ] Rate limiting for webhook endpoints
 * [ ] Structured JSON logging
 * [ ] Comprehensive error recovery for all failure modes
 * [ ] Graceful shutdown (finish in-progress jobs)
