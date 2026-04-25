@@ -153,6 +153,41 @@ async fn serve(config: &Config, host: &str, port: u16) -> Result<()> {
     use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
     use axum::{Extension, routing::get, routing::post, Router};
 
+    // Webhook signature verification is per-integration (handled in
+    // src/api/webhooks.rs). When no `webhook_secret` is configured for a
+    // platform, the receiver still returns 200 on POST — fine for local
+    // testing but unsafe in any deployment reachable from a network.
+    // Surface the gap loudly at startup so an operator can't miss it.
+    let gh_unsecured = config
+        .github
+        .as_ref()
+        .is_some_and(|g| g.webhook_secret.is_none());
+    let gl_unsecured = config
+        .gitlab
+        .as_ref()
+        .is_some_and(|g| g.webhook_secret.is_none());
+    if config.github.is_none() && config.gitlab.is_none() {
+        tracing::warn!(
+            "No [github] / [gitlab] integration configured. \
+             /webhooks/* endpoints accept ANY payload with no signature \
+             verification. Acceptable for local testing only."
+        );
+    } else {
+        if gh_unsecured {
+            tracing::warn!(
+                "[github].webhook_secret not set — /webhooks/github accepts \
+                 any POST without HMAC verification. Set webhook_secret in \
+                 echidnabot.toml before exposing this daemon."
+            );
+        }
+        if gl_unsecured {
+            tracing::warn!(
+                "[gitlab].webhook_secret not set — /webhooks/gitlab accepts \
+                 any POST without signature verification."
+            );
+        }
+    }
+
     let store = Arc::new(SqliteStore::new(&config.database.url).await?);
     let scheduler = Arc::new(JobScheduler::new(
         config.scheduler.max_concurrent,
