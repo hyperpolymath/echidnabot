@@ -3,8 +3,8 @@
 #
 # AGENTIC.a2ml — AI agent constraints and capabilities
 [metadata]
-version = "0.1.0"
-last-updated = "2026-04-11"
+version = "0.2.0"
+last-updated = "2026-04-25"
 
 [agent-permissions]
 can-edit-source = true
@@ -38,12 +38,36 @@ release-claim-requires-hard-pass = true
 # Each exception MUST declare: rule, reason, scope, sunset-condition, decision-date.
 
 [exceptions.boj-only-mcp]
-rule            = "BoJ-only MCP (all MCP routes through BoJ; no standalone MCPs)"
-status          = "approved"
-decision-date   = "2026-04-24"
-decided-by      = "Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>"
-reason          = "direct-callable for proof-op agents — echidnabot wraps the panic-attack CLI and is invoked synchronously by proof-operation agents (Sonnet executors, Haiku scouts) that need call-and-response semantics the BoJ cartridge's async message-bus does not currently provide."
-scope           = "this repo only (echidnabot)"
+rule             = "BoJ-only MCP (all MCP routes through BoJ; no standalone MCPs)"
+status           = "superseded"
+decision-date    = "2026-04-24"
+decided-by       = "Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>"
+reason           = "direct-callable for proof-op agents — echidnabot wraps the panic-attack CLI and is invoked synchronously by proof-operation agents (Sonnet executors, Haiku scouts) that need call-and-response semantics the BoJ cartridge's async message-bus did not provide at the time."
+scope            = "this repo only (echidnabot)"
 sunset-condition = "when the BoJ cartridge supports the double-loop feedback protocol (synchronous call-and-response with bidirectional calibration signals, matching the Bullshit Field design)."
-sunset-action   = "migrate echidnabot invocations onto the BoJ double-loop transport, verify parity against the current direct-callable surface, then delete this [exceptions.boj-only-mcp] block."
+sunset-action    = "migrate echidnabot invocations onto the BoJ double-loop transport, verify parity against the current direct-callable surface, then delete this [exceptions.boj-only-mcp] block."
 upstream-tracking = "BoJ double-loop protocol is tracked in boj-server's STATE.a2ml; review quarterly."
+
+# ─── Sunset record ──────────────────────────────────────────────────────────
+sunset-fulfilled-on = "2026-04-25"
+sunset-fulfilled-by = "Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>"
+sunset-evidence  = """
+- BoJ revival announced 2026-04-25; double-loop transport now available.
+- Per-prover container images shipped (unblocks the local-isolation path
+  too, but that is independent of this exception).
+- Cartridge `boj-server/cartridges/echidna-llm-mcp/consultant_qa` was
+  pre-positioned in commit `0cba9a4` (boj-server) for exactly this
+  moment; activates with no further client-side wiring change because
+  echidnabot's `query_boj_q_and_a` (commit `4a7871c`) already routes
+  through the cartridge endpoint.
+- Native `echidnabot-mcp` bin removed in the companion commit on this
+  exception sunset (Cargo.toml [[bin]] entry + src/bin/mcp_server.rs +
+  docs/MCP-TEMPORARY-EXCEPTION.adoc).
+"""
+status-note      = """
+Block retained for historical traceability (audit trail of the carve-out
+and its retirement). Future agents reading this file should treat the
+exception as INACTIVE — the standing 'BoJ-only MCP' rule applies in full.
+The block can be deleted entirely in a future cleanup pass once the
+audit-trail period passes (suggest 6 months / 2026-10).
+"""
