@@ -18,12 +18,11 @@ path = "src/lib.rs"
 name = "echidnabot"
 path = "src/main.rs"
 
-# Temporary native MCP server — documented exception to the estate-wide
-# "all MCP through BoJ" rule until the BoJ Zig adapter is rebuilt.
-# See docs/MCP-TEMPORARY-EXCEPTION.adoc for migration path.
-[[bin]]
-name = "echidnabot-mcp"
-path = "src/bin/mcp_server.rs"
+# Note: the previous `echidnabot-mcp` standalone bin was retired
+# 2026-04-25 when the BoJ-only-MCP exception was sunset (BoJ revived,
+# cartridge `consultant_qa` activated). MCP traffic now routes through
+# `boj-server/cartridges/echidna-llm-mcp`; see echidnabot Phase 6
+# (commit 4a7871c) for the BoJ-routed call path.
 
 [dependencies]
 # Fleet coordination
