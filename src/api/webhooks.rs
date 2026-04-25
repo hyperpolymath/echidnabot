@@ -249,6 +249,40 @@ async fn handle_gitlab_webhook(
                 .await;
             }
         }
+        "Note Hook" => {
+            tracing::info!("Received GitLab note hook (Consultant trigger)");
+            if let Ok(payload) = serde_json::from_slice::<GitLabNotePayload>(&body) {
+                if !modes::is_any_mention(&payload.object_attributes.note) {
+                    return (StatusCode::OK, "OK");
+                }
+                if payload
+                    .user
+                    .as_ref()
+                    .is_some_and(|u| u.username.eq_ignore_ascii_case("echidnabot"))
+                {
+                    return (StatusCode::OK, "OK");
+                }
+                // Only respond on MR notes — Issue notes don't have a PR
+                // to comment back on.
+                if payload.object_attributes.noteable_type.as_deref() != Some("MergeRequest") {
+                    return (StatusCode::OK, "OK");
+                }
+                let Some(mr) = payload.merge_request.as_ref() else {
+                    return (StatusCode::OK, "OK");
+                };
+                let (owner, name) =
+                    split_full_name(&payload.project.path_with_namespace);
+                let _ = handle_consultant_mention(
+                    &state,
+                    Platform::GitLab,
+                    &owner,
+                    &name,
+                    mr.iid,
+                    &payload.object_attributes.note,
+                )
+                .await;
+            }
+        }
         _ => {
             tracing::debug!("Ignoring event type: {}", event_type);
         }
@@ -299,6 +333,30 @@ async fn handle_bitbucket_webhook(
                 )
                 .await;
             }
+        }
+    } else if event_type == "pullrequest:comment_created" {
+        tracing::info!("Received Bitbucket pullrequest:comment_created (Consultant trigger)");
+        if let Ok(payload) = serde_json::from_slice::<BitbucketPRCommentPayload>(&body) {
+            if !modes::is_any_mention(&payload.comment.content.raw) {
+                return (StatusCode::OK, "OK");
+            }
+            if payload
+                .actor
+                .as_ref()
+                .is_some_and(|u| u.username.eq_ignore_ascii_case("echidnabot"))
+            {
+                return (StatusCode::OK, "OK");
+            }
+            let (owner, name) = split_full_name(&payload.repository.full_name);
+            let _ = handle_consultant_mention(
+                &state,
+                Platform::Bitbucket,
+                &owner,
+                &name,
+                payload.pullrequest.id,
+                &payload.comment.content.raw,
+            )
+            .await;
         }
     }
 
@@ -700,6 +758,38 @@ struct GitLabProject {
 }
 
 #[derive(Deserialize)]
+struct GitLabNotePayload {
+    object_attributes: GitLabNoteAttributes,
+    project: GitLabProject,
+    #[serde(default)]
+    user: Option<GitLabUser>,
+    /// Present when the note is on a Merge Request. None for issue notes
+    /// or commit notes (we only handle MR notes today).
+    #[serde(default)]
+    merge_request: Option<GitLabMR>,
+}
+
+#[derive(Deserialize)]
+struct GitLabNoteAttributes {
+    note: String,
+    /// "MergeRequest" / "Issue" / "Commit" / "Snippet". Filter to
+    /// MergeRequest only — that's the only one with a PR-equivalent
+    /// to comment back on.
+    #[serde(default)]
+    noteable_type: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct GitLabUser {
+    username: String,
+}
+
+#[derive(Deserialize)]
+struct GitLabMR {
+    iid: u64,
+}
+
+#[derive(Deserialize)]
 struct BitbucketPushPayload {
     repository: BitbucketRepo,
     push: BitbucketPush,
@@ -724,6 +814,40 @@ struct BitbucketChange {
 #[derive(Deserialize)]
 struct BitbucketTarget {
     hash: String,
+}
+
+#[derive(Deserialize)]
+struct BitbucketPRCommentPayload {
+    repository: BitbucketRepo,
+    pullrequest: BitbucketPullRequestRef,
+    comment: BitbucketComment,
+    #[serde(default)]
+    actor: Option<BitbucketActor>,
+}
+
+#[derive(Deserialize)]
+struct BitbucketPullRequestRef {
+    /// Bitbucket PR id — equivalent to GitHub PR number / GitLab MR iid.
+    id: u64,
+}
+
+#[derive(Deserialize)]
+struct BitbucketComment {
+    content: BitbucketContent,
+}
+
+#[derive(Deserialize)]
+struct BitbucketContent {
+    raw: String,
+}
+
+#[derive(Deserialize)]
+struct BitbucketActor {
+    /// Bitbucket can also identify by `nickname` or `account_id`; we use
+    /// username for the bot-self filter to be consistent with the other
+    /// platforms' conventions.
+    #[serde(default)]
+    username: String,
 }
 
 /// Verify GitHub webhook signature (HMAC-SHA256)
