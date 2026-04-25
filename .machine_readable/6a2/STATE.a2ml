@@ -262,3 +262,44 @@ Live test against revived BoJ on 127.0.0.1:7700:
   /cartridge/<name>/invoke endpoint; no client-side change was needed
   for the sunset migration.
 """
+
+# ─── Panic-attack sweep 2026-04-25 ─────────────────────────────────────
+[panic-attack-sweep]
+date = "2026-04-25"
+last-result = "pass-with-classified-false-positives"
+findings = """
+echidnabot:
+  - 2 Critical (ProofDrift on proofs/coq/admitted_stub.v + proofs/lean/sorry_stub.lean)
+    → INTENTIONAL DOGFOOD FIXTURES from commit ec25aae. Designed to
+      exercise the bot's failure path. False positives — panic-attack
+      lacks fixture-exclusion; structural-first per memory rule but
+      no config option exists. Not chasing.
+  - 1 Low (MutationGap — no cargo-mutants config). Add later if mutation
+    testing becomes an estate-wide rule.
+  - Statistics: 17 unwrap_calls, 0 panic_sites, 15 unsafe_blocks (all
+    legitimate FFI), 14 threading constructs.
+
+vcl-ut:
+  - 2 Critical (UnboundedAllocation on src/interface/{fmt,lint}/src/main.rs)
+    → fs::read_to_string of operator-supplied file. CLI tools, trusted
+      input. False positive in this context (no untrusted-input boundary).
+  - 1 Medium (InsecureProtocol on echidna-client lib.rs)
+    → http://127.0.0.1:8000 as the default echidna URL. Localhost; HTTPS
+      isn't expected for default local-dev path. False positive.
+  - 1 Low (MutationGap).
+
+boj-server cartridges/echidna-llm-mcp:
+  - 1 High (UnsafeCode on ffi/cartridge_shim.zig)
+    → 1 unsafe @ptrCast in the FFI shim. Per memory rule "panic-attack
+      unsafe_blocks conflates banned partial casts with legitimate FFI
+      try/catch — classify each hit." This one is legitimate FFI surface.
+  - 1 Medium (InsecureProtocol on mod.js)
+    → localhost echidna URL. False positive (same as vcl-ut).
+
+echidna:
+  - SCAN TIMED OUT at 180s (repo too large for a single assail run).
+    Defer to a chunked/per-subdir invocation in a future sweep.
+
+Real critical findings: 0. All flagged criticals are classified
+false-positives or operator-trusted-input patterns.
+"""
