@@ -9,6 +9,9 @@
 //! - **Consultant**: Interactive Q&A about proof state
 //! - **Regulator**: Blocks PR merges when proofs fail
 
+pub mod directives;
+pub use directives::{parse_a2ml_directive, resolve_mode};
+
 use serde::{Deserialize, Serialize};
 use std::fmt;
 

@@ -49,6 +49,7 @@ impl SqliteStore {
                 last_checked_commit TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
+                mode TEXT NOT NULL DEFAULT 'verifier',
                 UNIQUE(platform, owner, name)
             )
             "#,
@@ -78,12 +79,13 @@ impl SqliteStore {
         .execute(&self.pool)
         .await?;
 
-        // Idempotent migration for older databases that pre-date the
-        // pr_number / delivery_id columns. SQLite returns "duplicate column"
-        // when the column already exists; we treat that as success.
+        // Idempotent migrations for older databases. SQLite returns
+        // "duplicate column" when the column already exists; we treat that
+        // as success.
         for ddl in [
             "ALTER TABLE proof_jobs ADD COLUMN pr_number INTEGER",
             "ALTER TABLE proof_jobs ADD COLUMN delivery_id TEXT",
+            "ALTER TABLE repositories ADD COLUMN mode TEXT NOT NULL DEFAULT 'verifier'",
         ] {
             match sqlx::query(ddl).execute(&self.pool).await {
                 Ok(_) => {}
@@ -183,8 +185,8 @@ impl Store for SqliteStore {
             INSERT INTO repositories (
                 id, platform, owner, name, webhook_secret, enabled_provers,
                 check_on_push, check_on_pr, auto_comment, enabled,
-                last_checked_commit, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                last_checked_commit, created_at, updated_at, mode
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             "#,
         )
         .bind(repo.id.to_string())
@@ -200,6 +202,7 @@ impl Store for SqliteStore {
         .bind(&repo.last_checked_commit)
         .bind(repo.created_at.to_rfc3339())
         .bind(repo.updated_at.to_rfc3339())
+        .bind(serde_json::to_value(&repo.mode)?.as_str().unwrap_or("verifier"))
         .execute(&self.pool)
         .await?;
 
@@ -508,6 +511,8 @@ struct RepoRow {
     last_checked_commit: Option<String>,
     created_at: String,
     updated_at: String,
+    #[sqlx(default)]
+    mode: Option<String>,
 }
 
 impl TryFrom<RepoRow> for Repository {
@@ -523,6 +528,19 @@ impl TryFrom<RepoRow> for Repository {
         };
 
         let enabled_provers: Vec<ProverKind> = serde_json::from_str(&row.enabled_provers)?;
+
+        // Parse mode via serde, falling back to Verifier if the column was
+        // null (older DB pre-migration) or contained an unrecognised value.
+        let mode = row
+            .mode
+            .as_deref()
+            .and_then(|s| {
+                serde_json::from_value::<crate::modes::BotMode>(serde_json::Value::String(
+                    s.to_string(),
+                ))
+                .ok()
+            })
+            .unwrap_or_default();
 
         Ok(Repository {
             id: Uuid::parse_str(&row.id).map_err(|e| Error::Internal(e.to_string()))?,
@@ -542,6 +560,7 @@ impl TryFrom<RepoRow> for Repository {
             updated_at: chrono::DateTime::parse_from_rfc3339(&row.updated_at)
                 .map_err(|e| Error::Internal(e.to_string()))?
                 .with_timezone(&chrono::Utc),
+            mode,
         })
     }
 }

@@ -67,6 +67,14 @@ enum Commands {
         /// Provers to enable (comma-separated)
         #[arg(long, default_value = "metamath")]
         provers: String,
+
+        /// Bot operating mode for this repo. Overrides the daemon-wide
+        /// default but is itself overridden by a target-repo directive
+        /// at `.machine_readable/bot_directives/echidnabot.a2ml`.
+        ///
+        /// One of: `verifier`, `advisor`, `consultant`, `regulator`.
+        #[arg(short, long, default_value = "verifier")]
+        mode: String,
     },
 
     /// Manually trigger a proof check
@@ -121,14 +129,16 @@ async fn main() -> Result<()> {
             repo,
             platform,
             provers,
+            mode,
         } => {
             tracing::info!(
-                "Registering {} on {} with provers: {}",
+                "Registering {} on {} with provers: {} (mode: {})",
                 repo,
                 platform,
-                provers
+                provers,
+                mode,
             );
-            register(&config, &repo, &platform, &provers).await
+            register(&config, &repo, &platform, &provers, &mode).await
         }
         Commands::Check {
             repo,
@@ -268,7 +278,13 @@ async fn root() -> &'static str {
     "echidnabot - Proof-aware CI bot\n\nEndpoints:\n  GET  /health\n  GET  /graphql\n  POST /graphql\n  POST /webhooks/github\n  POST /webhooks/gitlab\n  POST /webhooks/bitbucket"
 }
 
-async fn register(config: &Config, repo: &str, platform: &str, provers: &str) -> Result<()> {
+async fn register(
+    config: &Config,
+    repo: &str,
+    platform: &str,
+    provers: &str,
+    mode: &str,
+) -> Result<()> {
     let store = SqliteStore::new(&config.database.url).await?;
     let platform = parse_platform(platform)?;
     let (owner, name) = split_repo_name(repo)?;
@@ -279,11 +295,21 @@ async fn register(config: &Config, repo: &str, platform: &str, provers: &str) ->
         repo_record.enabled_provers = enabled;
     }
 
+    // Parse the mode flag — accepts the four lowercase strings.
+    repo_record.mode = serde_json::from_value(serde_json::Value::String(mode.to_lowercase()))
+        .map_err(|_| {
+            echidnabot::Error::Config(format!(
+                "unknown mode '{}': expected one of verifier, advisor, consultant, regulator",
+                mode
+            ))
+        })?;
+
     store.create_repository(&repo_record).await?;
     tracing::info!(
-        "Registered repository {} on {:?}",
+        "Registered repository {} on {:?} in {} mode",
         repo_record.full_name(),
-        repo_record.platform
+        repo_record.platform,
+        repo_record.mode,
     );
     Ok(())
 }

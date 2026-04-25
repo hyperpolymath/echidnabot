@@ -8,6 +8,7 @@ use uuid::Uuid;
 
 use crate::adapters::Platform;
 use crate::dispatcher::ProverKind;
+use crate::modes::BotMode;
 use crate::scheduler::{JobId, JobStatus, JobPriority};
 
 /// Repository record
@@ -26,6 +27,11 @@ pub struct Repository {
     pub last_checked_commit: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    /// Per-repo bot operating mode. Reads as the second tier of the cascade
+    /// (target-repo `.machine_readable/bot_directives/echidnabot.a2ml`
+    /// directive overrides this when present). See `modes::resolve_mode`.
+    #[serde(default)]
+    pub mode: BotMode,
 }
 
 impl Repository {
@@ -45,6 +51,7 @@ impl Repository {
             last_checked_commit: None,
             created_at: now,
             updated_at: now,
+            mode: BotMode::default(), // Verifier
         }
     }
 

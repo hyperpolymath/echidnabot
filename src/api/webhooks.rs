@@ -314,9 +314,17 @@ async fn enqueue_repo_jobs(
         return Ok(());
     }
 
-    // Determine bot mode from config (directive-based resolution is done
-    // at clone time when the target repo is available on disk).
-    let mode = state.config.bot_mode;
+    // Determine bot mode via cascade:
+    //   1. target-repo `.machine_readable/bot_directives/echidnabot.a2ml`
+    //      (post-clone resolution — passed as `Some(content)`; not yet
+    //      reachable here, so always None until the executor lands)
+    //   2. `repositories.mode` column (per-repo)
+    //   3. `BotMode::default()` (= Verifier)
+    //
+    // TODO(phase-3): when the sandboxed executor clones the target repo, it
+    // will read the directive file and pass content into resolve_mode.
+    let directive_content: Option<&str> = None;
+    let mode = modes::resolve_mode(&repo, directive_content);
     let is_pr = matches!(event_kind, RepoEventKind::PullRequest);
 
     tracing::info!(
