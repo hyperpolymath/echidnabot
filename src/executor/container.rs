@@ -607,56 +607,59 @@ impl PodmanExecutor {
 // =============================================================================
 
 /// Get environment variable name for a prover backend.
-fn prover_to_env_name(prover: ProverKind) -> &'static str {
-    match prover {
-        ProverKind::Coq => "COQ",
-        ProverKind::Lean => "LEAN",
-        ProverKind::Isabelle => "ISABELLE",
-        ProverKind::Agda => "AGDA",
-        ProverKind::Z3 => "Z3",
-        ProverKind::Cvc5 => "CVC5",
-        ProverKind::Metamath => "METAMATH",
-        ProverKind::HolLight => "HOL_LIGHT",
-        ProverKind::Mizar => "MIZAR",
-        ProverKind::Pvs => "PVS",
-        ProverKind::Acl2 => "ACL2",
-        ProverKind::Hol4 => "HOL4",
+fn prover_to_env_name(prover: &ProverKind) -> String {
+    match prover.as_str() {
+        "coq" => "COQ".to_string(),
+        "lean" => "LEAN".to_string(),
+        "isabelle" => "ISABELLE".to_string(),
+        "agda" => "AGDA".to_string(),
+        "z3" => "Z3".to_string(),
+        "cvc5" => "CVC5".to_string(),
+        "metamath" => "METAMATH".to_string(),
+        "hol-light" => "HOL_LIGHT".to_string(),
+        "mizar" => "MIZAR".to_string(),
+        "pvs" => "PVS".to_string(),
+        "acl2" => "ACL2".to_string(),
+        "hol4" => "HOL4".to_string(),
+        _ => prover.as_str().to_uppercase(),
     }
 }
 
 /// Get the file extension for proof files of a given prover.
-fn prover_extension(prover: ProverKind) -> &'static str {
-    match prover {
-        ProverKind::Coq => ".v",
-        ProverKind::Lean => ".lean",
-        ProverKind::Isabelle => ".thy",
-        ProverKind::Agda => ".agda",
-        ProverKind::Z3 => ".smt2",
-        ProverKind::Cvc5 => ".smt2",
-        ProverKind::Metamath => ".mm",
-        ProverKind::HolLight => ".ml",
-        ProverKind::Mizar => ".miz",
-        ProverKind::Pvs => ".pvs",
-        ProverKind::Acl2 => ".lisp",
-        ProverKind::Hol4 => ".sml",
+fn prover_extension(prover: &ProverKind) -> String {
+    match prover.as_str() {
+        "coq" => ".v".to_string(),
+        "lean" => ".lean".to_string(),
+        "isabelle" => ".thy".to_string(),
+        "agda" => ".agda".to_string(),
+        "z3" => ".smt2".to_string(),
+        "cvc5" => ".smt2".to_string(),
+        "metamath" => ".mm".to_string(),
+        "hol-light" => ".ml".to_string(),
+        "mizar" => ".miz".to_string(),
+        "pvs" => ".pvs".to_string(),
+        "acl2" => ".lisp".to_string(),
+        "hol4" => ".sml".to_string(),
+        _ => ".txt".to_string(),  // Default for unknown provers
     }
 }
 
 /// Get the shell command to invoke a prover.
-fn prover_command(prover: ProverKind) -> &'static str {
-    match prover {
-        ProverKind::Coq => "coqc",
-        ProverKind::Lean => "lean",
-        ProverKind::Isabelle => "isabelle build",
-        ProverKind::Agda => "agda",
-        ProverKind::Z3 => "z3",
-        ProverKind::Cvc5 => "cvc5",
-        ProverKind::Metamath => "metamath",
-        ProverKind::HolLight => "ocaml",
-        ProverKind::Mizar => "mizf",
-        ProverKind::Pvs => "pvs",
-        ProverKind::Acl2 => "acl2",
-        ProverKind::Hol4 => "Holmake",
+fn prover_command(prover: &ProverKind) -> String {
+    match prover.as_str() {
+        "coq" => "coqc".to_string(),
+        "lean" => "lean".to_string(),
+        "isabelle" => "isabelle build".to_string(),
+        "agda" => "agda".to_string(),
+        "z3" => "z3".to_string(),
+        "cvc5" => "cvc5".to_string(),
+        "metamath" => "metamath".to_string(),
+        "hol-light" => "ocaml".to_string(),
+        "mizar" => "mizf".to_string(),
+        "pvs" => "pvs".to_string(),
+        "acl2" => "acl2".to_string(),
+        "hol4" => "Holmake".to_string(),
+        _ => prover.as_str().to_string(),  // Default: use prover slug as command
     }
 }
 
@@ -670,25 +673,25 @@ mod tests {
 
     #[test]
     fn test_prover_extensions() {
-        assert_eq!(prover_extension(ProverKind::Coq), ".v");
-        assert_eq!(prover_extension(ProverKind::Lean), ".lean");
-        assert_eq!(prover_extension(ProverKind::Metamath), ".mm");
-        assert_eq!(prover_extension(ProverKind::Z3), ".smt2");
-        assert_eq!(prover_extension(ProverKind::Agda), ".agda");
+        assert_eq!(prover_extension(&ProverKind::new("coq")), ".v");
+        assert_eq!(prover_extension(&ProverKind::new("lean")), ".lean");
+        assert_eq!(prover_extension(&ProverKind::new("metamath")), ".mm");
+        assert_eq!(prover_extension(&ProverKind::new("z3")), ".smt2");
+        assert_eq!(prover_extension(&ProverKind::new("agda")), ".agda");
     }
 
     #[test]
     fn test_prover_env_names() {
-        assert_eq!(prover_to_env_name(ProverKind::Coq), "COQ");
-        assert_eq!(prover_to_env_name(ProverKind::HolLight), "HOL_LIGHT");
-        assert_eq!(prover_to_env_name(ProverKind::Cvc5), "CVC5");
+        assert_eq!(prover_to_env_name(&ProverKind::new("coq")), "COQ");
+        assert_eq!(prover_to_env_name(&ProverKind::new("hol-light")), "HOL_LIGHT");
+        assert_eq!(prover_to_env_name(&ProverKind::new("cvc5")), "CVC5");
     }
 
     #[test]
     fn test_prover_commands() {
-        assert_eq!(prover_command(ProverKind::Coq), "coqc");
-        assert_eq!(prover_command(ProverKind::Lean), "lean");
-        assert_eq!(prover_command(ProverKind::Z3), "z3");
+        assert_eq!(prover_command(&ProverKind::new("coq")), "coqc");
+        assert_eq!(prover_command(&ProverKind::new("lean")), "lean");
+        assert_eq!(prover_command(&ProverKind::new("z3")), "z3");
     }
 
     #[test]
@@ -725,7 +728,7 @@ mod tests {
         let executor = PodmanExecutor::default()
             .with_backend(IsolationBackend::Podman);
 
-        let args = executor.build_podman_args(ProverKind::Coq);
+        let args = executor.build_podman_args(ProverKind::new("coq"));
 
         assert!(args.contains(&"--rm".to_string()));
         assert!(args.contains(&"--network=none".to_string()));
@@ -743,10 +746,10 @@ mod tests {
         let executor = PodmanExecutor::default()
             .with_backend(IsolationBackend::Podman);
 
-        let args = executor.build_podman_args(ProverKind::Lean);
+        let args = executor.build_podman_args(ProverKind::new("lean"));
         assert!(args.contains(&"PROVER=LEAN".to_string()));
 
-        let args = executor.build_podman_args(ProverKind::Coq);
+        let args = executor.build_podman_args(ProverKind::new("coq"));
         assert!(args.contains(&"PROVER=COQ".to_string()));
     }
 
@@ -756,7 +759,7 @@ mod tests {
             .with_network(true)
             .with_backend(IsolationBackend::Podman);
 
-        let args = executor.build_podman_args(ProverKind::Z3);
+        let args = executor.build_podman_args(ProverKind::new("z3"));
         assert!(!args.contains(&"--network=none".to_string()));
     }
 
@@ -766,7 +769,7 @@ mod tests {
             .with_backend(IsolationBackend::None);
 
         let result = executor
-            .execute_proof(ProverKind::Coq, "Theorem test : True.", None)
+            .execute_proof(ProverKind::new("coq"), "Theorem test : True.", None)
             .await;
 
         assert!(result.is_err());

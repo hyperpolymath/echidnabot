@@ -55,7 +55,7 @@ impl Repository {
             owner,
             name,
             webhook_secret: None,
-            enabled_provers: vec![ProverKind::Metamath], // Default to easiest prover
+            enabled_provers: vec![ProverKind::new("metamath")], // Default to easiest prover
             check_on_push: true,
             check_on_pr: true,
             auto_comment: true,

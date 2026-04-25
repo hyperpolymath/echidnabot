@@ -232,12 +232,12 @@ impl QueryRoot {
         };
         let mut provers = Vec::new();
         for kind in CoreProverKind::all() {
-            let status = match state.echidna.prover_status(kind).await {
+            let status = match state.echidna.prover_status(&kind).await {
                 Ok(status) => map_prover_status(status),
                 Err(_) => ProverStatus::Unknown,
             };
             provers.push(ProverInfo {
-                kind: map_prover_kind(kind),
+                kind: map_prover_kind(kind.clone()),
                 name: kind.display_name().to_string(),
                 tier: kind.tier() as i32,
                 file_extensions: kind.file_extensions().iter().map(|s| s.to_string()).collect(),
@@ -254,7 +254,7 @@ impl QueryRoot {
             Err(_) => return ProverStatus::Unknown,
         };
         let kind = map_prover_kind_to_core(prover);
-        match state.echidna.prover_status(kind).await {
+        match state.echidna.prover_status(&kind).await {
             Ok(status) => map_prover_status(status),
             Err(_) => ProverStatus::Unknown,
         }
@@ -337,7 +337,7 @@ impl MutationRoot {
         let provers = provers.unwrap_or_else(|| {
             repo.enabled_provers
                 .iter()
-                .copied()
+                .cloned()
                 .map(map_prover_kind)
                 .collect()
         });
@@ -504,37 +504,11 @@ fn map_platform_to_graphql(platform: crate::adapters::Platform) -> Platform {
 }
 
 fn map_prover_kind(kind: CoreProverKind) -> ProverKind {
-    match kind {
-        CoreProverKind::Agda => ProverKind::Agda,
-        CoreProverKind::Coq => ProverKind::Coq,
-        CoreProverKind::Lean => ProverKind::Lean,
-        CoreProverKind::Isabelle => ProverKind::Isabelle,
-        CoreProverKind::Z3 => ProverKind::Z3,
-        CoreProverKind::Cvc5 => ProverKind::Cvc5,
-        CoreProverKind::Metamath => ProverKind::Metamath,
-        CoreProverKind::HolLight => ProverKind::HolLight,
-        CoreProverKind::Mizar => ProverKind::Mizar,
-        CoreProverKind::Pvs => ProverKind::Pvs,
-        CoreProverKind::Acl2 => ProverKind::Acl2,
-        CoreProverKind::Hol4 => ProverKind::Hol4,
-    }
+    kind
 }
 
 fn map_prover_kind_to_core(kind: ProverKind) -> CoreProverKind {
-    match kind {
-        ProverKind::Agda => CoreProverKind::Agda,
-        ProverKind::Coq => CoreProverKind::Coq,
-        ProverKind::Lean => CoreProverKind::Lean,
-        ProverKind::Isabelle => CoreProverKind::Isabelle,
-        ProverKind::Z3 => CoreProverKind::Z3,
-        ProverKind::Cvc5 => CoreProverKind::Cvc5,
-        ProverKind::Metamath => CoreProverKind::Metamath,
-        ProverKind::HolLight => CoreProverKind::HolLight,
-        ProverKind::Mizar => CoreProverKind::Mizar,
-        ProverKind::Pvs => CoreProverKind::Pvs,
-        ProverKind::Acl2 => CoreProverKind::Acl2,
-        ProverKind::Hol4 => CoreProverKind::Hol4,
-    }
+    kind
 }
 
 fn map_job_status(status: crate::scheduler::JobStatus) -> JobStatus {

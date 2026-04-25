@@ -113,18 +113,18 @@ impl SolverIntegrity {
     }
 
     /// Add or update a manifest entry for a specific prover.
-    pub fn set_expected_hash(&mut self, prover: ProverKind, hash: impl Into<String>) {
+    pub fn set_expected_hash(&mut self, prover: &ProverKind, hash: impl Into<String>) {
         self.manifest
             .insert(prover_key(prover), hash.into());
     }
 
     /// Check if a manifest entry exists for a prover.
-    pub fn has_manifest_entry(&self, prover: ProverKind) -> bool {
+    pub fn has_manifest_entry(&self, prover: &ProverKind) -> bool {
         self.manifest.contains_key(&prover_key(prover))
     }
 
     /// Get the expected hash for a prover (if in manifest).
-    pub fn expected_hash(&self, prover: ProverKind) -> Option<&str> {
+    pub fn expected_hash(&self, prover: &ProverKind) -> Option<&str> {
         self.manifest.get(&prover_key(prover)).map(|s| s.as_str())
     }
 
@@ -136,7 +136,7 @@ impl SolverIntegrity {
     /// * `binary_path` - Path to the binary (for reporting)
     pub fn verify(
         &self,
-        prover: ProverKind,
+        prover: &ProverKind,
         actual_hash: &str,
         binary_path: &str,
     ) -> IntegrityReport {
@@ -191,7 +191,7 @@ impl SolverIntegrity {
     }
 
     /// Create a report for a solver that was not found on the system.
-    pub fn report_not_found(&self, prover: ProverKind) -> IntegrityReport {
+    pub fn report_not_found(&self, prover: &ProverKind) -> IntegrityReport {
         IntegrityReport {
             prover,
             status: IntegrityStatus::NotFound,
@@ -206,7 +206,7 @@ impl SolverIntegrity {
     }
 
     /// Create a report for an error during integrity checking.
-    pub fn report_error(&self, prover: ProverKind, error: &str) -> IntegrityReport {
+    pub fn report_error(&self, prover: &ProverKind, error: &str) -> IntegrityReport {
         IntegrityReport {
             prover,
             status: IntegrityStatus::Error,
@@ -234,7 +234,7 @@ impl Default for SolverIntegrity {
 }
 
 /// Convert a prover kind to a manifest key (lowercase name).
-fn prover_key(prover: ProverKind) -> String {
+fn prover_key(prover: &ProverKind) -> String {
     format!("{:?}", prover).to_lowercase()
 }
 
@@ -268,7 +268,7 @@ mod tests {
     fn test_integrity_verified() {
         let integrity = sample_manifest();
         let report = integrity.verify(
-            ProverKind::Coq,
+            ProverKind::new("coq"),
             "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
             "/usr/bin/coqc",
         );
@@ -280,7 +280,7 @@ mod tests {
     fn test_integrity_tampered() {
         let integrity = sample_manifest();
         let report = integrity.verify(
-            ProverKind::Coq,
+            ProverKind::new("coq"),
             "0000000000000000000000000000000000000000000000000000000000000000",
             "/usr/bin/coqc",
         );
@@ -293,7 +293,7 @@ mod tests {
     fn test_integrity_unchecked() {
         let integrity = sample_manifest();
         let report = integrity.verify(
-            ProverKind::Agda, // Not in manifest
+            ProverKind::new("agda"), // Not in manifest
             "somehashvalue",
             "/usr/bin/agda",
         );
@@ -304,7 +304,7 @@ mod tests {
     #[test]
     fn test_integrity_not_found() {
         let integrity = sample_manifest();
-        let report = integrity.report_not_found(ProverKind::Isabelle);
+        let report = integrity.report_not_found(ProverKind::new("isabelle"));
         assert_eq!(report.status, IntegrityStatus::NotFound);
         assert!(!report.status.is_safe());
     }
@@ -312,7 +312,7 @@ mod tests {
     #[test]
     fn test_integrity_error() {
         let integrity = sample_manifest();
-        let report = integrity.report_error(ProverKind::Z3, "Permission denied");
+        let report = integrity.report_error(ProverKind::new("z3"), "Permission denied");
         assert_eq!(report.status, IntegrityStatus::Error);
         assert!(report.message.contains("Permission denied"));
     }
@@ -322,19 +322,19 @@ mod tests {
         let json = r#"{"coq": "abc123", "lean": "def456"}"#;
         let integrity = SolverIntegrity::from_json(json).unwrap();
         assert_eq!(integrity.manifest_size(), 2);
-        assert!(integrity.has_manifest_entry(ProverKind::Coq));
-        assert!(integrity.has_manifest_entry(ProverKind::Lean));
-        assert!(!integrity.has_manifest_entry(ProverKind::Z3));
+        assert!(integrity.has_manifest_entry(ProverKind::new("coq")));
+        assert!(integrity.has_manifest_entry(ProverKind::new("lean")));
+        assert!(!integrity.has_manifest_entry(ProverKind::new("z3")));
     }
 
     #[test]
     fn test_set_expected_hash() {
         let mut integrity = SolverIntegrity::new();
-        assert!(!integrity.has_manifest_entry(ProverKind::Metamath));
+        assert!(!integrity.has_manifest_entry(ProverKind::new("metamath")));
 
-        integrity.set_expected_hash(ProverKind::Metamath, "hash123");
-        assert!(integrity.has_manifest_entry(ProverKind::Metamath));
-        assert_eq!(integrity.expected_hash(ProverKind::Metamath), Some("hash123"));
+        integrity.set_expected_hash(ProverKind::new("metamath"), "hash123");
+        assert!(integrity.has_manifest_entry(ProverKind::new("metamath")));
+        assert_eq!(integrity.expected_hash(ProverKind::new("metamath")), Some("hash123"));
     }
 
     #[test]

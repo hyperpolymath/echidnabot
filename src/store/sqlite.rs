@@ -749,19 +749,19 @@ impl TryFrom<OutcomeRow> for TacticOutcomeRecord {
 
 fn parse_prover(s: &str) -> Result<ProverKind> {
     match s {
-        "Agda" => Ok(ProverKind::Agda),
-        "Coq" => Ok(ProverKind::Coq),
-        "Lean" => Ok(ProverKind::Lean),
-        "Isabelle" => Ok(ProverKind::Isabelle),
-        "Z3" => Ok(ProverKind::Z3),
-        "Cvc5" => Ok(ProverKind::Cvc5),
-        "Metamath" => Ok(ProverKind::Metamath),
-        "HolLight" => Ok(ProverKind::HolLight),
-        "Mizar" => Ok(ProverKind::Mizar),
-        "Pvs" => Ok(ProverKind::Pvs),
-        "Acl2" => Ok(ProverKind::Acl2),
-        "Hol4" => Ok(ProverKind::Hol4),
-        _ => Err(Error::InvalidProver(s.to_string())),
+        "Agda" => Ok(ProverKind::new("agda")),
+        "Coq" => Ok(ProverKind::new("coq")),
+        "Lean" => Ok(ProverKind::new("lean")),
+        "Isabelle" => Ok(ProverKind::new("isabelle")),
+        "Z3" => Ok(ProverKind::new("z3")),
+        "Cvc5" => Ok(ProverKind::new("cvc5")),
+        "Metamath" => Ok(ProverKind::new("metamath")),
+        "HolLight" => Ok(ProverKind::new("hol-light")),
+        "Mizar" => Ok(ProverKind::new("mizar")),
+        "Pvs" => Ok(ProverKind::new("pvs")),
+        "Acl2" => Ok(ProverKind::new("acl2")),
+        "Hol4" => Ok(ProverKind::new("hol4")),
+        _ => Ok(ProverKind::new(s)),  // Support all 113 provers dynamically
     }
 }
 
@@ -784,16 +784,16 @@ mod tests {
         let fp = goal_fingerprint("forall x : Nat, x = x");
 
         let first = TacticOutcomeRecord::new(
-            None, ProverKind::Coq, fp.clone(), "reflexivity".into(), true, 12,
+            None, ProverKind::new("coq"), fp.clone(), "reflexivity".into(), true, 12,
         );
         let second = TacticOutcomeRecord::new(
-            None, ProverKind::Coq, fp.clone(), "auto".into(), false, 30,
+            None, ProverKind::new("coq"), fp.clone(), "auto".into(), false, 30,
         );
         store.record_tactic_outcome(&first).await.unwrap();
         store.record_tactic_outcome(&second).await.unwrap();
 
         let found = store
-            .list_tactic_outcomes_by_fingerprint(ProverKind::Coq, &fp, 10)
+            .list_tactic_outcomes_by_fingerprint(ProverKind::new("coq"), &fp, 10)
             .await
             .unwrap();
         assert_eq!(found.len(), 2);
@@ -813,23 +813,23 @@ mod tests {
 
         store
             .record_tactic_outcome(&TacticOutcomeRecord::new(
-                None, ProverKind::Coq, fp.clone(), "split".into(), true, 5,
+                None, ProverKind::new("coq"), fp.clone(), "split".into(), true, 5,
             ))
             .await
             .unwrap();
         store
             .record_tactic_outcome(&TacticOutcomeRecord::new(
-                None, ProverKind::Lean, fp.clone(), "exact".into(), true, 5,
+                None, ProverKind::new("lean"), fp.clone(), "exact".into(), true, 5,
             ))
             .await
             .unwrap();
 
         let coq_hits = store
-            .list_tactic_outcomes_by_fingerprint(ProverKind::Coq, &fp, 10)
+            .list_tactic_outcomes_by_fingerprint(ProverKind::new("coq"), &fp, 10)
             .await
             .unwrap();
         let lean_hits = store
-            .list_tactic_outcomes_by_fingerprint(ProverKind::Lean, &fp, 10)
+            .list_tactic_outcomes_by_fingerprint(ProverKind::new("lean"), &fp, 10)
             .await
             .unwrap();
         assert_eq!(coq_hits.len(), 1);
@@ -848,19 +848,19 @@ mod tests {
 
         store
             .record_tactic_outcome(&TacticOutcomeRecord::new(
-                None, ProverKind::Coq, fp1, "intros".into(), true, 3,
+                None, ProverKind::new("coq"), fp1, "intros".into(), true, 3,
             ))
             .await
             .unwrap();
         store
             .record_tactic_outcome(&TacticOutcomeRecord::new(
-                None, ProverKind::Coq, fp2, "intros".into(), false, 99,
+                None, ProverKind::new("coq"), fp2, "intros".into(), false, 99,
             ))
             .await
             .unwrap();
 
         let hits = store
-            .list_tactic_outcomes_by_tactic(ProverKind::Coq, "intros", 10)
+            .list_tactic_outcomes_by_tactic(ProverKind::new("coq"), "intros", 10)
             .await
             .unwrap();
         assert_eq!(hits.len(), 2);

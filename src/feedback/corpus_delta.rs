@@ -230,7 +230,7 @@ mod tests {
 
     fn sample_row(succeeded: bool) -> DeltaRow {
         DeltaRow::new(
-            ProverKind::Coq,
+            ProverKind::new("coq"),
             "forall x : nat, x + 0 = x".to_string(),
             "rewrite plus_n_O".to_string(),
             succeeded,

@@ -375,7 +375,7 @@ async fn check(config: &Config, repo: &str, commit: Option<&str>, prover: Option
     }
 
     if let Some(content) = proof_content {
-        let kind = selected_prover.unwrap_or(ProverKind::Metamath);
+        let kind = selected_prover.unwrap_or(ProverKind::new("metamath"));
         let result = client.verify_proof(kind, &content).await?;
         tracing::info!(
             "Proof result: {:?} ({} ms)",
@@ -404,18 +404,18 @@ async fn check(config: &Config, repo: &str, commit: Option<&str>, prover: Option
 
 fn parse_prover_arg(prover: &str) -> Option<ProverKind> {
     match prover.to_lowercase().as_str() {
-        "agda" => Some(ProverKind::Agda),
-        "coq" | "rocq" => Some(ProverKind::Coq),
-        "lean" | "lean4" => Some(ProverKind::Lean),
-        "isabelle" | "isabelle-hol" | "isabelle_hol" => Some(ProverKind::Isabelle),
-        "z3" => Some(ProverKind::Z3),
-        "cvc5" => Some(ProverKind::Cvc5),
-        "metamath" => Some(ProverKind::Metamath),
-        "hol-light" | "hol_light" | "hol" => Some(ProverKind::HolLight),
-        "mizar" => Some(ProverKind::Mizar),
-        "pvs" => Some(ProverKind::Pvs),
-        "acl2" => Some(ProverKind::Acl2),
-        "hol4" => Some(ProverKind::Hol4),
+        "agda" => Some(ProverKind::new("agda")),
+        "coq" | "rocq" => Some(ProverKind::new("coq")),
+        "lean" | "lean4" => Some(ProverKind::new("lean")),
+        "isabelle" | "isabelle-hol" | "isabelle_hol" => Some(ProverKind::new("isabelle")),
+        "z3" => Some(ProverKind::new("z3")),
+        "cvc5" => Some(ProverKind::new("cvc5")),
+        "metamath" => Some(ProverKind::new("metamath")),
+        "hol-light" | "hol_light" | "hol" => Some(ProverKind::new("hol-light")),
+        "mizar" => Some(ProverKind::new("mizar")),
+        "pvs" => Some(ProverKind::new("pvs")),
+        "acl2" => Some(ProverKind::new("acl2")),
+        "hol4" => Some(ProverKind::new("hol4")),
         _ => None,
     }
 }

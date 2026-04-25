@@ -150,12 +150,12 @@ impl AxiomTracker {
         let output_lower = output.to_lowercase();
 
         // Prover-specific patterns
-        match prover {
-            ProverKind::Lean => scan_lean(&output_lower, &mut flags),
-            ProverKind::Coq => scan_coq(&output_lower, &mut flags),
-            ProverKind::Agda => scan_agda(output, &output_lower, &mut flags),
-            ProverKind::Isabelle => scan_isabelle(&output_lower, &mut flags),
-            ProverKind::Metamath => scan_metamath(&output_lower, &mut flags),
+        match prover.as_str() {
+            "lean" => scan_lean(&output_lower, &mut flags),
+            "coq" => scan_coq(&output_lower, &mut flags),
+            "agda" => scan_agda(output, &output_lower, &mut flags),
+            "isabelle" => scan_isabelle(&output_lower, &mut flags),
+            "metamath" => scan_metamath(&output_lower, &mut flags),
             _ => scan_generic(&output_lower, &mut flags),
         }
 
@@ -281,7 +281,7 @@ mod tests {
     #[test]
     fn test_clean_proof_no_flags() {
         let report = AxiomTracker::scan(
-            ProverKind::Lean,
+            ProverKind::new("lean"),
             "All goals discharged successfully.\nProof complete.",
         );
         assert!(report.clean);
@@ -292,7 +292,7 @@ mod tests {
     #[test]
     fn test_lean_sorry_detected() {
         let report = AxiomTracker::scan(
-            ProverKind::Lean,
+            ProverKind::new("lean"),
             "declaration uses 'sorry'\nTest.lean:42:5: error: tactic 'sorry' is not allowed",
         );
         assert!(!report.clean);
@@ -303,7 +303,7 @@ mod tests {
     #[test]
     fn test_coq_admitted_detected() {
         let report = AxiomTracker::scan(
-            ProverKind::Coq,
+            ProverKind::new("coq"),
             "Axioms:\nmyLemma : forall x, P x\n Admitted.",
         );
         assert!(!report.clean);
@@ -314,7 +314,7 @@ mod tests {
     #[test]
     fn test_agda_postulate_detected() {
         let report = AxiomTracker::scan(
-            ProverKind::Agda,
+            ProverKind::new("agda"),
             "postulate\n  funext : ...",
         );
         assert!(!report.clean);
@@ -325,7 +325,7 @@ mod tests {
     #[test]
     fn test_agda_type_in_type_detected() {
         let report = AxiomTracker::scan(
-            ProverKind::Agda,
+            ProverKind::new("agda"),
             "Checking with --type-in-type enabled\nAll goals discharged",
         );
         assert!(!report.clean);
@@ -336,7 +336,7 @@ mod tests {
     #[test]
     fn test_isabelle_oops_detected() {
         let report = AxiomTracker::scan(
-            ProverKind::Isabelle,
+            ProverKind::new("isabelle"),
             "lemma foo: \"True\" oops",
         );
         assert!(!report.clean);
@@ -347,7 +347,7 @@ mod tests {
     #[test]
     fn test_metamath_axiom_detected() {
         let report = AxiomTracker::scan(
-            ProverKind::Metamath,
+            ProverKind::new("metamath"),
             "$a axiom |- ( ph -> ps )",
         );
         assert!(!report.clean);
@@ -357,7 +357,7 @@ mod tests {
     #[test]
     fn test_classical_axiom_detected() {
         let report = AxiomTracker::scan(
-            ProverKind::Coq,
+            ProverKind::new("coq"),
             "Uses: Excluded Middle\nClassic imported",
         );
         assert!(!report.clean);
@@ -390,7 +390,7 @@ mod tests {
     #[test]
     fn test_report_summary() {
         let report = AxiomTracker::scan(
-            ProverKind::Lean,
+            ProverKind::new("lean"),
             "sorry used\naxiom myAxiom\nclassical.choice",
         );
         let summary = report.summary();
@@ -400,7 +400,7 @@ mod tests {
     #[test]
     fn test_clean_report_summary() {
         let report = AxiomTracker::scan(
-            ProverKind::Z3,
+            ProverKind::new("z3"),
             "sat\n(model ...)",
         );
         let summary = report.summary();
@@ -410,7 +410,7 @@ mod tests {
     #[test]
     fn test_flags_at_severity() {
         let report = AxiomTracker::scan(
-            ProverKind::Lean,
+            ProverKind::new("lean"),
             "sorry\naxiom myAxiom\nclassical.choice",
         );
         let critical = report.flags_at_severity(3);

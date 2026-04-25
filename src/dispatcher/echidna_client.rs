@@ -42,11 +42,11 @@ impl EchidnaClient {
     }
 
     /// Verify a proof using ECHIDNA Core
-    pub async fn verify_proof(&self, prover: ProverKind, content: &str) -> Result<ProofResult> {
+    pub async fn verify_proof(&self, prover: &ProverKind, content: &str) -> Result<ProofResult> {
         match self.mode {
             EchidnaApiMode::Graphql => self.verify_proof_graphql(prover, content).await,
             EchidnaApiMode::Rest => self.verify_proof_rest(prover, content).await,
-            EchidnaApiMode::Auto => match self.verify_proof_graphql(prover, content).await {
+            EchidnaApiMode::Auto => match self.verify_proof_graphql(prover.clone(), content).await {
                 Ok(result) => Ok(result),
                 Err(err) => {
                     warn!("GraphQL verify failed, falling back to REST: {}", err);
@@ -59,7 +59,7 @@ impl EchidnaClient {
     /// Request tactic suggestions from ECHIDNA's Julia ML component
     pub async fn suggest_tactics(
         &self,
-        prover: ProverKind,
+        prover: &ProverKind,
         context: &str,
         goal_state: &str,
     ) -> Result<Vec<TacticSuggestion>> {
@@ -70,7 +70,7 @@ impl EchidnaClient {
             EchidnaApiMode::Rest => self.suggest_tactics_rest(prover, context, goal_state).await,
             EchidnaApiMode::Auto => {
                 match self
-                    .suggest_tactics_graphql(prover, context, goal_state)
+                    .suggest_tactics_graphql(prover.clone(), context, goal_state)
                     .await
                 {
                     Ok(result) => Ok(result),
@@ -96,11 +96,11 @@ impl EchidnaClient {
     }
 
     /// Check prover availability
-    pub async fn prover_status(&self, prover: ProverKind) -> Result<ProverStatus> {
+    pub async fn prover_status(&self, prover: &ProverKind) -> Result<ProverStatus> {
         match self.mode {
             EchidnaApiMode::Graphql => self.prover_status_graphql(prover).await,
             EchidnaApiMode::Rest => self.prover_status_rest(prover).await,
-            EchidnaApiMode::Auto => match self.prover_status_graphql(prover).await {
+            EchidnaApiMode::Auto => match self.prover_status_graphql(prover.clone()).await {
                 Ok(result) => Ok(result),
                 Err(err) => {
                     warn!("GraphQL prover_status failed, falling back to REST: {}", err);
@@ -117,7 +117,7 @@ impl EchidnaClient {
 
     async fn verify_proof_graphql(
         &self,
-        prover: ProverKind,
+        prover: &ProverKind,
         content: &str,
     ) -> Result<ProofResult> {
         let query = GraphQLRequest {
@@ -192,7 +192,7 @@ impl EchidnaClient {
 
     async fn suggest_tactics_graphql(
         &self,
-        prover: ProverKind,
+        prover: &ProverKind,
         context: &str,
         goal_state: &str,
     ) -> Result<Vec<TacticSuggestion>> {
@@ -274,7 +274,7 @@ impl EchidnaClient {
         }
     }
 
-    async fn prover_status_graphql(&self, prover: ProverKind) -> Result<ProverStatus> {
+    async fn prover_status_graphql(&self, prover: &ProverKind) -> Result<ProverStatus> {
         let query = GraphQLRequest {
             query: r#"
                 query ProverStatus($prover: String!) {
@@ -313,7 +313,7 @@ impl EchidnaClient {
         }
     }
 
-    async fn verify_proof_rest(&self, prover: ProverKind, content: &str) -> Result<ProofResult> {
+    async fn verify_proof_rest(&self, prover: &ProverKind, content: &str) -> Result<ProofResult> {
         let request = RestVerifyRequest {
             prover: prover_to_echidna_name(prover),
             content: content.to_string(),
@@ -358,7 +358,7 @@ impl EchidnaClient {
 
     async fn suggest_tactics_rest(
         &self,
-        prover: ProverKind,
+        prover: &ProverKind,
         context: &str,
         goal_state: &str,
     ) -> Result<Vec<TacticSuggestion>> {
@@ -416,7 +416,7 @@ impl EchidnaClient {
         }
     }
 
-    async fn prover_status_rest(&self, prover: ProverKind) -> Result<ProverStatus> {
+    async fn prover_status_rest(&self, prover: &ProverKind) -> Result<ProverStatus> {
         let response = self
             .client
             .get(self.rest_url("/api/provers"))
@@ -489,22 +489,8 @@ struct RestProverInfo {
     complexity: u8,
 }
 
-fn prover_to_echidna_name(prover: ProverKind) -> String {
-    match prover {
-        ProverKind::Agda => "Agda",
-        ProverKind::Coq => "Coq",
-        ProverKind::Lean => "Lean",
-        ProverKind::Isabelle => "Isabelle",
-        ProverKind::Z3 => "Z3",
-        ProverKind::Cvc5 => "CVC5",
-        ProverKind::Metamath => "Metamath",
-        ProverKind::HolLight => "HOLLight",
-        ProverKind::Mizar => "Mizar",
-        ProverKind::Pvs => "PVS",
-        ProverKind::Acl2 => "ACL2",
-        ProverKind::Hol4 => "HOL4",
-    }
-    .to_string()
+fn prover_to_echidna_name(prover: &ProverKind) -> String {
+    prover.display_name().to_string()
 }
 
 // =============================================================================
@@ -596,22 +582,22 @@ mod tests {
 
     #[test]
     fn test_prover_file_extensions() {
-        assert!(ProverKind::Metamath.file_extensions().contains(&".mm"));
-        assert!(ProverKind::Lean.file_extensions().contains(&".lean"));
-        assert!(ProverKind::Coq.file_extensions().contains(&".v"));
+        assert!(ProverKind::new("metamath").file_extensions().contains(&".mm"));
+        assert!(ProverKind::new("lean").file_extensions().contains(&".lean"));
+        assert!(ProverKind::new("coq").file_extensions().contains(&".v"));
     }
 
     #[test]
     fn test_prover_from_extension() {
-        assert_eq!(ProverKind::from_extension(".mm"), Some(ProverKind::Metamath));
-        assert_eq!(ProverKind::from_extension("lean"), Some(ProverKind::Lean));
+        assert_eq!(ProverKind::from_extension(".mm"), Some(ProverKind::new("metamath")));
+        assert_eq!(ProverKind::from_extension("lean"), Some(ProverKind::new("lean")));
         assert_eq!(ProverKind::from_extension(".xyz"), None);
     }
 
     #[test]
     fn test_prover_tier() {
-        assert_eq!(ProverKind::Metamath.tier(), 2);
-        assert_eq!(ProverKind::Lean.tier(), 1);
-        assert_eq!(ProverKind::Hol4.tier(), 3);
+        assert_eq!(ProverKind::new("metamath").tier(), 2);
+        assert_eq!(ProverKind::new("lean").tier(), 1);
+        assert_eq!(ProverKind::new("hol4").tier(), 3);
     }
 }

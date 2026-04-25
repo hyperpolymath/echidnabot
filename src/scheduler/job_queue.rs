@@ -261,14 +261,14 @@ mod tests {
         let job1 = ProofJob::new(
             Uuid::new_v4(),
             "abc123".to_string(),
-            ProverKind::Metamath,
+            ProverKind::new("metamath"),
             vec!["test.mm".to_string()],
         );
 
         let job2 = ProofJob::new(
             Uuid::new_v4(),
             "def456".to_string(),
-            ProverKind::Metamath,
+            ProverKind::new("metamath"),
             vec!["test2.mm".to_string()],
         );
 
@@ -295,14 +295,14 @@ mod tests {
         let job1 = ProofJob::new(
             repo_id,
             "abc123".to_string(),
-            ProverKind::Metamath,
+            ProverKind::new("metamath"),
             vec!["test.mm".to_string()],
         );
 
         let job2 = ProofJob::new(
             repo_id,
             "abc123".to_string(), // Same commit
-            ProverKind::Metamath,  // Same prover
+            ProverKind::new("metamath"),  // Same prover
             vec!["test.mm".to_string()],
         );
 
@@ -321,7 +321,7 @@ mod tests {
         let low_priority = ProofJob::new(
             repo_id,
             "low".to_string(),
-            ProverKind::Metamath,
+            ProverKind::new("metamath"),
             vec!["low.mm".to_string()],
         )
         .with_priority(JobPriority::Low);
@@ -329,7 +329,7 @@ mod tests {
         let high_priority = ProofJob::new(
             repo_id,
             "high".to_string(),
-            ProverKind::Lean,
+            ProverKind::new("lean"),
             vec!["high.lean".to_string()],
         )
         .with_priority(JobPriority::High);
