@@ -28,6 +28,9 @@ use std::net::SocketAddr;
 
 use super::webhooks::AppState;
 
+// ConnectInfo and SocketAddr are used in the middleware body via
+// request.extensions().get::<ConnectInfo<SocketAddr>>().
+
 /// Sliding-window per-IP rate limiter (60-second window).
 pub struct WebhookRateLimiter {
     state: Mutex<HashMap<IpAddr, VecDeque<Instant>>>,
@@ -73,29 +76,43 @@ impl WebhookRateLimiter {
 ///
 /// Applied only to webhook routes. Health and metrics endpoints are
 /// intentionally excluded so monitoring systems are never blocked.
+///
+/// Peer address is read from request extensions rather than using the
+/// `ConnectInfo` extractor directly, so the middleware degrades gracefully
+/// in test environments that don't call `into_make_service_with_connect_info`.
 pub async fn rate_limit_middleware(
     State(state): State<AppState>,
-    ConnectInfo(peer): ConnectInfo<SocketAddr>,
     request: Request<Body>,
     next: Next,
 ) -> Response {
     if let Some(ref limiter) = state.rate_limiter {
-        if !limiter.check_ip(peer.ip()) {
-            tracing::warn!(
-                ip = %peer.ip(),
-                limit = limiter.limit(),
-                "Webhook rate limit exceeded"
-            );
-            return (
-                StatusCode::TOO_MANY_REQUESTS,
-                [
-                    ("Retry-After", "60"),
-                    ("X-RateLimit-Limit", &limiter.limit().to_string()),
-                    ("X-RateLimit-Window", "60"),
-                ],
-                "Rate limit exceeded — too many webhook requests from this IP",
-            )
-                .into_response();
+        // Extract ConnectInfo from extensions (present only when
+        // axum::serve is called with into_make_service_with_connect_info).
+        // If absent (test environment), skip rate limiting rather than failing.
+        let peer_ip = request
+            .extensions()
+            .get::<ConnectInfo<SocketAddr>>()
+            .map(|ci| ci.0.ip());
+
+        if let Some(ip) = peer_ip {
+            if !limiter.check_ip(ip) {
+                tracing::warn!(
+                    %ip,
+                    limit = limiter.limit(),
+                    "Webhook rate limit exceeded"
+                );
+                let limit_str = limiter.limit().to_string();
+                return (
+                    StatusCode::TOO_MANY_REQUESTS,
+                    [
+                        ("Retry-After", "60"),
+                        ("X-RateLimit-Limit", limit_str.as_str()),
+                        ("X-RateLimit-Window", "60"),
+                    ],
+                    "Rate limit exceeded — too many webhook requests from this IP",
+                )
+                    .into_response();
+            }
         }
     }
     next.run(request).await
