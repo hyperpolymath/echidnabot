@@ -279,15 +279,54 @@ impl PlatformAdapter for BitbucketAdapter {
 
     async fn get_file_contents(
         &self,
-        _repo: &RepoId,
-        _branch: Option<&str>,
-        _path: &str,
+        repo: &RepoId,
+        branch: Option<&str>,
+        path: &str,
     ) -> Result<Option<String>> {
-        // Bitbucket Source endpoint at
+        // Bitbucket Source endpoint:
         //   GET /repositories/:owner/:slug/src/:branch/:path
-        // returns raw file bytes. Deferred until a Bitbucket consumer
-        // needs it; returning Ok(None) lets the directive resolver
-        // cascade gracefully.
-        Ok(None)
+        // Returns raw file bytes (no JSON wrapper, no base64).
+        // When :branch is omitted, Bitbucket resolves to the
+        // repository's default branch.
+        // Token auth via Bearer when configured.
+        let project = self.project_path(repo);
+        let r#ref = branch.unwrap_or("HEAD");
+        // The path is interpreted as relative to the ref; URL-encode
+        // segments individually to preserve the slash separators.
+        let encoded_path = path
+            .split('/')
+            .map(|s| urlencoding::encode(s).into_owned())
+            .collect::<Vec<_>>()
+            .join("/");
+        let url = format!(
+            "{}/repositories/{}/src/{}/{}",
+            self.api_url(),
+            project,
+            urlencoding::encode(r#ref),
+            encoded_path,
+        );
+        let mut req = self.client.get(&url);
+        if let Some(token) = self.token.as_ref() {
+            req = req.bearer_auth(token);
+        }
+        let resp = req
+            .send()
+            .await
+            .map_err(|e| Error::GitHub(format!("Bitbucket source API: {}", e)))?;
+        let status = resp.status();
+        if status == reqwest::StatusCode::NOT_FOUND {
+            return Ok(None);
+        }
+        if !status.is_success() {
+            return Err(Error::GitHub(format!(
+                "Bitbucket source API returned {}",
+                status
+            )));
+        }
+        let body = resp
+            .text()
+            .await
+            .map_err(|e| Error::GitHub(format!("Bitbucket source response: {}", e)))?;
+        Ok(Some(body))
     }
 }

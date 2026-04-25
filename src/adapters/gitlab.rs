@@ -278,17 +278,50 @@ impl PlatformAdapter for GitLabAdapter {
 
     async fn get_file_contents(
         &self,
-        _repo: &RepoId,
-        _branch: Option<&str>,
-        _path: &str,
+        repo: &RepoId,
+        branch: Option<&str>,
+        path: &str,
     ) -> Result<Option<String>> {
-        // GitLab Repository Files API at
-        //   GET /projects/:id/repository/files/:filepath?ref=:branch
-        // returns base64'd content. Wiring this requires resolving
-        // `repo.owner/repo.name` to a project id (or using the
-        // URL-encoded path). Deferred until a GitLab consumer needs it;
-        // returning Ok(None) lets the directive resolver cascade
-        // gracefully on GitLab repos.
-        Ok(None)
+        // GitLab Repository Files API — raw variant skips the JSON
+        // base64 envelope:
+        //   GET /api/v4/projects/:id/repository/files/:filepath/raw?ref=:branch
+        // The :id can be the URL-encoded `owner/name` path, skipping
+        // a numeric project-id resolution round-trip. :filepath also
+        // URL-encoded per the GitLab spec.
+        // Token auth via PRIVATE-TOKEN header when configured.
+        let project_path = self.project_path(repo);
+        let project = urlencoding::encode(&project_path);
+        let file_path = urlencoding::encode(path);
+        let r#ref = branch.unwrap_or("HEAD");
+        let url = format!(
+            "{}/projects/{}/repository/files/{}/raw?ref={}",
+            self.api_url(),
+            project,
+            file_path,
+            urlencoding::encode(r#ref),
+        );
+        let mut req = self.client.get(&url);
+        if let Some(token) = self.token.as_ref() {
+            req = req.header("PRIVATE-TOKEN", token);
+        }
+        let resp = req
+            .send()
+            .await
+            .map_err(|e| Error::GitHub(format!("GitLab files API: {}", e)))?;
+        let status = resp.status();
+        if status == reqwest::StatusCode::NOT_FOUND {
+            return Ok(None);
+        }
+        if !status.is_success() {
+            return Err(Error::GitHub(format!(
+                "GitLab files API returned {}",
+                status
+            )));
+        }
+        let body = resp
+            .text()
+            .await
+            .map_err(|e| Error::GitHub(format!("GitLab files response: {}", e)))?;
+        Ok(Some(body))
     }
 }
