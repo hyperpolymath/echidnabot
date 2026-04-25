@@ -272,7 +272,7 @@ impl PodmanExecutor {
 
         // Environment variables
         cmd.arg("-e")
-            .arg(format!("PROVER={}", prover_to_env_name(prover)));
+            .arg(format!("PROVER={}", prover_to_env_name(&prover)));
 
         // Write proof content via stdin
         cmd.arg("-i") // Interactive mode for stdin
@@ -283,8 +283,8 @@ impl PodmanExecutor {
         // Command to execute inside container: save proof, run prover
         let container_cmd = format!(
             "cat > /tmp/proof{ext} && {cmd} /tmp/proof{ext}",
-            ext = prover_extension(prover),
-            cmd = prover_command(prover),
+            ext = prover_extension(&prover),
+            cmd = prover_command(&prover),
         );
         cmd.arg(&container_cmd);
 
@@ -395,7 +395,7 @@ impl PodmanExecutor {
         })?;
         let proof_path = temp_dir
             .path()
-            .join(format!("proof{}", prover_extension(prover)));
+            .join(format!("proof{}", prover_extension(&prover)));
 
         // Write proof content to temp file
         tokio::fs::write(&proof_path, proof_content).await.map_err(|e| {
@@ -437,15 +437,15 @@ impl PodmanExecutor {
         // Set environment
         cmd.arg("--setenv")
             .arg("PROVER")
-            .arg(prover_to_env_name(prover));
+            .arg(prover_to_env_name(&prover));
 
         // Command to run inside sandbox
-        let prover_cmd = prover_command(prover);
+        let prover_cmd = prover_command(&prover);
         cmd.arg("sh")
             .arg("-c")
             .arg(format!(
                 "cp /workspace/proof{ext} /tmp/proof{ext} && {cmd} /tmp/proof{ext}",
-                ext = prover_extension(prover),
+                ext = prover_extension(&prover),
                 cmd = prover_cmd,
             ));
 
@@ -585,7 +585,7 @@ impl PodmanExecutor {
         args.push("-w".to_string());
         args.push("/workspace".to_string());
         args.push("-e".to_string());
-        args.push(format!("PROVER={}", prover_to_env_name(prover)));
+        args.push(format!("PROVER={}", prover_to_env_name(&prover)));
         args.push("-i".to_string());
         args.push(self.image.clone());
         args.push("sh".to_string());
@@ -593,8 +593,8 @@ impl PodmanExecutor {
 
         let container_cmd = format!(
             "cat > /tmp/proof{ext} && {cmd} /tmp/proof{ext}",
-            ext = prover_extension(prover),
-            cmd = prover_command(prover),
+            ext = prover_extension(&prover),
+            cmd = prover_command(&prover),
         );
         args.push(container_cmd);
 

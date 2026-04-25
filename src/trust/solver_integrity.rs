@@ -149,7 +149,7 @@ impl SolverIntegrity {
 
                 if matches {
                     IntegrityReport {
-                        prover,
+                        prover: prover.clone(),
                         status: IntegrityStatus::Verified,
                         expected_hash: Some(expected.clone()),
                         actual_hash: Some(actual_hash.to_string()),
@@ -161,7 +161,7 @@ impl SolverIntegrity {
                     }
                 } else {
                     IntegrityReport {
-                        prover,
+                        prover: prover.clone(),
                         status: IntegrityStatus::Tampered,
                         expected_hash: Some(expected.clone()),
                         actual_hash: Some(actual_hash.to_string()),
@@ -177,7 +177,7 @@ impl SolverIntegrity {
                 }
             }
             None => IntegrityReport {
-                prover,
+                prover: prover.clone(),
                 status: IntegrityStatus::Unchecked,
                 expected_hash: None,
                 actual_hash: Some(actual_hash.to_string()),
@@ -193,7 +193,7 @@ impl SolverIntegrity {
     /// Create a report for a solver that was not found on the system.
     pub fn report_not_found(&self, prover: &ProverKind) -> IntegrityReport {
         IntegrityReport {
-            prover,
+            prover: prover.clone(),
             status: IntegrityStatus::NotFound,
             expected_hash: self.expected_hash(prover).map(|s| s.to_string()),
             actual_hash: None,
@@ -208,7 +208,7 @@ impl SolverIntegrity {
     /// Create a report for an error during integrity checking.
     pub fn report_error(&self, prover: &ProverKind, error: &str) -> IntegrityReport {
         IntegrityReport {
-            prover,
+            prover: prover.clone(),
             status: IntegrityStatus::Error,
             expected_hash: self.expected_hash(prover).map(|s| s.to_string()),
             actual_hash: None,

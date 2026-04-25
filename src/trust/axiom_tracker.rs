@@ -171,7 +171,7 @@ impl AxiomTracker {
         let clean = flags.is_empty();
 
         AxiomReport {
-            prover,
+            prover: prover.clone(),
             flags,
             unsound_count,
             warning_count,

@@ -77,9 +77,10 @@ impl ProverSlug {
         let ext = ext.to_lowercase();
         let ext = if ext.starts_with('.') { ext } else { format!(".{}", ext) };
 
-        CLASSIC_PROVERS.iter().find_map(|(slug, exts)| {
-            if exts.iter().any(|e| e.to_lowercase() == ext) {
-                Some(ProverSlug::new(slug))
+        CLASSIC_PROVERS.iter().find_map(|(slug, _)| {
+            let prover = ProverSlug::new(*slug);
+            if prover.file_extensions().contains(&ext.as_str()) {
+                Some(prover)
             } else {
                 None
             }
@@ -108,7 +109,7 @@ impl ProverSlug {
     pub fn file_extensions(&self) -> &[&str] {
         CLASSIC_PROVERS.iter()
             .find(|(slug, _)| slug.to_lowercase() == self.0)
-            .map(|(_, exts)| {
+            .map(|(_, _)| {
                 // Return extensions from the tuple's list
                 const AGDA_EXTS: &[&str] = &[".agda", ".lagda", ".lagda.md"];
                 const COQ_EXTS: &[&str] = &[".v"];
