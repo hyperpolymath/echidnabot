@@ -1053,7 +1053,7 @@ async fn clone_repo_via_git(base_url: &str, repo: &RepoId, commit: &str) -> Resu
 
     let status = if commit == "HEAD" {
         tokio::process::Command::new("git")
-            .args(["clone", "--depth", "1", &url, clone_path.to_str().unwrap()])
+            .args(["clone", "--depth", "1", &url, &*clone_path.to_string_lossy()])
             .status()
             .await?
     } else {
@@ -1065,7 +1065,7 @@ async fn clone_repo_via_git(base_url: &str, repo: &RepoId, commit: &str) -> Resu
                 "--branch",
                 commit,
                 &url,
-                clone_path.to_str().unwrap(),
+                &*clone_path.to_string_lossy(),
             ])
             .status()
             .await?
@@ -1073,7 +1073,7 @@ async fn clone_repo_via_git(base_url: &str, repo: &RepoId, commit: &str) -> Resu
 
     if !status.success() && commit != "HEAD" {
         let status = tokio::process::Command::new("git")
-            .args(["clone", "--depth", "1", &url, clone_path.to_str().unwrap()])
+            .args(["clone", "--depth", "1", &url, &*clone_path.to_string_lossy()])
             .status()
             .await?;
 

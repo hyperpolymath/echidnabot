@@ -206,7 +206,9 @@ impl JobScheduler {
         {
             let mut queue = self.queue.lock().await;
             if let Some(pos) = queue.iter().position(|j| j.id == job_id) {
-                let mut job = queue.remove(pos).unwrap();
+                // Safe: pos came from position() while we hold the lock,
+                // so the index is guaranteed in-bounds for VecDeque::remove.
+                let mut job = queue.remove(pos).expect("position() guarantees in-bounds index");
                 job.cancel();
                 tracing::info!("Cancelled queued job {}", job_id);
                 return true;

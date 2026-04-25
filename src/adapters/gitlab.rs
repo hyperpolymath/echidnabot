@@ -50,7 +50,7 @@ impl PlatformAdapter for GitLabAdapter {
 
         let status = if commit == "HEAD" {
             tokio::process::Command::new("git")
-                .args(["clone", "--depth", "1", &url, clone_path.to_str().unwrap()])
+                .args(["clone", "--depth", "1", &url, &*clone_path.to_string_lossy()])
                 .status()
                 .await
                 .map_err(Error::Io)?
@@ -63,7 +63,7 @@ impl PlatformAdapter for GitLabAdapter {
                     "--branch",
                     commit,
                     &url,
-                    clone_path.to_str().unwrap(),
+                    &*clone_path.to_string_lossy(),
                 ])
                 .status()
                 .await
@@ -72,7 +72,7 @@ impl PlatformAdapter for GitLabAdapter {
 
         if !status.success() && commit != "HEAD" {
             let status = tokio::process::Command::new("git")
-                .args(["clone", "--depth", "1", &url, clone_path.to_str().unwrap()])
+                .args(["clone", "--depth", "1", &url, &*clone_path.to_string_lossy()])
                 .status()
                 .await
                 .map_err(Error::Io)?;
