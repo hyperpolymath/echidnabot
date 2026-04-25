@@ -192,6 +192,8 @@ mod tests {
             started_at: Some(Utc::now()),
             completed_at: Some(Utc::now()),
             result: None,
+            pr_number: None,
+            delivery_id: None,
         };
 
         let result = JobResult {
@@ -228,6 +230,8 @@ mod tests {
             started_at: Some(Utc::now()),
             completed_at: Some(Utc::now()),
             result: None,
+            pr_number: None,
+            delivery_id: None,
         };
 
         let result = JobResult {
@@ -263,6 +267,8 @@ mod tests {
             started_at: Some(Utc::now()),
             completed_at: Some(Utc::now()),
             result: None,
+            pr_number: None,
+            delivery_id: None,
         };
 
         let result = JobResult {

@@ -69,12 +69,33 @@ impl SqliteStore {
                 queued_at TEXT NOT NULL,
                 started_at TEXT,
                 completed_at TEXT,
-                error_message TEXT
+                error_message TEXT,
+                pr_number INTEGER,
+                delivery_id TEXT
             )
             "#,
         )
         .execute(&self.pool)
         .await?;
+
+        // Idempotent migration for older databases that pre-date the
+        // pr_number / delivery_id columns. SQLite returns "duplicate column"
+        // when the column already exists; we treat that as success.
+        for ddl in [
+            "ALTER TABLE proof_jobs ADD COLUMN pr_number INTEGER",
+            "ALTER TABLE proof_jobs ADD COLUMN delivery_id TEXT",
+        ] {
+            match sqlx::query(ddl).execute(&self.pool).await {
+                Ok(_) => {}
+                Err(sqlx::Error::Database(e))
+                    if e.message().contains("duplicate column") =>
+                {
+                    // Column already exists — fresh DB created above already
+                    // had it, or an earlier migration added it. Either is fine.
+                }
+                Err(e) => return Err(e.into()),
+            }
+        }
 
         sqlx::query(
             r#"
@@ -279,8 +300,9 @@ impl Store for SqliteStore {
             r#"
             INSERT INTO proof_jobs (
                 id, repo_id, commit_sha, prover, file_paths,
-                status, priority, queued_at, started_at, completed_at, error_message
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                status, priority, queued_at, started_at, completed_at, error_message,
+                pr_number, delivery_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             "#,
         )
         .bind(job.id.to_string())
@@ -294,6 +316,8 @@ impl Store for SqliteStore {
         .bind(job.started_at.map(|t| t.to_rfc3339()))
         .bind(job.completed_at.map(|t| t.to_rfc3339()))
         .bind(&job.error_message)
+        .bind(job.pr_number.map(|n| n as i64))
+        .bind(&job.delivery_id)
         .execute(&self.pool)
         .await?;
 
@@ -535,6 +559,10 @@ struct JobRow {
     started_at: Option<String>,
     completed_at: Option<String>,
     error_message: Option<String>,
+    #[sqlx(default)]
+    pr_number: Option<i64>,
+    #[sqlx(default)]
+    delivery_id: Option<String>,
 }
 
 impl TryFrom<JobRow> for ProofJobRecord {
@@ -581,6 +609,8 @@ impl TryFrom<JobRow> for ProofJobRecord {
                     .map(|t| t.with_timezone(&chrono::Utc))
             }).transpose().map_err(|e| Error::Internal(e.to_string()))?,
             error_message: row.error_message,
+            pr_number: row.pr_number.map(|n| n as u64),
+            delivery_id: row.delivery_id,
         })
     }
 }

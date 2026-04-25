@@ -52,6 +52,16 @@ pub struct ProofJob {
     pub started_at: Option<DateTime<Utc>>,
     pub completed_at: Option<DateTime<Utc>>,
     pub result: Option<JobResult>,
+    /// PR number that triggered this job (None for direct push events).
+    /// Plumbed through so the result-reporter (Phase 3) can comment on
+    /// the originating PR rather than the commit page.
+    #[serde(default)]
+    pub pr_number: Option<u64>,
+    /// Webhook delivery ID for traceability — `X-GitHub-Delivery` header
+    /// for GitHub, equivalent for GitLab/Bitbucket. Lets us correlate a
+    /// proof outcome back to the exact webhook that triggered it.
+    #[serde(default)]
+    pub delivery_id: Option<String>,
 }
 
 impl ProofJob {
@@ -68,12 +78,25 @@ impl ProofJob {
             started_at: None,
             completed_at: None,
             result: None,
+            pr_number: None,
+            delivery_id: None,
         }
     }
 
     /// Create a high-priority job (e.g., for PR checks)
     pub fn with_priority(mut self, priority: JobPriority) -> Self {
         self.priority = priority;
+        self
+    }
+
+    /// Attach PR + delivery context (for jobs originating from webhooks).
+    pub fn with_context(
+        mut self,
+        pr_number: Option<u64>,
+        delivery_id: Option<String>,
+    ) -> Self {
+        self.pr_number = pr_number;
+        self.delivery_id = delivery_id;
         self
     }
 

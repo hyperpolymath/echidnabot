@@ -58,11 +58,15 @@ async fn handle_github_webhook(
         }
     }
 
-    // Parse event type
+    // Parse event type + traceability id
     let event_type = headers
         .get("X-GitHub-Event")
         .and_then(|v| v.to_str().ok())
         .unwrap_or("unknown");
+    let delivery_id = headers
+        .get("X-GitHub-Delivery")
+        .and_then(|v| v.to_str().ok())
+        .map(String::from);
 
     tracing::info!("GitHub event type: {}", event_type);
 
@@ -79,6 +83,8 @@ async fn handle_github_webhook(
                     &payload.after,
                     JobPriority::Normal,
                     RepoEventKind::Push,
+                    None,
+                    delivery_id.clone(),
                 )
                 .await;
             }
@@ -95,6 +101,8 @@ async fn handle_github_webhook(
                     &payload.pull_request.head.sha,
                     JobPriority::High,
                     RepoEventKind::PullRequest,
+                    Some(payload.pull_request.number),
+                    delivery_id.clone(),
                 )
                 .await;
             }
@@ -111,6 +119,8 @@ async fn handle_github_webhook(
                     &payload.check_suite.head_sha,
                     JobPriority::High,
                     RepoEventKind::PullRequest,
+                    None, // check_suite payload doesn't carry the PR number directly
+                    delivery_id.clone(),
                 )
                 .await;
             }
@@ -149,11 +159,15 @@ async fn handle_gitlab_webhook(
         }
     }
 
-    // Parse event type
+    // Parse event type + traceability id
     let event_type = headers
         .get("X-Gitlab-Event")
         .and_then(|v| v.to_str().ok())
         .unwrap_or("unknown");
+    let delivery_id = headers
+        .get("X-Gitlab-Webhook-UUID")
+        .and_then(|v| v.to_str().ok())
+        .map(String::from);
 
     tracing::info!("GitLab event type: {}", event_type);
 
@@ -171,6 +185,8 @@ async fn handle_gitlab_webhook(
                     &commit,
                     JobPriority::Normal,
                     RepoEventKind::Push,
+                    None,
+                    delivery_id.clone(),
                 )
                 .await;
             }
@@ -179,6 +195,7 @@ async fn handle_gitlab_webhook(
             tracing::info!("Received merge request hook");
             if let Ok(payload) = serde_json::from_slice::<GitLabMergeRequestPayload>(&body) {
                 let (owner, name) = split_full_name(&payload.project.path_with_namespace);
+                let mr_iid = payload.object_attributes.iid;
                 let commit = payload
                     .object_attributes
                     .last_commit
@@ -192,6 +209,8 @@ async fn handle_gitlab_webhook(
                     &commit,
                     JobPriority::High,
                     RepoEventKind::PullRequest,
+                    mr_iid,
+                    delivery_id.clone(),
                 )
                 .await;
             }
@@ -216,6 +235,10 @@ async fn handle_bitbucket_webhook(
         .get("X-Event-Key")
         .and_then(|v| v.to_str().ok())
         .unwrap_or("unknown");
+    let delivery_id = headers
+        .get("X-Hook-UUID")
+        .and_then(|v| v.to_str().ok())
+        .map(String::from);
 
     tracing::info!("Bitbucket event type: {}", event_type);
 
@@ -237,6 +260,8 @@ async fn handle_bitbucket_webhook(
                     &commit,
                     JobPriority::Normal,
                     RepoEventKind::Push,
+                    None,
+                    delivery_id.clone(),
                 )
                 .await;
             }
@@ -252,6 +277,15 @@ enum RepoEventKind {
     PullRequest,
 }
 
+/// Enqueue proof jobs for a registered repository.
+///
+/// `pr_number` is populated for pull_request events (None for push events).
+/// Threads through to ProofJob so the result-reporter can comment on the
+/// originating PR rather than the commit page.
+///
+/// `delivery_id` is the platform-specific webhook traceability id —
+/// `X-GitHub-Delivery`, `X-Gitlab-Webhook-UUID`, or `X-Hook-UUID` — so a
+/// stored job can be correlated back to the exact webhook that produced it.
 async fn enqueue_repo_jobs(
     state: &AppState,
     platform: Platform,
@@ -260,6 +294,8 @@ async fn enqueue_repo_jobs(
     commit: &str,
     priority: JobPriority,
     event_kind: RepoEventKind,
+    pr_number: Option<u64>,
+    delivery_id: Option<String>,
 ) -> Result<()> {
     let repo = match state
         .store
@@ -310,7 +346,8 @@ async fn enqueue_repo_jobs(
 
     for prover in &repo.enabled_provers {
         let job = ProofJob::new(repo.id, commit.to_string(), *prover, Vec::new())
-            .with_priority(priority);
+            .with_priority(priority)
+            .with_context(pr_number, delivery_id.clone());
         let record = ProofJobRecord::from(job.clone());
         state.store.create_job(&record).await?;
         let _ = state.scheduler.enqueue(job).await?;
@@ -358,6 +395,9 @@ struct GitHubRepo {
 
 #[derive(Deserialize)]
 struct GitHubPullRequest {
+    /// PR number — used to comment back on the originating PR rather
+    /// than the commit page.
+    number: u64,
     head: GitHubHead,
 }
 
@@ -388,6 +428,9 @@ struct GitLabMergeRequestPayload {
 struct GitLabMergeAttributes {
     last_commit_id: String,
     last_commit: Option<GitLabCommit>,
+    /// GitLab's per-project MR identifier (the human-facing !N number).
+    /// Equivalent to GitHub's PR number for plumbing purposes.
+    iid: Option<u64>,
 }
 
 #[derive(Deserialize)]

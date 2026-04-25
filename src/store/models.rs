@@ -67,6 +67,13 @@ pub struct ProofJobRecord {
     pub started_at: Option<DateTime<Utc>>,
     pub completed_at: Option<DateTime<Utc>>,
     pub error_message: Option<String>,
+    /// PR number that triggered the job (None for direct push events).
+    /// Used by the result-reporter to comment on the originating PR.
+    #[serde(default)]
+    pub pr_number: Option<u64>,
+    /// Webhook delivery ID for traceability.
+    #[serde(default)]
+    pub delivery_id: Option<String>,
 }
 
 impl From<crate::scheduler::ProofJob> for ProofJobRecord {
@@ -83,6 +90,8 @@ impl From<crate::scheduler::ProofJob> for ProofJobRecord {
             started_at: job.started_at,
             completed_at: job.completed_at,
             error_message: job.result.as_ref().filter(|r| !r.success).map(|r| r.message.clone()),
+            pr_number: job.pr_number,
+            delivery_id: job.delivery_id,
         }
     }
 }
