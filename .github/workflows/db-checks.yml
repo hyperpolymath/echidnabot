@@ -1,0 +1,141 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+#
+# db-checks.yml — Migration + schema integrity gate for echidnabot.
+#
+# Validates that:
+#   1. `echidnabot init-db` runs cleanly against a fresh SQLite DB
+#   2. The idempotent ALTER TABLE migrations (Phase 1 / Phase 2 / Phase 5
+#      column additions) are no-ops on a re-run (no errors, no diff)
+#   3. The store layer's CRUD round-trips work end-to-end (covered by
+#      `cargo test --lib` already; this workflow asserts the cli path)
+#   4. Schema columns match what the Rust types declare (drift detection)
+#
+# Runs on every push/PR plus weekly to catch drift introduced by upstream
+# sqlx / chrono changes.
+
+name: DB Checks
+
+on:
+  pull_request:
+    branches: ['**']
+  push:
+    branches: [main, master]
+  schedule:
+    - cron: '0 6 * * 1'  # Mondays 06:00 UTC alongside cargo-audit
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  migrations:
+    name: Migrations + schema drift
+    runs-on: ubuntu-latest
+    if: hashFiles('Cargo.toml') != ''
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@4be9e76fd7c4901c61fb841f559994984270fce7 # stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2
+
+      - name: Install sqlite3 CLI
+        run: sudo apt-get update && sudo apt-get install -y sqlite3
+
+      - name: Build echidnabot
+        run: cargo build --bin echidnabot
+
+      - name: Initial migrations on fresh DB
+        run: |
+          mkdir -p /tmp/dbcheck
+          cat > /tmp/dbcheck/echidnabot.toml <<'TOML'
+          [server]
+          host = "127.0.0.1"
+          port = 8091
+
+          [database]
+          url = "sqlite:///tmp/dbcheck/test.db?mode=rwc"
+          max_connections = 1
+          TOML
+          touch /tmp/dbcheck/test.db
+          ./target/debug/echidnabot -c /tmp/dbcheck/echidnabot.toml init-db
+
+      - name: Capture schema after first run
+        id: schema-1
+        run: |
+          sqlite3 /tmp/dbcheck/test.db ".schema" > /tmp/dbcheck/schema-1.sql
+          echo "lines=$(wc -l < /tmp/dbcheck/schema-1.sql)" >> "$GITHUB_OUTPUT"
+
+      - name: Re-run migrations (idempotency check)
+        run: |
+          ./target/debug/echidnabot -c /tmp/dbcheck/echidnabot.toml init-db
+          sqlite3 /tmp/dbcheck/test.db ".schema" > /tmp/dbcheck/schema-2.sql
+          if ! diff -q /tmp/dbcheck/schema-1.sql /tmp/dbcheck/schema-2.sql; then
+            echo "::error::Schema diverged on second migration run — migrations are not idempotent."
+            diff /tmp/dbcheck/schema-1.sql /tmp/dbcheck/schema-2.sql
+            exit 1
+          fi
+          echo "Migrations are idempotent ✓"
+
+      - name: Verify required tables exist
+        run: |
+          REQUIRED="repositories proof_jobs proof_results tactic_outcomes"
+          MISSING=""
+          for tbl in $REQUIRED; do
+            if ! sqlite3 /tmp/dbcheck/test.db ".tables $tbl" | grep -qw "$tbl"; then
+              MISSING="$MISSING $tbl"
+            fi
+          done
+          if [ -n "$MISSING" ]; then
+            echo "::error::Missing required tables:$MISSING"
+            exit 1
+          fi
+          echo "All required tables present ✓"
+
+      - name: Verify required columns on proof_jobs
+        run: |
+          # Phase 1 added pr_number, delivery_id; verify they're there.
+          REQUIRED="id repo_id commit_sha prover file_paths status priority queued_at started_at completed_at error_message pr_number delivery_id"
+          ACTUAL=$(sqlite3 /tmp/dbcheck/test.db "PRAGMA table_info(proof_jobs);" | cut -d'|' -f2 | sort | tr '\n' ' ')
+          for col in $REQUIRED; do
+            if ! echo "$ACTUAL" | grep -qw "$col"; then
+              echo "::error::proof_jobs missing column: $col"
+              exit 1
+            fi
+          done
+          echo "proof_jobs columns OK ✓"
+
+      - name: Verify required columns on repositories
+        run: |
+          # Phase 2 added mode; Phase 5 added regulator_coverage_threshold.
+          REQUIRED="id platform owner name webhook_secret enabled_provers check_on_push check_on_pr auto_comment enabled last_checked_commit created_at updated_at mode regulator_coverage_threshold"
+          ACTUAL=$(sqlite3 /tmp/dbcheck/test.db "PRAGMA table_info(repositories);" | cut -d'|' -f2 | sort | tr '\n' ' ')
+          for col in $REQUIRED; do
+            if ! echo "$ACTUAL" | grep -qw "$col"; then
+              echo "::error::repositories missing column: $col"
+              exit 1
+            fi
+          done
+          echo "repositories columns OK ✓"
+
+      - name: Store-layer round-trip tests
+        run: cargo test --lib store::
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## DB Checks Results"
+            echo ""
+            if [ -f /tmp/dbcheck/schema-1.sql ]; then
+              echo "Schema (post-init):"
+              echo '```sql'
+              cat /tmp/dbcheck/schema-1.sql
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY" || true
