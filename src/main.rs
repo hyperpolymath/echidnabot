@@ -684,7 +684,7 @@ async fn report_to_platform(
         details_url: None,
     };
 
-    let adapter = build_adapter(config, repo.platform)?;
+    let adapter = echidnabot::adapters::build_adapter(config, repo.platform)?;
 
     if let Err(err) = adapter.create_check_run(&repo_id, check).await {
         tracing::warn!(
@@ -739,34 +739,6 @@ async fn report_to_platform(
     }
 
     Ok(())
-}
-
-/// Build the right `PlatformAdapter` for a given repo's platform.
-/// Falls back to a tokenless GitHub client when no token is configured —
-/// the call sites tolerate auth-failure gracefully (warning only).
-fn build_adapter(config: &Config, platform: Platform) -> Result<Box<dyn PlatformAdapter>> {
-    match platform {
-        Platform::GitHub => {
-            let token = config
-                .github
-                .as_ref()
-                .and_then(|g| g.token.clone())
-                .unwrap_or_default();
-            Ok(Box::new(GitHubAdapter::new(&token)?))
-        }
-        Platform::GitLab => Ok(Box::new(GitLabAdapter::new(
-            config.gitlab.as_ref().map(|g| g.url.as_str()),
-        ))),
-        Platform::Bitbucket => Ok(Box::new(BitbucketAdapter::new(None))),
-        Platform::Codeberg => {
-            // Codeberg ≈ Gitea API, which the GitLab adapter doesn't speak.
-            // Treat as unsupported for now — scheduler still reports DB-side
-            // and the warning surfaces at the call site.
-            Err(echidnabot::Error::Config(
-                "Codeberg platform reporting not yet implemented".to_string(),
-            ))
-        }
-    }
 }
 
 async fn mark_job_running(store: &dyn Store, job: &ProofJob) -> Result<()> {

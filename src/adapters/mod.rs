@@ -99,6 +99,41 @@ pub struct NewIssue {
     pub labels: Vec<String>,
 }
 
+/// Build the right `PlatformAdapter` for a given platform.
+///
+/// Single source of truth for adapter construction — used by both
+/// `main.rs::report_to_platform` (Phase 3) and
+/// `api/webhooks.rs::handle_consultant_mention` (Phase 6).
+///
+/// Falls back to a tokenless GitHub client when no token is configured —
+/// downstream call sites tolerate auth-failure as a warning, not a panic.
+/// Codeberg returns a Config error (Gitea API not yet supported).
+pub fn build_adapter(
+    config: &crate::Config,
+    platform: Platform,
+) -> crate::error::Result<Box<dyn PlatformAdapter>> {
+    use crate::adapters::{
+        bitbucket::BitbucketAdapter, github::GitHubAdapter, gitlab::GitLabAdapter,
+    };
+    match platform {
+        Platform::GitHub => {
+            let token = config
+                .github
+                .as_ref()
+                .and_then(|g| g.token.clone())
+                .unwrap_or_default();
+            Ok(Box::new(GitHubAdapter::new(&token)?))
+        }
+        Platform::GitLab => Ok(Box::new(GitLabAdapter::new(
+            config.gitlab.as_ref().map(|g| g.url.as_str()),
+        ))),
+        Platform::Bitbucket => Ok(Box::new(BitbucketAdapter::new(None))),
+        Platform::Codeberg => Err(crate::error::Error::Config(
+            "Codeberg platform reporting not yet implemented".to_string(),
+        )),
+    }
+}
+
 /// Platform adapter trait
 ///
 /// Abstracts operations across GitHub, GitLab, Bitbucket

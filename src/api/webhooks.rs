@@ -16,7 +16,7 @@ use std::sync::Arc;
 
 use serde::Deserialize;
 
-use crate::adapters::Platform;
+use crate::adapters::{Platform, PrId, RepoId};
 use crate::config::Config;
 use crate::error::Result;
 use crate::modes;
@@ -121,6 +121,40 @@ async fn handle_github_webhook(
                     RepoEventKind::PullRequest,
                     None, // check_suite payload doesn't carry the PR number directly
                     delivery_id.clone(),
+                )
+                .await;
+            }
+        }
+        "issue_comment" => {
+            // Consultant-mode trigger: any @echidnabot mention on a PR
+            // comment surfaces a structured Q&A response. Bare comments
+            // without a mention are ignored. Bot/system author comments
+            // (echidnabot's own posts) are filtered to avoid loops.
+            tracing::info!("Received issue_comment event");
+            if let Ok(payload) = serde_json::from_slice::<GitHubIssueCommentPayload>(&body) {
+                if !modes::is_any_mention(&payload.comment.body) {
+                    return (StatusCode::OK, "OK");
+                }
+                if payload
+                    .comment
+                    .user
+                    .as_ref()
+                    .is_some_and(|u| {
+                        u.login.eq_ignore_ascii_case("echidnabot")
+                            || matches!(u.user_type.as_deref(), Some("Bot"))
+                    })
+                {
+                    tracing::debug!("Ignoring own comment / bot author");
+                    return (StatusCode::OK, "OK");
+                }
+                let (owner, name) = split_full_name(&payload.repository.full_name);
+                let _ = handle_consultant_mention(
+                    &state,
+                    Platform::GitHub,
+                    &owner,
+                    &name,
+                    payload.issue.number,
+                    &payload.comment.body,
                 )
                 .await;
             }
@@ -371,6 +405,180 @@ async fn enqueue_repo_jobs(
     Ok(())
 }
 
+/// Phase 6 — Consultant mode Q&A handler.
+///
+/// Triggered by `issue_comment` events that contain an `@echidnabot`
+/// mention. Filters by mode (silent unless repo is in Consultant mode)
+/// and posts a grounded response built from local DB state plus an
+/// optional LLM enrichment via BoJ's model-router-mcp cartridge.
+///
+/// LLM source (per Bit 6(b) decision, locked 2026-04-25 to option (a)):
+/// route through the BoJ cartridge. If BoJ is unreachable (currently
+/// the case per echidnabot AGENTIC.a2ml [exceptions.boj-only-mcp]), the
+/// handler degrades to the local-data response only and notes the
+/// degraded state in the comment.
+async fn handle_consultant_mention(
+    state: &AppState,
+    platform: Platform,
+    owner: &str,
+    name: &str,
+    pr_number: u64,
+    body: &str,
+) -> Result<()> {
+    let repo = match state
+        .store
+        .get_repository_by_name(platform, owner, name)
+        .await?
+    {
+        Some(r) => r,
+        None => {
+            tracing::debug!(
+                "issue_comment on unregistered repo {}/{} — ignoring",
+                owner,
+                name
+            );
+            return Ok(());
+        }
+    };
+
+    // Phase 7: directive content lookup is still TODO (executor would
+    // clone target repo). For now the cascade falls through to DB mode.
+    let mode = modes::resolve_mode(&repo, None);
+    if mode != modes::BotMode::Consultant {
+        tracing::debug!(
+            "@echidnabot mention on {} but mode is {} (not Consultant) — ignoring",
+            repo.full_name(),
+            mode
+        );
+        return Ok(());
+    }
+
+    let question = modes::extract_question(body);
+    tracing::info!(
+        "Consultant Q&A on {} PR #{}: {}",
+        repo.full_name(),
+        pr_number,
+        if question.is_empty() {
+            "(no question text — ping only)".to_string()
+        } else {
+            format!("{:.80}", question)
+        }
+    );
+
+    // Local-data answer: most recent jobs for this PR (filter by
+    // pr_number on the per-repo job list since the store doesn't index
+    // by PR yet — fine for any reasonable PR-job volume).
+    let recent = state
+        .store
+        .list_jobs_for_repo(repo.id, 50)
+        .await
+        .unwrap_or_default();
+    let pr_jobs: Vec<_> = recent
+        .into_iter()
+        .filter(|j| j.pr_number == Some(pr_number))
+        .take(8)
+        .collect();
+
+    let local_answer = build_consultant_summary(&repo, pr_number, &pr_jobs, &question);
+
+    // Try BoJ for an LLM-enriched answer. When BoJ is up + the cartridge
+    // is registered, the response includes the BoJ output above the
+    // local-data summary. When BoJ is down (current state per the
+    // documented exception) we surface that fact and ship local only.
+    let final_body = match crate::llm::query_boj_q_and_a(state, &repo, pr_number, &question, &pr_jobs).await {
+        Ok(boj_response) => format!(
+            "{}\n\n---\n\n{}",
+            boj_response.trim_end(),
+            local_answer.trim_start()
+        ),
+        Err(err) => {
+            tracing::warn!(
+                "BoJ Q&A unavailable ({}) — replying with local data only",
+                err
+            );
+            format!(
+                "{}\n\n> ℹ️ _LLM-enriched Q&A is currently unavailable \
+                 (BoJ-only-MCP exception per AGENTIC.a2ml). Reply above is \
+                 grounded in echidnabot's local job store; richer answers will \
+                 unlock when BoJ revives._\n",
+                local_answer.trim_end()
+            )
+        }
+    };
+
+    let adapter = crate::adapters::build_adapter(&state.config, repo.platform)?;
+    let repo_id = RepoId {
+        platform: repo.platform,
+        owner: repo.owner.clone(),
+        name: repo.name.clone(),
+    };
+    let pr_id = PrId(pr_number.to_string());
+    if let Err(err) = adapter
+        .create_comment(&repo_id, pr_id, &final_body)
+        .await
+    {
+        tracing::warn!(
+            "Consultant create_comment failed for {} PR #{}: {}",
+            repo.full_name(),
+            pr_number,
+            err
+        );
+    }
+
+    Ok(())
+}
+
+/// Build the grounded local-data section of a Consultant response.
+fn build_consultant_summary(
+    repo: &crate::store::models::Repository,
+    pr_number: u64,
+    pr_jobs: &[crate::store::models::ProofJobRecord],
+    question: &str,
+) -> String {
+    let mut out = format!(
+        "## 🦔 echidnabot · Consultant\n\n\
+         **Repo:** `{}` · **PR:** #{}\n\n",
+        repo.full_name(),
+        pr_number
+    );
+    if !question.is_empty() {
+        out.push_str(&format!(
+            "> {}\n\n",
+            question.lines().take(6).collect::<Vec<_>>().join("\n> ")
+        ));
+    }
+    if pr_jobs.is_empty() {
+        out.push_str(
+            "I haven't yet run a verification job against any commit on this PR. \
+             Push a change to a watched proof file (e.g. `*.v`, `*.lean`, `*.agda`, \
+             `*.thy`, `*.smt2`, `*.mm`) and I'll trigger automatically.\n",
+        );
+        return out;
+    }
+    out.push_str("**Most recent verification jobs on this PR:**\n\n");
+    for job in pr_jobs {
+        let status_glyph = match job.status {
+            crate::scheduler::JobStatus::Completed => "✅",
+            crate::scheduler::JobStatus::Failed => "❌",
+            crate::scheduler::JobStatus::Running => "🔄",
+            crate::scheduler::JobStatus::Queued => "⏳",
+            crate::scheduler::JobStatus::Cancelled => "⏹️",
+        };
+        let detail = match (&job.status, &job.error_message) {
+            (crate::scheduler::JobStatus::Failed, Some(msg)) => {
+                format!(" — {}", msg.lines().next().unwrap_or("").chars().take(80).collect::<String>())
+            }
+            _ => String::new(),
+        };
+        out.push_str(&format!(
+            "- `{:.8}` · **{:?}** · {} {:?}{}\n",
+            job.commit_sha, job.prover, status_glyph, job.status, detail
+        ));
+    }
+    out.push('\n');
+    out
+}
+
 fn split_full_name(full_name: &str) -> (String, String) {
     let mut parts = full_name.splitn(2, '/');
     let owner = parts.next().unwrap_or_default().to_string();
@@ -407,6 +615,34 @@ struct GitHubPullRequest {
     /// than the commit page.
     number: u64,
     head: GitHubHead,
+}
+
+#[derive(Deserialize)]
+struct GitHubIssueCommentPayload {
+    issue: GitHubIssue,
+    comment: GitHubComment,
+    repository: GitHubRepo,
+}
+
+#[derive(Deserialize)]
+struct GitHubIssue {
+    number: u64,
+}
+
+#[derive(Deserialize)]
+struct GitHubComment {
+    body: String,
+    #[serde(default)]
+    user: Option<GitHubUser>,
+}
+
+#[derive(Deserialize)]
+struct GitHubUser {
+    login: String,
+    /// `"Bot"` for app/bot authors. We use this to filter out our own
+    /// comments before they cause a Consultant-mode self-loop.
+    #[serde(rename = "type", default)]
+    user_type: Option<String>,
 }
 
 #[derive(Deserialize)]

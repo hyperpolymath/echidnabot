@@ -251,14 +251,46 @@ pub fn should_auto_trigger(mode: BotMode, _is_pr: bool) -> bool {
     }
 }
 
-/// Check if a comment body contains an explicit echidnabot mention.
+/// Check if a comment body contains an explicit echidnabot trigger
+/// command (Consultant mode bypass for direct invocation).
 ///
-/// Looks for `@echidnabot check` or `@echidnabot verify` patterns.
+/// Looks for `@echidnabot check` / `@echidnabot verify` / `@echidnabot run`.
 pub fn is_explicit_mention(comment_body: &str) -> bool {
     let lower = comment_body.to_lowercase();
     lower.contains("@echidnabot check")
         || lower.contains("@echidnabot verify")
         || lower.contains("@echidnabot run")
+}
+
+/// Check if a comment body mentions the bot at all.
+///
+/// Used by Consultant mode where ANY @echidnabot mention is a question
+/// the bot should respond to (vs. `is_explicit_mention` which only fires
+/// on specific trigger commands).
+pub fn is_any_mention(comment_body: &str) -> bool {
+    comment_body.to_lowercase().contains("@echidnabot")
+}
+
+/// Strip an `@echidnabot` mention from a comment, returning the rest as
+/// the user's question. The mention can appear anywhere; multiple
+/// mentions collapse. Empty result means "they pinged with no question".
+pub fn extract_question(comment_body: &str) -> String {
+    // Replace case-insensitively with empty, preserving surrounding text.
+    let mut out = String::with_capacity(comment_body.len());
+    let mut i = 0;
+    let bytes = comment_body.as_bytes();
+    let needle = "@echidnabot";
+    let needle_lower = needle.to_lowercase();
+    let lower = comment_body.to_lowercase();
+    while i < bytes.len() {
+        if lower[i..].starts_with(&needle_lower) {
+            i += needle.len();
+        } else {
+            out.push(bytes[i] as char);
+            i += 1;
+        }
+    }
+    out.trim().to_string()
 }
 
 #[cfg(test)]

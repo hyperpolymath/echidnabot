@@ -39,9 +39,25 @@ pub struct Config {
     #[serde(default)]
     pub corpus: CorpusConfig,
 
+    /// BoJ server endpoint for Consultant-mode Q&A (Phase 6 / Bit 6b).
+    /// Routes LLM calls through BoJ's `model-router-mcp` cartridge per
+    /// the canonical "BoJ-only MCP" estate rule. Optional — when absent
+    /// or unreachable, Consultant mode degrades to local-data-only.
+    #[serde(default)]
+    pub boj: Option<BoJConfig>,
+
     /// Bot operating mode
     #[serde(default)]
     pub bot_mode: BotMode,
+}
+
+/// BoJ server connection settings. Endpoint can also be overridden by
+/// the `BOJ_ENDPOINT` env var (env wins so operators can repoint
+/// without restarting the daemon's config-load path).
+#[derive(Debug, Deserialize, Clone)]
+pub struct BoJConfig {
+    /// Base URL of the BoJ loader (e.g. `http://127.0.0.1:7700`).
+    pub url: String,
 }
 
 /// Corpus-delta writer + retrain-trigger settings. Disabled by default —

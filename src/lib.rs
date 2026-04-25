@@ -21,6 +21,7 @@ pub mod error;
 pub mod executor; // Container isolation for secure prover execution
 pub mod feedback; // Double-loop: proof-history reranker + corpus delta (Package 7b)
 pub mod fleet; // gitbot-fleet coordination layer
+pub mod llm; // BoJ-mediated LLM client (Consultant-mode Q&A)
 pub mod modes; // Bot operating modes (Verifier/Advisor/Consultant/Regulator)
 pub mod result_formatter; // Bridge between dispatcher results and bot modes
 pub mod scheduler;
