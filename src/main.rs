@@ -857,6 +857,40 @@ async fn process_job(
     let mut failed = Vec::new();
     let mut prover_output = String::new();
 
+    // Build the local sandboxed executor once (only when configured).
+    // When `executor.local_isolation = false` (default), proofs delegate
+    // to ECHIDNA's REST API, which runs them in its own process. When
+    // `true`, each proof runs in a Podman / bubblewrap sandbox locally
+    // — needed for air-gapped or no-ECHIDNA setups.
+    let local_executor = if config.executor.local_isolation {
+        let mut ex = echidnabot::executor::container::PodmanExecutor::new().await;
+        if let Some(ref img) = config.executor.container_image {
+            ex = ex.with_image(img.clone());
+        }
+        if let Some(ref mem) = config.executor.memory_limit {
+            ex = ex.with_memory_limit(mem.clone());
+        }
+        if let Some(cpus) = config.executor.cpu_limit {
+            ex = ex.with_cpu_limit(cpus);
+        }
+        if let Some(secs) = config.executor.timeout_secs {
+            ex = ex.with_timeout(std::time::Duration::from_secs(secs));
+        }
+        // Refuse to start if the operator opted in but neither podman
+        // nor bubblewrap is available (fail-safe per SONNET-TASKS Task 1).
+        if matches!(
+            ex.backend(),
+            echidnabot::executor::container::IsolationBackend::None
+        ) {
+            return Err(echidnabot::Error::Config(
+                "executor.local_isolation = true but no isolation backend (podman or bubblewrap) was found on PATH. Refusing to run proofs without isolation.".to_string()
+            ));
+        }
+        Some(ex)
+    } else {
+        None
+    };
+
     for path in &file_paths {
         let full_path = if Path::new(path).is_absolute() {
             PathBuf::from(path)
@@ -864,15 +898,41 @@ async fn process_job(
             repo_path.join(path)
         };
         let content = fs::read_to_string(&full_path).await?;
-        let result = echidna.verify_proof(job.prover, &content).await?;
-        if result.status == echidnabot::dispatcher::ProofStatus::Verified {
+
+        let (verified_ok, output_chunk) = if let Some(ref ex) = local_executor {
+            // Local sandboxed path. ExecutionResult is success on
+            // exit_code == 0; non-zero (including timeout-kill) is
+            // treated as failure with the captured stderr.
+            match ex.execute_proof(job.prover, &content, None).await {
+                Ok(exec) => {
+                    let combined = if exec.stdout.trim().is_empty() {
+                        exec.stderr.clone()
+                    } else if exec.stderr.trim().is_empty() {
+                        exec.stdout.clone()
+                    } else {
+                        format!("{}\n--- stderr ---\n{}", exec.stdout, exec.stderr)
+                    };
+                    (exec.exit_code == Some(0), combined)
+                }
+                Err(e) => (false, format!("Local executor error: {}", e)),
+            }
+        } else {
+            // ECHIDNA-delegated path (default).
+            let result = echidna.verify_proof(job.prover, &content).await?;
+            (
+                result.status == echidnabot::dispatcher::ProofStatus::Verified,
+                result.prover_output,
+            )
+        };
+
+        if verified_ok {
             verified.push(path.to_string());
         } else {
             failed.push(path.to_string());
         }
-        if !result.prover_output.trim().is_empty() && prover_output.len() < MAX_OUTPUT_BYTES {
+        if !output_chunk.trim().is_empty() && prover_output.len() < MAX_OUTPUT_BYTES {
             let remaining = MAX_OUTPUT_BYTES - prover_output.len();
-            let chunk = &result.prover_output[..result.prover_output.len().min(remaining)];
+            let chunk = &output_chunk[..output_chunk.len().min(remaining)];
             prover_output.push_str(chunk);
             prover_output.push('\n');
         }

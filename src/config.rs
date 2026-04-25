@@ -39,6 +39,10 @@ pub struct Config {
     #[serde(default)]
     pub corpus: CorpusConfig,
 
+    /// Executor configuration — local isolation vs ECHIDNA delegation.
+    #[serde(default)]
+    pub executor: ExecutorConfig,
+
     /// BoJ server endpoint for Consultant-mode Q&A (Phase 6 / Bit 6b).
     /// Routes LLM calls through BoJ's `model-router-mcp` cartridge per
     /// the canonical "BoJ-only MCP" estate rule. Optional — when absent
@@ -58,6 +62,42 @@ pub struct Config {
 pub struct BoJConfig {
     /// Base URL of the BoJ loader (e.g. `http://127.0.0.1:7700`).
     pub url: String,
+}
+
+/// Executor configuration. Controls how proof verification is dispatched:
+/// either by delegating to a remote ECHIDNA instance over REST/GraphQL
+/// (default — `local_isolation = false`), or by spawning prover binaries
+/// locally inside an isolation sandbox (`local_isolation = true`).
+///
+/// Local isolation needs `podman` (preferred) or `bubblewrap` (`bwrap`)
+/// on PATH; the executor refuses to run if neither is available
+/// (fail-safe per SONNET-TASKS Task 1).
+#[derive(Debug, Deserialize, Clone, Default)]
+pub struct ExecutorConfig {
+    /// When true, process_job runs proof binaries locally in a sandboxed
+    /// container instead of POSTing to ECHIDNA's REST API. Useful for
+    /// air-gapped / no-ECHIDNA-available scenarios. Adds prover-binary
+    /// install requirements to the host.
+    #[serde(default)]
+    pub local_isolation: bool,
+
+    /// Container image used by the Podman backend. Defaults to
+    /// `docker.io/hyperpolymath/echidna-provers:latest` if unset; that
+    /// image bundles the canonical prover binaries.
+    #[serde(default)]
+    pub container_image: Option<String>,
+
+    /// Memory cap for each proof container. Default `512m`.
+    #[serde(default)]
+    pub memory_limit: Option<String>,
+
+    /// CPU cap (cores). Default 2.
+    #[serde(default)]
+    pub cpu_limit: Option<f64>,
+
+    /// Per-proof timeout in seconds. Default 300.
+    #[serde(default)]
+    pub timeout_secs: Option<u64>,
 }
 
 /// Corpus-delta writer + retrain-trigger settings. Disabled by default —
