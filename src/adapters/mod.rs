@@ -156,4 +156,19 @@ pub trait PlatformAdapter: Send + Sync {
 
     /// Get the default branch name
     async fn get_default_branch(&self, repo: &RepoId) -> Result<String>;
+
+    /// Fetch a single file's contents from the target repo via platform API.
+    ///
+    /// Returns `Ok(None)` when the file does not exist (not an error —
+    /// callers like the directive resolver use absence as a signal to
+    /// fall through the cascade). `Err` is reserved for actual API
+    /// failures (auth, rate limit, network).
+    ///
+    /// `branch` may be `None` to use the default branch.
+    async fn get_file_contents(
+        &self,
+        repo: &RepoId,
+        branch: Option<&str>,
+        path: &str,
+    ) -> Result<Option<String>>;
 }

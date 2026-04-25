@@ -596,7 +596,21 @@ async fn report_to_platform(
         None => return Ok(()), // Repo deleted between enqueue + completion
     };
 
-    let mode = modes::resolve_mode(&repo, None);
+    // Cascade: target-repo directive (fetched via PlatformAdapter) →
+    // DB column → Verifier default. Directive fetch is best-effort —
+    // API errors return None and the cascade falls through.
+    let directive_adapter = echidnabot::adapters::build_adapter(config, repo.platform).ok();
+    let directive_content = if let Some(ref adapter) = directive_adapter {
+        let api_repo_id = RepoId {
+            platform: repo.platform,
+            owner: repo.owner.clone(),
+            name: repo.name.clone(),
+        };
+        modes::fetch_directive_via_adapter(adapter.as_ref(), &api_repo_id, None).await
+    } else {
+        None
+    };
+    let mode = modes::resolve_mode(&repo, directive_content.as_deref());
 
     // Verifier mode is silent on PRs but still posts a check run.
     let proof_result = ProofResult {

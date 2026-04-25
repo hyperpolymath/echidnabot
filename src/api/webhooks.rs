@@ -350,15 +350,27 @@ async fn enqueue_repo_jobs(
 
     // Determine bot mode via cascade:
     //   1. target-repo `.machine_readable/bot_directives/echidnabot.a2ml`
-    //      (post-clone resolution — passed as `Some(content)`; not yet
-    //      reachable here, so always None until the executor lands)
+    //      (or `all.a2ml`) — fetched via PlatformAdapter::get_file_contents
     //   2. `repositories.mode` column (per-repo)
     //   3. `BotMode::default()` (= Verifier)
     //
-    // TODO(phase-3): when the sandboxed executor clones the target repo, it
-    // will read the directive file and pass content into resolve_mode.
-    let directive_content: Option<&str> = None;
-    let mode = modes::resolve_mode(&repo, directive_content);
+    // Directive fetch is best-effort: an API error or missing file
+    // returns None and the cascade falls through to the DB column.
+    let directive_content = match crate::adapters::build_adapter(&state.config, repo.platform) {
+        Ok(adapter) => {
+            let api_repo_id = RepoId {
+                platform: repo.platform,
+                owner: repo.owner.clone(),
+                name: repo.name.clone(),
+            };
+            modes::fetch_directive_via_adapter(adapter.as_ref(), &api_repo_id, None).await
+        }
+        Err(e) => {
+            tracing::debug!("No adapter for directive fetch ({}); using DB cascade", e);
+            None
+        }
+    };
+    let mode = modes::resolve_mode(&repo, directive_content.as_deref());
     let is_pr = matches!(event_kind, RepoEventKind::PullRequest);
 
     tracing::info!(

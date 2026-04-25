@@ -10,7 +10,7 @@
 //! - **Regulator**: Blocks PR merges when proofs fail
 
 pub mod directives;
-pub use directives::{parse_a2ml_directive, resolve_mode};
+pub use directives::{fetch_directive_via_adapter, parse_a2ml_directive, resolve_mode};
 
 use serde::{Deserialize, Serialize};
 use std::fmt;

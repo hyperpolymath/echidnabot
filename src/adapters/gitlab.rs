@@ -275,4 +275,20 @@ impl PlatformAdapter for GitLabAdapter {
             .ok_or_else(|| Error::GitHub("Missing default_branch in response".to_string()))?
             .to_string())
     }
+
+    async fn get_file_contents(
+        &self,
+        _repo: &RepoId,
+        _branch: Option<&str>,
+        _path: &str,
+    ) -> Result<Option<String>> {
+        // GitLab Repository Files API at
+        //   GET /projects/:id/repository/files/:filepath?ref=:branch
+        // returns base64'd content. Wiring this requires resolving
+        // `repo.owner/repo.name` to a project id (or using the
+        // URL-encoded path). Deferred until a GitLab consumer needs it;
+        // returning Ok(None) lets the directive resolver cascade
+        // gracefully on GitLab repos.
+        Ok(None)
+    }
 }

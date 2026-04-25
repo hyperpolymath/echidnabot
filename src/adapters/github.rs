@@ -185,4 +185,41 @@ impl PlatformAdapter for GitHubAdapter {
 
         Ok(repo_info.default_branch.unwrap_or_else(|| "main".to_string()))
     }
+
+    async fn get_file_contents(
+        &self,
+        repo: &RepoId,
+        branch: Option<&str>,
+        path: &str,
+    ) -> Result<Option<String>> {
+        // Bind the `repos(...)` call to a local; `get_content()` borrows
+        // from it, so without the binding the temp drops mid-expression.
+        let repo_handle = self.client.repos(&repo.owner, &repo.name);
+        let mut req = repo_handle.get_content().path(path);
+        if let Some(r) = branch {
+            req = req.r#ref(r);
+        }
+        match req.send().await {
+            Ok(mut content) => {
+                // For a file path the response has a single item; directories
+                // return many. We only call with file paths.
+                if let Some(item) = content.items.pop() {
+                    Ok(item.decoded_content())
+                } else {
+                    Ok(None)
+                }
+            }
+            Err(e) => {
+                let msg = e.to_string();
+                // Map missing-file (404 / NotFound) to Ok(None) so callers
+                // can cascade through the directive resolver. Real
+                // failures (auth, rate-limit, network) bubble up.
+                if msg.contains("404") || msg.to_lowercase().contains("not found") {
+                    Ok(None)
+                } else {
+                    Err(Error::GitHub(msg))
+                }
+            }
+        }
+    }
 }

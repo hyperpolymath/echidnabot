@@ -20,8 +20,49 @@
 //! are responsible for providing the directive content; if they pass `None`,
 //! the cascade falls through to DB → default.
 
+use crate::adapters::{PlatformAdapter, RepoId};
 use crate::modes::BotMode;
 use crate::store::models::Repository;
+
+/// Canonical per-bot directive path, walked first in the cascade.
+const DIRECTIVE_PATH_ECHIDNABOT: &str =
+    ".machine_readable/bot_directives/echidnabot.a2ml";
+
+/// Fleet-wide directive path, walked second.
+const DIRECTIVE_PATH_ALL: &str = ".machine_readable/bot_directives/all.a2ml";
+
+/// Fetch a directive from the target repo via the platform API. Walks
+/// `echidnabot.a2ml` first, then `all.a2ml`. Returns `None` if neither
+/// exists (the resolver then falls back to the DB column).
+///
+/// Errors from the underlying API are logged and treated as "no
+/// directive" so a 502/rate-limit doesn't crash the webhook handler —
+/// graceful degradation is the right shape for an advisory-only signal.
+pub async fn fetch_directive_via_adapter(
+    adapter: &dyn PlatformAdapter,
+    repo: &RepoId,
+    branch: Option<&str>,
+) -> Option<String> {
+    for path in [DIRECTIVE_PATH_ECHIDNABOT, DIRECTIVE_PATH_ALL] {
+        match adapter.get_file_contents(repo, branch, path).await {
+            Ok(Some(content)) => {
+                tracing::debug!("Fetched directive from {}", path);
+                return Some(content);
+            }
+            Ok(None) => continue,
+            Err(e) => {
+                tracing::warn!(
+                    "Directive fetch failed for {} on {}/{}: {} — falling through cascade",
+                    path,
+                    repo.owner,
+                    repo.name,
+                    e
+                );
+            }
+        }
+    }
+    None
+}
 
 /// Parse an A2ML/TOML directive looking for `[bot]` table with `mode = "X"`.
 /// Returns `None` if no directive can be parsed.

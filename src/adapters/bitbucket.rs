@@ -276,4 +276,18 @@ impl PlatformAdapter for BitbucketAdapter {
             .ok_or_else(|| Error::GitHub("Missing mainbranch.name in response".to_string()))?
             .to_string())
     }
+
+    async fn get_file_contents(
+        &self,
+        _repo: &RepoId,
+        _branch: Option<&str>,
+        _path: &str,
+    ) -> Result<Option<String>> {
+        // Bitbucket Source endpoint at
+        //   GET /repositories/:owner/:slug/src/:branch/:path
+        // returns raw file bytes. Deferred until a Bitbucket consumer
+        // needs it; returning Ok(None) lets the directive resolver
+        // cascade gracefully.
+        Ok(None)
+    }
 }
