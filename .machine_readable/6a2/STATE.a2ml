@@ -222,9 +222,12 @@ gap     = "Schema mismatch with echidna merge_corpus.jl — see issues list"
 [[components.double-loop-feedback.subtask]]
 id      = "7b-4"
 title   = "native echidnabot-mcp binary (temporary BoJ exception)"
-status  = "done"
+status  = "retired"
 commit  = "b01cc07"  # landed as part of the EXPLAINME commit scoop
-adr     = "ADR-001"
+adr     = "ADR-001 (sunset 2026-04-25)"
+retired-on   = "2026-04-25"
+retired-via  = "0cfeb60"
+retired-reason = "BoJ revival made the BoJ-only-MCP exception unnecessary; bin removed, traffic now routes through boj-server cartridges/echidna-llm-mcp (consultant_qa tool)"
 
 [[components.double-loop-feedback.subtask]]
 id      = "7b-5"
@@ -235,4 +238,27 @@ commit  = "ec25aae"
 [[components.double-loop-feedback.subtask]]
 id      = "7b-6"
 title   = "6a2 sweep + project memory for BoJ exception"
-status  = "in-progress"
+status  = "done"
+commit  = "c0f30fd"
+note    = "Exception flipped to superseded with sunset record; memory file feedback_boj_mcp_exception_echidnabot.md flipped to historical; MEMORY.md critical-rules entry updated."
+
+# ─── Phase 6 BoJ-routed Q&A end-to-end validation ─────────────────────────
+[[components.double-loop-feedback.subtask]]
+id      = "7b-7"
+title   = "BoJ-routed Consultant Q&A end-to-end validation"
+status  = "done"
+commit  = "post-0cfeb60"
+date    = "2026-04-25"
+evidence = """
+Live test against revived BoJ on 127.0.0.1:7700:
+- GET /health → 200 OK ✓
+- GET /cartridges → 106 cartridges listed including echidna-llm-mcp ✓
+- POST /cartridge/echidna-llm-mcp/invoke {tool: consultant_qa, ...}
+  routes correctly to the cartridge layer; cartridge's onward call to
+  echidna fails with exit_code 7 (cli_crashed) — expected because
+  echidna isn't running on this workstation. The failure surfaces at
+  the right layer, confirming the BoJ→cartridge hop is intact.
+- echidnabot's query_boj_q_and_a (commit 4a7871c) targets the same
+  /cartridge/<name>/invoke endpoint; no client-side change was needed
+  for the sunset migration.
+"""
