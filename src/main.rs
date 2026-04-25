@@ -557,7 +557,15 @@ async fn run_scheduler_loop(
             // Errors here are logged but never block the scheduler — the DB
             // is the source of truth, and a missing GitHub token / 503 from
             // the platform shouldn't cascade.
-            if let Err(err) = report_to_platform(store.as_ref(), &config, &job, &result).await {
+            if let Err(err) = report_to_platform(
+                store.clone(),
+                echidna.as_ref(),
+                &config,
+                &job,
+                &result,
+            )
+            .await
+            {
                 tracing::warn!("Platform report skipped for job {}: {}", job.id, err);
             }
 
@@ -586,7 +594,8 @@ async fn run_scheduler_loop(
 /// logs but does not propagate them), so a 503 from GitHub or a missing
 /// token never blocks the scheduler.
 async fn report_to_platform(
-    store: &dyn Store,
+    store: Arc<dyn Store>,
+    echidna: &EchidnaClient,
     config: &Config,
     job: &ProofJob,
     job_result: &echidnabot::scheduler::JobResult,
@@ -625,9 +634,50 @@ async fn report_to_platform(
         artifacts: vec![],
     };
 
-    // No tactic suggestions wired into the scheduler yet — Advisor mode
-    // would benefit from these. Phase 5 work to consume the reranker.
-    let formatted = result_formatter::format_proof_result(mode, &proof_result, job.prover, vec![]);
+    // Tactic suggestions for Advisor / Consultant / Regulator. Verifier
+    // doesn't show suggestions, so we skip the network round-trip there.
+    // Suggestions are reranked through the local feedback store
+    // (Package 7b-2 Reranker) so historical success informs the order.
+    let suggestions = if matches!(
+        mode,
+        BotMode::Advisor | BotMode::Consultant | BotMode::Regulator
+    ) && !job_result.success
+    {
+        // Use prover_output as the goal-state proxy — it typically
+        // contains the unproven goal in failure context. Imperfect
+        // but the closest signal available without re-reading the
+        // proof file. Truncate to keep ECHIDNA's prompt budget bounded.
+        let goal_state = if job_result.prover_output.len() > 2000 {
+            &job_result.prover_output[..2000]
+        } else {
+            &job_result.prover_output
+        };
+        match echidna.suggest_tactics(job.prover, "", goal_state).await {
+            Ok(raw) if !raw.is_empty() => {
+                let reranker = echidnabot::feedback::Reranker::new(store.clone());
+                match reranker.rerank(job.prover, goal_state, raw).await {
+                    Ok(reranked) => reranked.into_iter().take(5).collect(),
+                    Err(e) => {
+                        tracing::debug!("Reranker error ({}); using raw suggestions", e);
+                        vec![]
+                    }
+                }
+            }
+            Ok(_) => vec![],
+            Err(e) => {
+                tracing::debug!(
+                    "ECHIDNA suggest_tactics unavailable ({}); skipping suggestions",
+                    e
+                );
+                vec![]
+            }
+        }
+    } else {
+        vec![]
+    };
+
+    let formatted =
+        result_formatter::format_proof_result(mode, &proof_result, job.prover, suggestions);
 
     let repo_id = RepoId {
         platform: repo.platform,
