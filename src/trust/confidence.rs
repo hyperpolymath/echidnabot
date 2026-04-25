@@ -238,25 +238,25 @@ mod tests {
 
     #[test]
     fn test_small_kernel_provers() {
-        assert!(is_small_kernel(ProverKind::new("coq")));
-        assert!(is_small_kernel(ProverKind::new("lean")));
-        assert!(is_small_kernel(ProverKind::new("isabelle")));
-        assert!(is_small_kernel(ProverKind::new("agda")));
-        assert!(is_small_kernel(ProverKind::new("metamath")));
-        assert!(is_small_kernel(ProverKind::new("hol-light")));
-        assert!(is_small_kernel(ProverKind::new("hol4")));
+        assert!(is_small_kernel(&ProverKind::new("coq")));
+        assert!(is_small_kernel(&ProverKind::new("lean")));
+        assert!(is_small_kernel(&ProverKind::new("isabelle")));
+        assert!(is_small_kernel(&ProverKind::new("agda")));
+        assert!(is_small_kernel(&ProverKind::new("metamath")));
+        assert!(is_small_kernel(&ProverKind::new("hol-light")));
+        assert!(is_small_kernel(&ProverKind::new("hol4")));
 
-        assert!(!is_small_kernel(ProverKind::new("z3")));
-        assert!(!is_small_kernel(ProverKind::new("cvc5")));
-        assert!(!is_small_kernel(ProverKind::new("mizar")));
-        assert!(!is_small_kernel(ProverKind::new("pvs")));
-        assert!(!is_small_kernel(ProverKind::new("acl2")));
+        assert!(!is_small_kernel(&ProverKind::new("z3")));
+        assert!(!is_small_kernel(&ProverKind::new("cvc5")));
+        assert!(!is_small_kernel(&ProverKind::new("mizar")));
+        assert!(!is_small_kernel(&ProverKind::new("pvs")));
+        assert!(!is_small_kernel(&ProverKind::new("acl2")));
     }
 
     #[test]
     fn test_assess_level5_cross_checked() {
         let report = assess_confidence(
-            ProverKind::new("lean"),
+            &ProverKind::new("lean"),
             ProofStatus::Verified,
             true,
             3, // 3 independent checkers
@@ -269,7 +269,7 @@ mod tests {
     #[test]
     fn test_assess_level4_small_kernel_with_cert() {
         let report = assess_confidence(
-            ProverKind::new("coq"),
+            &ProverKind::new("coq"),
             ProofStatus::Verified,
             true,
             1,
@@ -280,7 +280,7 @@ mod tests {
     #[test]
     fn test_assess_level3_cert_no_small_kernel() {
         let report = assess_confidence(
-            ProverKind::new("z3"),
+            &ProverKind::new("z3"),
             ProofStatus::Verified,
             true, // Has DRAT/LRAT certificate
             1,
@@ -291,7 +291,7 @@ mod tests {
     #[test]
     fn test_assess_level2_small_kernel_no_cert() {
         let report = assess_confidence(
-            ProverKind::new("lean"),
+            &ProverKind::new("lean"),
             ProofStatus::Verified,
             false,
             1,
@@ -302,7 +302,7 @@ mod tests {
     #[test]
     fn test_assess_level1_large_tcb() {
         let report = assess_confidence(
-            ProverKind::new("pvs"),
+            &ProverKind::new("pvs"),
             ProofStatus::Verified,
             false,
             1,
@@ -313,7 +313,7 @@ mod tests {
     #[test]
     fn test_assess_failed_proof_always_level1() {
         let report = assess_confidence(
-            ProverKind::new("coq"),
+            &ProverKind::new("coq"),
             ProofStatus::Failed,
             true,
             3,

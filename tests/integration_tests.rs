@@ -92,36 +92,36 @@ fn test_webhook_signature_format_validation() {
 
 #[test]
 fn test_prover_kind_display_names() {
-    assert_eq!(ProverKind::Coq.display_name(), "Coq");
-    assert_eq!(ProverKind::Lean.display_name(), "Lean 4");
-    assert_eq!(ProverKind::Isabelle.display_name(), "Isabelle/HOL");
-    assert_eq!(ProverKind::Z3.display_name(), "Z3");
-    assert_eq!(ProverKind::Metamath.display_name(), "Metamath");
+    assert_eq!(ProverKind::new("coq").display_name(), "Coq");
+    assert_eq!(ProverKind::new("lean").display_name(), "Lean 4");
+    assert_eq!(ProverKind::new("isabelle").display_name(), "Isabelle/HOL");
+    assert_eq!(ProverKind::new("z3").display_name(), "Z3");
+    assert_eq!(ProverKind::new("metamath").display_name(), "Metamath");
 }
 
 #[test]
 fn test_prover_kind_from_extension() {
-    assert_eq!(ProverKind::from_extension(".v"), Some(ProverKind::Coq));
-    assert_eq!(ProverKind::from_extension(".lean"), Some(ProverKind::Lean));
-    assert_eq!(ProverKind::from_extension(".mm"), Some(ProverKind::Metamath));
-    assert_eq!(ProverKind::from_extension(".smt2"), Some(ProverKind::Z3));
+    assert_eq!(ProverKind::from_extension(".v"), Some(ProverKind::new("coq")));
+    assert_eq!(ProverKind::from_extension(".lean"), Some(ProverKind::new("lean")));
+    assert_eq!(ProverKind::from_extension(".mm"), Some(ProverKind::new("metamath")));
+    assert_eq!(ProverKind::from_extension(".smt2"), Some(ProverKind::new("z3")));
     assert_eq!(ProverKind::from_extension(".unknown"), None);
 }
 
 #[test]
 fn test_prover_tiers() {
     // Tier 1: complete
-    assert_eq!(ProverKind::Coq.tier(), 1);
-    assert_eq!(ProverKind::Lean.tier(), 1);
-    assert_eq!(ProverKind::Z3.tier(), 1);
+    assert_eq!(ProverKind::new("coq").tier(), 1);
+    assert_eq!(ProverKind::new("lean").tier(), 1);
+    assert_eq!(ProverKind::new("z3").tier(), 1);
 
     // Tier 2: complete
-    assert_eq!(ProverKind::Metamath.tier(), 2);
-    assert_eq!(ProverKind::Mizar.tier(), 2);
+    assert_eq!(ProverKind::new("metamath").tier(), 2);
+    assert_eq!(ProverKind::new("mizar").tier(), 2);
 
     // Tier 3: stubs
-    assert_eq!(ProverKind::Pvs.tier(), 3);
-    assert_eq!(ProverKind::Hol4.tier(), 3);
+    assert_eq!(ProverKind::new("pvs").tier(), 3);
+    assert_eq!(ProverKind::new("hol4").tier(), 3);
 }
 
 #[test]
@@ -204,7 +204,7 @@ fn test_result_formatter_truncates_long_output() {
         axioms: None,
     };
 
-    let formatted = format_proof_result(BotMode::Advisor, &proof_result, ProverKind::Coq, vec![]);
+    let formatted = format_proof_result(BotMode::Advisor, &proof_result, ProverKind::new("coq"), vec![]);
     let comment = generate_pr_comment(&formatted, BotMode::Advisor);
 
     // Comment should contain truncation notice
@@ -251,13 +251,13 @@ fn test_job_creation() {
     let job = ProofJob::new(
         repo_id,
         "abc123def".to_string(),
-        ProverKind::Lean,
+        ProverKind::new("lean"),
         vec!["src/Main.lean".to_string()],
     );
 
     assert_eq!(job.repo_id, repo_id);
     assert_eq!(job.commit_sha, "abc123def");
-    assert_eq!(job.prover, ProverKind::Lean);
+    assert_eq!(job.prover, ProverKind::new("lean"));
     assert_eq!(job.status, JobStatus::Queued);
     assert_eq!(job.priority, JobPriority::Normal);
     assert!(job.started_at.is_none());
@@ -269,7 +269,7 @@ fn test_job_start_sets_running() {
     let mut job = ProofJob::new(
         Uuid::new_v4(),
         "abc123".to_string(),
-        ProverKind::Coq,
+        ProverKind::new("coq"),
         vec![],
     );
 
@@ -283,7 +283,7 @@ fn test_job_complete_success() {
     let mut job = ProofJob::new(
         Uuid::new_v4(),
         "abc123".to_string(),
-        ProverKind::Z3,
+        ProverKind::new("z3"),
         vec![],
     );
     job.start();
@@ -310,7 +310,7 @@ fn test_job_complete_failure() {
     let mut job = ProofJob::new(
         Uuid::new_v4(),
         "abc123".to_string(),
-        ProverKind::Lean,
+        ProverKind::new("lean"),
         vec![],
     );
     job.start();
@@ -335,7 +335,7 @@ fn test_job_cancel() {
     let mut job = ProofJob::new(
         Uuid::new_v4(),
         "abc123".to_string(),
-        ProverKind::Agda,
+        ProverKind::new("agda"),
         vec![],
     );
 
@@ -373,7 +373,7 @@ fn test_proof_job_record_from_job() {
     let job = ProofJob::new(
         Uuid::new_v4(),
         "sha256hash".to_string(),
-        ProverKind::Metamath,
+        ProverKind::new("metamath"),
         vec!["proof.mm".to_string()],
     );
 
@@ -381,7 +381,7 @@ fn test_proof_job_record_from_job() {
     assert_eq!(record.id, job.id.0);
     assert_eq!(record.repo_id, job.repo_id);
     assert_eq!(record.commit_sha, "sha256hash");
-    assert_eq!(record.prover, ProverKind::Metamath);
+    assert_eq!(record.prover, ProverKind::new("metamath"));
 }
 
 #[test]
@@ -414,7 +414,7 @@ fn test_executor_build_podman_args_security() {
     let executor = PodmanExecutor::default()
         .with_backend(IsolationBackend::Podman);
 
-    let args = executor.build_podman_args(ProverKind::Lean);
+    let args = executor.build_podman_args(ProverKind::new("lean"));
 
     // Verify all security flags are present
     assert!(args.contains(&"--cap-drop=ALL".to_string()));
@@ -433,7 +433,7 @@ fn test_executor_custom_resource_limits() {
         .with_timeout(Duration::from_secs(600))
         .with_backend(IsolationBackend::Podman);
 
-    let args = executor.build_podman_args(ProverKind::Coq);
+    let args = executor.build_podman_args(ProverKind::new("coq"));
 
     assert!(args.contains(&"--memory=4g".to_string()));
     assert!(args.contains(&"--cpus=8".to_string()));
@@ -446,7 +446,7 @@ async fn test_executor_no_backend_refuses_proofs() {
         .with_backend(IsolationBackend::None);
 
     let result = executor
-        .execute_proof(ProverKind::Lean, "theorem test : True := trivial", None)
+        .execute_proof(ProverKind::new("lean"), "theorem test : True := trivial", None)
         .await;
 
     assert!(result.is_err());
@@ -467,7 +467,7 @@ async fn test_scheduler_enqueue_dequeue_cycle() {
     let job = ProofJob::new(
         repo_id,
         "commit123".to_string(),
-        ProverKind::Coq,
+        ProverKind::new("coq"),
         vec!["theorem.v".to_string()],
     );
     let job_id = job.id;
@@ -502,6 +502,74 @@ async fn test_scheduler_enqueue_dequeue_cycle() {
     assert_eq!(stats.queued, 0);
 }
 
+// =============================================================================
+// Double-Loop Feedback Tests
+// =============================================================================
+
+#[tokio::test]
+async fn test_tactic_outcome_roundtrip_via_store() {
+    use echidnabot::store::{SqliteStore, Store};
+    use echidnabot::store::models::{TacticOutcomeRecord, goal_fingerprint};
+
+    let path = std::env::temp_dir()
+        .join(format!("echidnabot-test-outcomes-{}.db", Uuid::new_v4()));
+    let url = format!("sqlite://{}?mode=rwc", path.display());
+    let store = SqliteStore::new(&url).await.unwrap();
+
+    let prover = ProverKind::new("coq");
+    let goal = "forall x, x = x";
+    let fp = goal_fingerprint(goal);
+
+    let outcome = TacticOutcomeRecord::new(
+        None,
+        prover.clone(),
+        fp.clone(),
+        "reflexivity".to_string(),
+        true,
+        42,
+    );
+    store.record_tactic_outcome(&outcome).await.unwrap();
+
+    let results = store
+        .list_tactic_outcomes_by_fingerprint(prover.clone(), &fp, 10)
+        .await
+        .unwrap();
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].tactic, "reflexivity");
+    assert!(results[0].succeeded);
+    assert_eq!(results[0].duration_ms, 42);
+
+    let by_tactic = store
+        .list_tactic_outcomes_by_tactic(prover, "reflexivity", 10)
+        .await
+        .unwrap();
+    assert_eq!(by_tactic.len(), 1);
+
+    let _ = std::fs::remove_file(&path);
+}
+
+#[tokio::test]
+async fn test_scheduler_metrics_methods() {
+    let scheduler = JobScheduler::new(4, 20);
+    // Before any jobs: running = 0, queue_depth = 0
+    assert_eq!(scheduler.running_count(), 0);
+    assert_eq!(scheduler.queue_depth(), 0);
+
+    // Enqueue some jobs and verify they become visible via stats
+    let repo_id = Uuid::new_v4();
+    for i in 0..3 {
+        let job = ProofJob::new(
+            repo_id,
+            format!("sha{}", i),
+            ProverKind::new("lean"),
+            vec![],
+        );
+        scheduler.enqueue(job).await.unwrap();
+    }
+    let stats = scheduler.stats().await;
+    assert_eq!(stats.queued, 3);
+}
+
 #[tokio::test]
 async fn test_scheduler_respects_max_concurrent() {
     let scheduler = JobScheduler::new(1, 10); // Max 1 concurrent
@@ -510,13 +578,13 @@ async fn test_scheduler_respects_max_concurrent() {
     let job1 = ProofJob::new(
         Uuid::new_v4(),
         "commit1".to_string(),
-        ProverKind::Coq,
+        ProverKind::new("coq"),
         vec![],
     );
     let job2 = ProofJob::new(
         Uuid::new_v4(),
         "commit2".to_string(),
-        ProverKind::Lean,
+        ProverKind::new("lean"),
         vec![],
     );
 

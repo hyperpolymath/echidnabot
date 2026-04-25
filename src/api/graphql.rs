@@ -14,7 +14,10 @@ use crate::dispatcher::{
 };
 use crate::dispatcher::echidna_client::ProverStatus as CoreProverStatus;
 use crate::scheduler::{JobPriority, JobScheduler};
-use crate::store::models::{ProofJobRecord, Repository as StoreRepository};
+use crate::store::models::{
+    ProofJobRecord, Repository as StoreRepository, TacticOutcomeRecord,
+    goal_fingerprint,
+};
 use crate::store::Store;
 
 /// GraphQL schema type
@@ -145,6 +148,49 @@ pub struct TacticSuggestion {
     pub explanation: Option<String>,
 }
 
+/// A recorded tactic outcome (double-loop feedback store)
+#[derive(SimpleObject, Clone)]
+pub struct TacticOutcome {
+    pub id: ID,
+    pub prover: ProverKind,
+    pub goal_fingerprint: String,
+    pub tactic: String,
+    pub succeeded: bool,
+    pub duration_ms: i64,
+    pub recorded_at: DateTime<Utc>,
+}
+
+impl From<TacticOutcomeRecord> for TacticOutcome {
+    fn from(r: TacticOutcomeRecord) -> Self {
+        Self {
+            id: ID::from(r.id.to_string()),
+            prover: map_prover_kind(r.prover),
+            goal_fingerprint: r.goal_fingerprint,
+            tactic: r.tactic,
+            succeeded: r.succeeded,
+            duration_ms: r.duration_ms,
+            recorded_at: r.created_at,
+        }
+    }
+}
+
+/// Input for recording a tactic outcome from an external agent
+#[derive(async_graphql::InputObject)]
+pub struct RecordTacticOutcomeInput {
+    /// Which prover was used
+    pub prover: ProverKind,
+    /// The proof goal / context (used to compute a fingerprint)
+    pub goal_state: String,
+    /// The tactic that was attempted
+    pub tactic: String,
+    /// Whether the tactic succeeded
+    pub succeeded: bool,
+    /// How long the attempt took (milliseconds)
+    pub duration_ms: i64,
+    /// Job ID this outcome belongs to (optional)
+    pub job_id: Option<ID>,
+}
+
 // =============================================================================
 // Query Root
 // =============================================================================
@@ -258,6 +304,60 @@ impl QueryRoot {
             Ok(status) => map_prover_status(status),
             Err(_) => ProverStatus::Unknown,
         }
+    }
+
+    /// List recorded tactic outcomes for a (prover, goal_fingerprint) pair.
+    ///
+    /// Used by LLM agents to inspect historical success rates before suggesting
+    /// a tactic, and by operators to audit the feedback store.
+    async fn tactic_outcomes(
+        &self,
+        ctx: &Context<'_>,
+        prover: ProverKind,
+        goal_fingerprint: String,
+        limit: Option<i32>,
+    ) -> Vec<TacticOutcome> {
+        let state = match ctx.data::<GraphQLState>() {
+            Ok(s) => s,
+            Err(_) => return vec![],
+        };
+        let limit = limit.unwrap_or(50).max(1) as usize;
+        state
+            .store
+            .list_tactic_outcomes_by_fingerprint(
+                map_prover_kind_to_core(prover),
+                &goal_fingerprint,
+                limit,
+            )
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .map(TacticOutcome::from)
+            .collect()
+    }
+
+    /// List recorded tactic outcomes for a specific (prover, tactic) pair
+    /// across all goal fingerprints. Useful for global win-rate queries.
+    async fn tactic_outcomes_by_tactic(
+        &self,
+        ctx: &Context<'_>,
+        prover: ProverKind,
+        tactic: String,
+        limit: Option<i32>,
+    ) -> Vec<TacticOutcome> {
+        let state = match ctx.data::<GraphQLState>() {
+            Ok(s) => s,
+            Err(_) => return vec![],
+        };
+        let limit = limit.unwrap_or(200).max(1) as usize;
+        state
+            .store
+            .list_tactic_outcomes_by_tactic(map_prover_kind_to_core(prover), &tactic, limit)
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .map(TacticOutcome::from)
+            .collect()
     }
 }
 
@@ -454,6 +554,40 @@ impl MutationRoot {
             .await
             .map_err(|e| async_graphql::Error::new(e.to_string()))?;
         Ok(repo.into())
+    }
+
+    /// Record the outcome of a tactic attempt (double-loop feedback).
+    ///
+    /// Called by LLM agents (via MCP or direct GraphQL) when they observe a
+    /// tactic being applied in a proof session. The outcome feeds the local
+    /// Reranker store so future suggestions for the same goal fingerprint are
+    /// ranked by historical success rate.
+    async fn record_tactic_outcome(
+        &self,
+        ctx: &Context<'_>,
+        input: RecordTacticOutcomeInput,
+    ) -> async_graphql::Result<TacticOutcome> {
+        let state = ctx.data::<GraphQLState>()?;
+        let prover = map_prover_kind_to_core(input.prover);
+        let fingerprint = goal_fingerprint(&input.goal_state);
+
+        let job_uuid = input.job_id.as_deref()
+            .and_then(|id| Uuid::parse_str(id).ok());
+
+        let record = TacticOutcomeRecord::new(
+            job_uuid,
+            prover,
+            fingerprint,
+            input.tactic,
+            input.succeeded,
+            input.duration_ms,
+        );
+        state
+            .store
+            .record_tactic_outcome(&record)
+            .await
+            .map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        Ok(TacticOutcome::from(record))
     }
 }
 

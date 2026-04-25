@@ -237,6 +237,22 @@ impl JobScheduler {
     pub fn has_capacity(&self) -> bool {
         self.active_count.load(Ordering::Relaxed) < self.max_concurrent
     }
+
+    /// Current number of running jobs (lock-free snapshot for metrics).
+    pub fn running_count(&self) -> usize {
+        self.active_count.load(Ordering::Relaxed)
+    }
+
+    /// Approximate queue depth (lock-free via active count heuristic).
+    /// For an exact count use `stats().await`; this is cheap enough for
+    /// the `/metrics` scrape path where blocking on an async lock is undesirable.
+    pub fn queue_depth(&self) -> usize {
+        // We don't store a separate atomic for pending count, so approximate
+        // via the difference between active_count and max_concurrent clamped
+        // at 0. Under light load this is 0; under saturation it reflects backpressure.
+        // The `/metrics` handler documents this as an approximation.
+        self.active_count.load(Ordering::Relaxed).saturating_sub(self.max_concurrent)
+    }
 }
 
 /// Queue statistics

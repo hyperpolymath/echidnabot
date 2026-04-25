@@ -235,7 +235,7 @@ impl Default for SolverIntegrity {
 
 /// Convert a prover kind to a manifest key (lowercase name).
 fn prover_key(prover: &ProverKind) -> String {
-    format!("{:?}", prover).to_lowercase()
+    prover.as_str().to_lowercase()
 }
 
 /// Constant-time byte comparison to prevent timing side channels.
@@ -268,7 +268,7 @@ mod tests {
     fn test_integrity_verified() {
         let integrity = sample_manifest();
         let report = integrity.verify(
-            ProverKind::new("coq"),
+            &ProverKind::new("coq"),
             "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
             "/usr/bin/coqc",
         );
@@ -280,7 +280,7 @@ mod tests {
     fn test_integrity_tampered() {
         let integrity = sample_manifest();
         let report = integrity.verify(
-            ProverKind::new("coq"),
+            &ProverKind::new("coq"),
             "0000000000000000000000000000000000000000000000000000000000000000",
             "/usr/bin/coqc",
         );
@@ -293,7 +293,7 @@ mod tests {
     fn test_integrity_unchecked() {
         let integrity = sample_manifest();
         let report = integrity.verify(
-            ProverKind::new("agda"), // Not in manifest
+            &ProverKind::new("agda"), // Not in manifest
             "somehashvalue",
             "/usr/bin/agda",
         );
@@ -304,7 +304,7 @@ mod tests {
     #[test]
     fn test_integrity_not_found() {
         let integrity = sample_manifest();
-        let report = integrity.report_not_found(ProverKind::new("isabelle"));
+        let report = integrity.report_not_found(&ProverKind::new("isabelle"));
         assert_eq!(report.status, IntegrityStatus::NotFound);
         assert!(!report.status.is_safe());
     }
@@ -312,7 +312,7 @@ mod tests {
     #[test]
     fn test_integrity_error() {
         let integrity = sample_manifest();
-        let report = integrity.report_error(ProverKind::new("z3"), "Permission denied");
+        let report = integrity.report_error(&ProverKind::new("z3"), "Permission denied");
         assert_eq!(report.status, IntegrityStatus::Error);
         assert!(report.message.contains("Permission denied"));
     }
@@ -322,19 +322,19 @@ mod tests {
         let json = r#"{"coq": "abc123", "lean": "def456"}"#;
         let integrity = SolverIntegrity::from_json(json).unwrap();
         assert_eq!(integrity.manifest_size(), 2);
-        assert!(integrity.has_manifest_entry(ProverKind::new("coq")));
-        assert!(integrity.has_manifest_entry(ProverKind::new("lean")));
-        assert!(!integrity.has_manifest_entry(ProverKind::new("z3")));
+        assert!(integrity.has_manifest_entry(&ProverKind::new("coq")));
+        assert!(integrity.has_manifest_entry(&ProverKind::new("lean")));
+        assert!(!integrity.has_manifest_entry(&ProverKind::new("z3")));
     }
 
     #[test]
     fn test_set_expected_hash() {
         let mut integrity = SolverIntegrity::new();
-        assert!(!integrity.has_manifest_entry(ProverKind::new("metamath")));
+        assert!(!integrity.has_manifest_entry(&ProverKind::new("metamath")));
 
-        integrity.set_expected_hash(ProverKind::new("metamath"), "hash123");
-        assert!(integrity.has_manifest_entry(ProverKind::new("metamath")));
-        assert_eq!(integrity.expected_hash(ProverKind::new("metamath")), Some("hash123"));
+        integrity.set_expected_hash(&ProverKind::new("metamath"), "hash123");
+        assert!(integrity.has_manifest_entry(&ProverKind::new("metamath")));
+        assert_eq!(integrity.expected_hash(&ProverKind::new("metamath")), Some("hash123"));
     }
 
     #[test]
