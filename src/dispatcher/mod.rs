@@ -144,7 +144,7 @@ impl ProverSlug {
 
     /// All classic prover slugs (12) — known statically
     pub fn classic_all() -> impl Iterator<Item = Self> {
-        CLASSIC_PROVERS.iter().map(|(slug, _)| ProverSlug::new(slug))
+        CLASSIC_PROVERS.iter().map(|(slug, _)| ProverSlug::new(*slug))
     }
 
     /// All known provers (currently classic 12; supports 113 via slug resolution)

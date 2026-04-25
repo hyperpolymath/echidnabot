@@ -145,7 +145,7 @@ impl AxiomTracker {
     /// # Arguments
     /// * `prover` - Which prover produced the output
     /// * `output` - Raw prover output (stdout + stderr)
-    pub fn scan(prover: ProverKind, output: &str) -> AxiomReport {
+    pub fn scan(prover: &ProverKind, output: &str) -> AxiomReport {
         let mut flags = Vec::new();
         let output_lower = output.to_lowercase();
 

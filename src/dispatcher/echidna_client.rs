@@ -46,7 +46,7 @@ impl EchidnaClient {
         match self.mode {
             EchidnaApiMode::Graphql => self.verify_proof_graphql(prover, content).await,
             EchidnaApiMode::Rest => self.verify_proof_rest(prover, content).await,
-            EchidnaApiMode::Auto => match self.verify_proof_graphql(prover.clone(), content).await {
+            EchidnaApiMode::Auto => match self.verify_proof_graphql(prover, content).await {
                 Ok(result) => Ok(result),
                 Err(err) => {
                     warn!("GraphQL verify failed, falling back to REST: {}", err);
@@ -70,7 +70,7 @@ impl EchidnaClient {
             EchidnaApiMode::Rest => self.suggest_tactics_rest(prover, context, goal_state).await,
             EchidnaApiMode::Auto => {
                 match self
-                    .suggest_tactics_graphql(prover.clone(), context, goal_state)
+                    .suggest_tactics_graphql(prover, context, goal_state)
                     .await
                 {
                     Ok(result) => Ok(result),
@@ -100,7 +100,7 @@ impl EchidnaClient {
         match self.mode {
             EchidnaApiMode::Graphql => self.prover_status_graphql(prover).await,
             EchidnaApiMode::Rest => self.prover_status_rest(prover).await,
-            EchidnaApiMode::Auto => match self.prover_status_graphql(prover.clone()).await {
+            EchidnaApiMode::Auto => match self.prover_status_graphql(prover).await {
                 Ok(result) => Ok(result),
                 Err(err) => {
                     warn!("GraphQL prover_status failed, falling back to REST: {}", err);
