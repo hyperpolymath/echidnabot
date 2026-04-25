@@ -928,8 +928,12 @@ async fn process_job(
     // — needed for air-gapped or no-ECHIDNA setups.
     let local_executor = if config.executor.local_isolation {
         let mut ex = echidnabot::executor::container::PodmanExecutor::new().await;
-        if let Some(ref img) = config.executor.container_image {
-            ex = ex.with_image(img.clone());
+        // Per-prover image fan-out — each prover gets the image
+        // specialised for its binaries (smaller, faster cold-start,
+        // narrower attack surface). Falls back to the default
+        // container_image when no per-prover entry exists.
+        if let Some(img) = config.executor.image_for(job.prover) {
+            ex = ex.with_image(img);
         }
         if let Some(ref mem) = config.executor.memory_limit {
             ex = ex.with_memory_limit(mem.clone());

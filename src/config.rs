@@ -3,8 +3,10 @@
 //! Configuration management for echidnabot
 
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+use crate::dispatcher::ProverKind;
 use crate::error::Result;
 use crate::modes::BotMode;
 
@@ -81,11 +83,25 @@ pub struct ExecutorConfig {
     #[serde(default)]
     pub local_isolation: bool,
 
-    /// Container image used by the Podman backend. Defaults to
-    /// `docker.io/hyperpolymath/echidna-provers:latest` if unset; that
-    /// image bundles the canonical prover binaries.
+    /// Default container image used by the Podman backend when no
+    /// per-prover override is configured. The bundled image typically
+    /// carries the full prover-binary set.
     #[serde(default)]
     pub container_image: Option<String>,
+
+    /// Per-prover container images. Each prover gets the specialised
+    /// image carrying just its binaries — smaller, faster cold-start,
+    /// reduced attack surface vs the full bundle. Keys are the
+    /// lowercase ProverKind variant names (`coq`, `lean`, `agda`, ...).
+    /// Falls back to `container_image` for any prover not listed here.
+    ///
+    /// TOML example:
+    ///   [executor.container_images]
+    ///   coq = "ghcr.io/hyperpolymath/echidna-provers/coq:2026.04"
+    ///   lean = "ghcr.io/hyperpolymath/echidna-provers/lean:2026.04"
+    ///   agda = "ghcr.io/hyperpolymath/echidna-provers/agda:2026.04"
+    #[serde(default)]
+    pub container_images: HashMap<ProverKind, String>,
 
     /// Memory cap for each proof container. Default `512m`.
     #[serde(default)]
@@ -98,6 +114,19 @@ pub struct ExecutorConfig {
     /// Per-proof timeout in seconds. Default 300.
     #[serde(default)]
     pub timeout_secs: Option<u64>,
+}
+
+impl ExecutorConfig {
+    /// Resolve the container image for a specific prover. Per-prover map
+    /// wins over the default `container_image`; both can be unset, in
+    /// which case the executor uses its built-in default
+    /// (`PodmanExecutor::default().image`).
+    pub fn image_for(&self, prover: ProverKind) -> Option<String> {
+        self.container_images
+            .get(&prover)
+            .cloned()
+            .or_else(|| self.container_image.clone())
+    }
 }
 
 /// Corpus-delta writer + retrain-trigger settings. Disabled by default —
