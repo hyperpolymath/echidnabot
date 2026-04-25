@@ -382,7 +382,7 @@ impl MutationRoot {
         let state = ctx.data::<GraphQLState>()?;
         let suggestions = state
             .echidna
-            .suggest_tactics(map_prover_kind_to_core(prover), &context, &goal_state)
+            .suggest_tactics(&map_prover_kind_to_core(prover), &context, &goal_state)
             .await
             .map_err(|e| async_graphql::Error::new(e.to_string()))?;
         Ok(suggestions.into_iter().map(map_suggestion).collect())
@@ -504,11 +504,39 @@ fn map_platform_to_graphql(platform: crate::adapters::Platform) -> Platform {
 }
 
 fn map_prover_kind(kind: CoreProverKind) -> ProverKind {
-    kind
+    match kind.as_str() {
+        "agda" => ProverKind::Agda,
+        "coq" => ProverKind::Coq,
+        "lean" => ProverKind::Lean,
+        "isabelle" => ProverKind::Isabelle,
+        "z3" => ProverKind::Z3,
+        "cvc5" => ProverKind::Cvc5,
+        "metamath" => ProverKind::Metamath,
+        "hol-light" => ProverKind::HolLight,
+        "mizar" => ProverKind::Mizar,
+        "pvs" => ProverKind::Pvs,
+        "acl2" => ProverKind::Acl2,
+        "hol4" => ProverKind::Hol4,
+        // Unknown slug: default to Coq (should not happen for classic provers)
+        _ => ProverKind::Coq,
+    }
 }
 
 fn map_prover_kind_to_core(kind: ProverKind) -> CoreProverKind {
-    kind
+    match kind {
+        ProverKind::Agda => CoreProverKind::new("agda"),
+        ProverKind::Coq => CoreProverKind::new("coq"),
+        ProverKind::Lean => CoreProverKind::new("lean"),
+        ProverKind::Isabelle => CoreProverKind::new("isabelle"),
+        ProverKind::Z3 => CoreProverKind::new("z3"),
+        ProverKind::Cvc5 => CoreProverKind::new("cvc5"),
+        ProverKind::Metamath => CoreProverKind::new("metamath"),
+        ProverKind::HolLight => CoreProverKind::new("hol-light"),
+        ProverKind::Mizar => CoreProverKind::new("mizar"),
+        ProverKind::Pvs => CoreProverKind::new("pvs"),
+        ProverKind::Acl2 => CoreProverKind::new("acl2"),
+        ProverKind::Hol4 => CoreProverKind::new("hol4"),
+    }
 }
 
 fn map_job_status(status: crate::scheduler::JobStatus) -> JobStatus {

@@ -365,7 +365,7 @@ async fn check(config: &Config, repo: &str, commit: Option<&str>, prover: Option
         .and_then(parse_prover_arg)
         .or(inferred_prover);
 
-    if let Some(kind) = selected_prover {
+    if let Some(ref kind) = selected_prover {
         let status = client.prover_status(kind).await?;
         tracing::info!(
             "Prover {} status: {}",
@@ -376,7 +376,7 @@ async fn check(config: &Config, repo: &str, commit: Option<&str>, prover: Option
 
     if let Some(content) = proof_content {
         let kind = selected_prover.unwrap_or(ProverKind::new("metamath"));
-        let result = client.verify_proof(kind, &content).await?;
+        let result = client.verify_proof(&kind, &content).await?;
         tracing::info!(
             "Proof result: {:?} ({} ms)",
             result.status,
@@ -656,10 +656,10 @@ async fn report_to_platform(
         } else {
             &job_result.prover_output
         };
-        match echidna.suggest_tactics(job.prover, "", goal_state).await {
+        match echidna.suggest_tactics(&job.prover, "", goal_state).await {
             Ok(raw) if !raw.is_empty() => {
                 let reranker = echidnabot::feedback::Reranker::new(store.clone());
-                match reranker.rerank(job.prover, goal_state, raw).await {
+                match reranker.rerank(&job.prover, goal_state, raw).await {
                     Ok(reranked) => reranked.into_iter().take(5).collect(),
                     Err(e) => {
                         tracing::debug!("Reranker error ({}); using raw suggestions", e);
@@ -681,7 +681,7 @@ async fn report_to_platform(
     };
 
     let formatted =
-        result_formatter::format_proof_result(mode, &proof_result, job.prover, suggestions);
+        result_formatter::format_proof_result(mode, &proof_result, job.prover.clone(), suggestions);
 
     let repo_id = RepoId {
         platform: repo.platform,
@@ -867,7 +867,7 @@ async fn process_job(
         ));
     }
 
-    let status = echidna.prover_status(job.prover).await?;
+    let status = echidna.prover_status(&job.prover).await?;
     if status != ProverStatus::Available {
         return Err(echidnabot::Error::Echidna(format!(
             "Prover {} not available (status: {})",
@@ -938,7 +938,7 @@ async fn process_job(
         // specialised for its binaries (smaller, faster cold-start,
         // narrower attack surface). Falls back to the default
         // container_image when no per-prover entry exists.
-        if let Some(img) = config.executor.image_for(job.prover) {
+        if let Some(img) = config.executor.image_for(job.prover.clone()) {
             ex = ex.with_image(img);
         }
         if let Some(ref mem) = config.executor.memory_limit {
@@ -977,7 +977,7 @@ async fn process_job(
             // Local sandboxed path. ExecutionResult is success on
             // exit_code == 0; non-zero (including timeout-kill) is
             // treated as failure with the captured stderr.
-            match ex.execute_proof(job.prover, &content, None).await {
+            match ex.execute_proof(job.prover.clone(), &content, None).await {
                 Ok(exec) => {
                     let combined = if exec.stdout.trim().is_empty() {
                         exec.stderr.clone()
@@ -992,7 +992,7 @@ async fn process_job(
             }
         } else {
             // ECHIDNA-delegated path (default).
-            let result = echidna.verify_proof(job.prover, &content).await?;
+            let result = echidna.verify_proof(&job.prover, &content).await?;
             (
                 result.status == echidnabot::dispatcher::ProofStatus::Verified,
                 result.prover_output,
@@ -1024,8 +1024,8 @@ async fn process_job(
     } else {
         echidnabot::dispatcher::ProofStatus::Failed
     };
-    let axioms = echidnabot::trust::axiom_tracker::AxiomTracker::scan(job.prover, &prover_output);
-    let confidence = echidnabot::trust::confidence::assess_confidence(job.prover, final_status, false, 1);
+    let axioms = echidnabot::trust::axiom_tracker::AxiomTracker::scan(&job.prover, &prover_output);
+    let confidence = echidnabot::trust::confidence::assess_confidence(&job.prover, final_status, false, 1);
     Ok(echidnabot::scheduler::JobResult {
         success,
         message,

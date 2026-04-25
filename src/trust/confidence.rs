@@ -203,6 +203,14 @@ pub fn is_small_kernel(prover: &ProverKind) -> bool {
         "pvs" => false,      // Large TCB
         "acl2" => false,     // Built on Common Lisp
         "hol4" => true,      // Small ML kernel
+        // Tier-3 small-kernel systems
+        "idris2" | "idris" => true,  // Dependent-type kernel
+        "fstar" => true,             // F* type-theory kernel
+        // Tier-3 large-TCB systems
+        "vampire" | "eprover" | "spass" => false,  // Large first-order ATPs
+        "dafny" | "why3" | "alt-ergo" => false,    // VC-based tools
+        "tamarin" | "proverif" => false,            // Protocol model checkers
+        "dreal" | "abc" => false,
 
         // Unknown provers: assume false (conservative estimate)
         _ => false,

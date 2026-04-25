@@ -457,7 +457,7 @@ async fn enqueue_repo_jobs(
     }
 
     for prover in &repo.enabled_provers {
-        let job = ProofJob::new(repo.id, commit.to_string(), *prover, Vec::new())
+        let job = ProofJob::new(repo.id, commit.to_string(), prover.clone(), Vec::new())
             .with_priority(priority)
             .with_context(pr_number, delivery_id.clone());
         let record = ProofJobRecord::from(job.clone());

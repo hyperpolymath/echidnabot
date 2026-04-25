@@ -82,7 +82,7 @@ impl Reranker {
         let fingerprint = goal_fingerprint(goal_state);
         let fingerprint_history = self
             .store
-            .list_tactic_outcomes_by_fingerprint(prover, &fingerprint, self.fingerprint_limit)
+            .list_tactic_outcomes_by_fingerprint(prover.clone(), &fingerprint, self.fingerprint_limit)
             .await?;
 
         for suggestion in suggestions.iter_mut() {
@@ -114,7 +114,7 @@ impl Reranker {
         } else {
             let global = self
                 .store
-                .list_tactic_outcomes_by_tactic(prover, &suggestion.tactic, self.global_limit)
+                .list_tactic_outcomes_by_tactic(prover.clone(), &suggestion.tactic, self.global_limit)
                 .await?;
             if global.is_empty() {
                 return Ok(suggestion.confidence);

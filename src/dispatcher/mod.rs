@@ -77,9 +77,26 @@ impl ProverSlug {
         let ext = ext.to_lowercase();
         let ext = if ext.starts_with('.') { ext } else { format!(".{}", ext) };
 
-        CLASSIC_PROVERS.iter().find_map(|(slug, exts)| {
-            if exts.iter().any(|e| e.to_lowercase() == ext) {
-                Some(ProverSlug::new(slug))
+        CLASSIC_PROVERS.iter().find_map(|(slug, _display)| {
+            // Derive extensions for this slug by checking the known static lists
+            let slug_str: &str = slug;
+            let matched = match slug_str {
+                "agda" => [".agda", ".lagda", ".lagda.md"].iter().any(|e| *e == ext),
+                "coq" => [".v"].iter().any(|e| *e == ext),
+                "lean" => [".lean"].iter().any(|e| *e == ext),
+                "isabelle" => [".thy"].iter().any(|e| *e == ext),
+                "z3" => [".smt2", ".z3"].iter().any(|e| *e == ext),
+                "cvc5" => [".smt2", ".cvc5"].iter().any(|e| *e == ext),
+                "metamath" => [".mm"].iter().any(|e| *e == ext),
+                "hol-light" => [".ml"].iter().any(|e| *e == ext),
+                "mizar" => [".miz"].iter().any(|e| *e == ext),
+                "pvs" => [".pvs"].iter().any(|e| *e == ext),
+                "acl2" => [".lisp", ".acl2"].iter().any(|e| *e == ext),
+                "hol4" => [".sml"].iter().any(|e| *e == ext),
+                _ => false,
+            };
+            if matched {
+                Some(ProverSlug::new(*slug))
             } else {
                 None
             }
@@ -108,8 +125,8 @@ impl ProverSlug {
     pub fn file_extensions(&self) -> &[&str] {
         CLASSIC_PROVERS.iter()
             .find(|(slug, _)| slug.to_lowercase() == self.0)
-            .map(|(_, exts)| {
-                // Return extensions from the tuple's list
+            .map(|(_, _)| {
+                // Return extensions from the statically-known list for this slug
                 const AGDA_EXTS: &[&str] = &[".agda", ".lagda", ".lagda.md"];
                 const COQ_EXTS: &[&str] = &[".v"];
                 const LEAN_EXTS: &[&str] = &[".lean"];
