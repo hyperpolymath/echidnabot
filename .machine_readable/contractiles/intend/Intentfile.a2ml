@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+#
+# Intentfile.a2ml — Goal declaration and north-star wishes for echidnabot
+# Defines what echidnabot aspires to achieve; negotiated at session open.
+
+[metadata]
+version = "0.1.0"
+last-updated = "2026-04-25"
+verb = "intend"
+
+[intent]
+north-star-wish = "Autonomously detect, classify, and solve mathematical proofs across 105 theorem provers with trust-hardened confidence scoring."
+
+[goals]
+primary = "Solve ≥95% of submitted proofs without human intervention; confidence score ≥0.80 (Trusted+ level)"
+secondary = [
+  "Portfolio solving: invoke ≥2 provers, cross-check results",
+  "Axiom tracking: classify by danger level (Safe/Noted/Warning/Reject)",
+  "Trust pipeline: certificate verification, mutation testing, Pareto frontier",
+  "GNN-guided search: premise ranking via neural learning (fallback: cosine)"
+]
+
+[wishes]
+bot-modes = "Verifier (current), Advisor (help debug), Consultant (suggest tactics), Regulator (enforce proof standards)"
+cross-prover-exchange = "Proof certificates translate between solvers (Alethe↔DRAT, OpenTheory↔Dedukti)"
+verisimdb-integration = "Proof results stored in VeriSimDB for cross-repo learning and deduplication"

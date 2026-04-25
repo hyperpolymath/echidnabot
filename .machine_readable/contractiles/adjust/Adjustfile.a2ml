@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+#
+# Adjustfile.a2ml — Modification protocol for echidnabot proof updates
+# Defines how echidnabot updates proofs when specifications change or optimizations are available.
+
+[metadata]
+version = "0.1.0"
+last-updated = "2026-04-25"
+verb = "adjust"
+
+[adjustment-triggers]
+performance = "Faster proof found via alternative solver; update with better turnaround"
+axiom-reduction = "Proof simplified to use fewer axioms; mark improvement"
+confidence-increase = "Additional solvers verify proof; confidence score upgraded"
+tactic-simplification = "Proof rewritten with fewer/clearer tactics by Advisor mode"
+
+[adjustment-protocol]
+step-1 = "Detect adjustment trigger (via Advisor, Consultant, or new solving pass)"
+step-2 = "Verify new proof satisfies original goal (type-check, axiom-check)"
+step-3 = "Compute confidence delta (old vs. new)"
+step-4 = "Commit adjustment with rationale to repo + audit log"
+step-5 = "Update proof cache and VeriSimDB"
+
+[never-adjust]
+actions = [
+  "Change goal specification (that's a bust + re-solve)",
+  "Lose axiom traceability (must always know which axioms are used)",
+  "Downgrade confidence without justification (must explain)"
+]

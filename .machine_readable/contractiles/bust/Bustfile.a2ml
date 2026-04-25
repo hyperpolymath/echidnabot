@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+#
+# Bustfile.a2ml — Invalidation semantics for echidnabot proofs
+# Defines when and how echidnabot retracts a proof claim (e.g., axioms become unsafe).
+
+[metadata]
+version = "0.1.0"
+last-updated = "2026-04-25"
+verb = "bust"
+
+[invalidation-rules]
+axiom-downgrade = "If axiom used in proof is reclassified Reject-level, mark proof as unverified immediately"
+solver-untrust = "If prover binary fails integrity check (SHAKE3-512), all proofs by that solver marked suspect"
+specification-change = "If goal is modified post-verification, retract proof claim; require re-solve"
+assumption-violation = "If proof assumes axiom that is later proven false, automatically bust the proof"
+
+[compensations]
+on-bust = [
+  "Log invalidation to audit trail with reason + timestamp",
+  "Attempt re-solve with alternative prover or strategy",
+  "If re-solve fails, mark as 'Unproven (was busted)' in repo",
+  "Notify maintainer of bust + rationale"
+]
+
+[failure-mode]
+acceptable = "Proof is retracted; no state corruption occurs"
+never = "Silently keep false proof claim; cause data integrity violation"
