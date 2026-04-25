@@ -10,9 +10,9 @@ Complete checklist for making echidnabot a perfect release.
 - [x] Justfile - RSR canonical task runner
 - [x] Nickel configuration (config/echidnabot.ncl)
 - [x] MCP configuration (.claude/settings/mcp.json)
-- [x] STATE.scm - Project checkpoint
-- [x] META.scm - Dublin Core metadata
-- [x] ECOSYSTEM.scm - Dependency graph
+- [x] STATE.a2ml - Project checkpoint
+- [x] META.a2ml - Dublin Core metadata
+- [x] ECOSYSTEM.a2ml - Dependency graph
 - [x] GitHub topics file (.github/topics.txt)
 
 ### To Apply Manually
@@ -151,7 +151,7 @@ Complete checklist for making echidnabot a perfect release.
 1. [ ] All tests passing
 2. [ ] Changelog updated
 3. [ ] Version bumped in Cargo.toml
-4. [ ] STATE.scm updated
+4. [ ] STATE.a2ml updated
 5. [ ] Documentation reviewed
 
 ### Release

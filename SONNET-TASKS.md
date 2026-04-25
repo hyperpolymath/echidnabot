@@ -158,7 +158,7 @@ The repo has ZERO tests despite importing test libraries.
   // SPDX-FileCopyrightText: 2025 Jonathan D.A. Jewell
   ```
 
-### 5.3 STATE.scm update
+### 5.3 STATE.a2ml update
 - Update completion to actual percentage
 - Fix tech-stack if inaccurate
 - Add session history entry
