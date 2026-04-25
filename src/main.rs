@@ -4,14 +4,19 @@
 
 use clap::{Parser, Subcommand};
 use echidnabot::{Config, Result};
-use echidnabot::adapters::{Platform, PlatformAdapter, RepoId};
+use echidnabot::adapters::{
+    CheckConclusion, CheckRun, CheckRunId, CheckStatus as AdapterCheckStatus, Platform,
+    PlatformAdapter, PrId, RepoId,
+};
 use echidnabot::adapters::bitbucket::BitbucketAdapter;
 use echidnabot::adapters::github::GitHubAdapter;
 use echidnabot::adapters::gitlab::GitLabAdapter;
 use echidnabot::api::graphql::GraphQLState;
 use echidnabot::api::{create_schema, webhook_router};
-use echidnabot::dispatcher::{EchidnaClient, ProverKind};
+use echidnabot::dispatcher::{EchidnaClient, ProofResult, ProofStatus, ProverKind};
 use echidnabot::dispatcher::echidna_client::ProverStatus;
+use echidnabot::modes::{self, BotMode};
+use echidnabot::result_formatter;
 use echidnabot::scheduler::{JobScheduler, ProofJob};
 use echidnabot::store::{SqliteStore, Store};
 use echidnabot::store::models::{ProofResultRecord, Repository as StoreRepository};
@@ -523,11 +528,158 @@ async fn run_scheduler_loop(
                 tracing::warn!("Failed to finalize job {}: {}", job.id, err);
             }
 
+            // Phase 3: report the outcome back to the originating platform
+            // (check run + optional PR comment) per the resolved bot mode.
+            // Errors here are logged but never block the scheduler — the DB
+            // is the source of truth, and a missing GitHub token / 503 from
+            // the platform shouldn't cascade.
+            if let Err(err) = report_to_platform(store.as_ref(), &config, &job, &result).await {
+                tracing::warn!("Platform report skipped for job {}: {}", job.id, err);
+            }
+
             scheduler
                 .complete_job(job.id, result)
                 .await;
         } else {
             sleep(Duration::from_millis(250)).await;
+        }
+    }
+}
+
+/// Phase 3: post a job's outcome back to the originating platform.
+///
+/// Cascade:
+///   1. Look up the repository row to recover platform + bot mode.
+///   2. Resolve the effective mode via `modes::resolve_mode` (directive
+///      content is None until the executor lands a clone-and-read step).
+///   3. Build the platform-appropriate adapter.
+///   4. Translate the `JobResult` into a `ProofResult` for the formatter,
+///      then format per-mode.
+///   5. Always create a check run; comment on the originating PR for
+///      modes that opt in (Advisor / Consultant / Regulator).
+///
+/// All steps are best-effort. Errors are surfaced to the caller (which
+/// logs but does not propagate them), so a 503 from GitHub or a missing
+/// token never blocks the scheduler.
+async fn report_to_platform(
+    store: &dyn Store,
+    config: &Config,
+    job: &ProofJob,
+    job_result: &echidnabot::scheduler::JobResult,
+) -> Result<()> {
+    let repo = match store.get_repository(job.repo_id).await? {
+        Some(r) => r,
+        None => return Ok(()), // Repo deleted between enqueue + completion
+    };
+
+    let mode = modes::resolve_mode(&repo, None);
+
+    // Verifier mode is silent on PRs but still posts a check run.
+    let proof_result = ProofResult {
+        status: if job_result.success {
+            ProofStatus::Verified
+        } else {
+            ProofStatus::Failed
+        },
+        message: job_result.message.clone(),
+        prover_output: job_result.prover_output.clone(),
+        duration_ms: job_result.duration_ms as u64,
+        artifacts: vec![],
+    };
+
+    // No tactic suggestions wired into the scheduler yet — Advisor mode
+    // would benefit from these. Phase 5 work to consume the reranker.
+    let formatted = result_formatter::format_proof_result(mode, &proof_result, job.prover, vec![]);
+
+    let repo_id = RepoId {
+        platform: repo.platform,
+        owner: repo.owner.clone(),
+        name: repo.name.clone(),
+    };
+
+    let conclusion = match formatted.check_status {
+        echidnabot::modes::CheckStatus::Success => CheckConclusion::Success,
+        echidnabot::modes::CheckStatus::Failure => match mode {
+            // Regulator wants a hard 'failure' so branch protection
+            // gates the merge. Other modes use 'neutral' to advise
+            // without blocking.
+            BotMode::Regulator => CheckConclusion::Failure,
+            _ => CheckConclusion::Neutral,
+        },
+        echidnabot::modes::CheckStatus::Neutral => CheckConclusion::Neutral,
+    };
+
+    let check = CheckRun {
+        name: format!("echidnabot/{:?}", job.prover),
+        head_sha: job.commit_sha.clone(),
+        status: AdapterCheckStatus::Completed {
+            conclusion,
+            summary: result_formatter::check_run_summary(&formatted, mode),
+        },
+        details_url: None,
+    };
+
+    let adapter = build_adapter(config, repo.platform)?;
+
+    if let Err(err) = adapter.create_check_run(&repo_id, check).await {
+        tracing::warn!(
+            "create_check_run failed for {} (mode {}): {}",
+            repo.full_name(),
+            mode,
+            err
+        );
+        // Don't return — comment may still succeed.
+    }
+
+    // Modes that want PR comments: Advisor (suggestions), Consultant
+    // (Q&A prompt), Regulator (block notice). Verifier stays silent.
+    let wants_comment = matches!(
+        mode,
+        BotMode::Advisor | BotMode::Consultant | BotMode::Regulator
+    );
+    if wants_comment {
+        if let Some(pr_number) = job.pr_number {
+            let body = result_formatter::generate_pr_comment(&formatted, mode);
+            let pr_id = PrId(pr_number.to_string());
+            if let Err(err) = adapter.create_comment(&repo_id, pr_id, &body).await {
+                tracing::warn!(
+                    "create_comment failed for {} PR #{} (mode {}): {}",
+                    repo.full_name(),
+                    pr_number,
+                    mode,
+                    err
+                );
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Build the right `PlatformAdapter` for a given repo's platform.
+/// Falls back to a tokenless GitHub client when no token is configured —
+/// the call sites tolerate auth-failure gracefully (warning only).
+fn build_adapter(config: &Config, platform: Platform) -> Result<Box<dyn PlatformAdapter>> {
+    match platform {
+        Platform::GitHub => {
+            let token = config
+                .github
+                .as_ref()
+                .and_then(|g| g.token.clone())
+                .unwrap_or_default();
+            Ok(Box::new(GitHubAdapter::new(&token)?))
+        }
+        Platform::GitLab => Ok(Box::new(GitLabAdapter::new(
+            config.gitlab.as_ref().map(|g| g.url.as_str()),
+        ))),
+        Platform::Bitbucket => Ok(Box::new(BitbucketAdapter::new(None))),
+        Platform::Codeberg => {
+            // Codeberg ≈ Gitea API, which the GitLab adapter doesn't speak.
+            // Treat as unsupported for now — scheduler still reports DB-side
+            // and the warning surfaces at the call site.
+            Err(echidnabot::Error::Config(
+                "Codeberg platform reporting not yet implemented".to_string(),
+            ))
         }
     }
 }
