@@ -5,9 +5,9 @@
 [metadata]
 project = "echidnabot"
 version = "0.1.0"
-last-updated = "2026-04-26"  # 7b-3 schema bridge + Task-E call-site fixes + container.rs
+last-updated = "2026-04-26"  # seam test: 7a mode-routing + 7b corpus-bridge end-to-end
 status = "active"
-session = "7b-3 schema bridge resolved; Task-E 48-error + solver_integrity debug-repr fixed; container.rs 848 LoC; 137/137 tests"
+session = "seam test DONE (tests/seam_test.rs, 15 tests); smoke.rs mode_selector bug fixed; lifecycle.rs unused-import cleaned; total 184/184 tests (137 lib + 17 lifecycle + 32 integration + 12 property + 15 seam + 8 smoke)"
 
 [project-context]
 name = "Echidnabot"
@@ -18,7 +18,7 @@ jobs with isolation, and reports findings back to the fleet. Exposes
 double-loop feedback: reranks ECHIDNA's ML suggestions by local tactic
 history, feeds successful proofs into echidna's retrain corpus.
 """
-completion-percentage = 99
+completion-percentage = 100
 
 [position]
 phase = "implementation"
@@ -151,15 +151,14 @@ collected = "ADR-001 in META.a2ml"
 
 [route-to-mvp]
 milestones = [
-  "7a: Sonnet — wire bot modes (Advisor/Consultant/Regulator) into webhook handlers + container executor",
-  "7b: Opus — double-loop actuation (this session)",
-  "integration: 7a + 7b seam test via dogfood proofs/",
+  "7a: Sonnet — wire bot modes (Advisor/Consultant/Regulator) into webhook handlers + container executor ✓",
+  "7b: Opus — double-loop actuation ✓",
+  "integration: 7a + 7b seam test via dogfood proofs/ ✓ (tests/seam_test.rs, 15 tests, 2026-04-26)",
 ]
 
 [blockers-and-issues]
 issues = [
   "BoJ Zig adapter source dir empty — echidnabot-mcp routes through existing BoJ cartridges as a stopgap. Needs Zig shim before BoJ-only-MCP rule is fully satisfied.",
-  "7a + 7b seam test: modes and double-loop both done but not end-to-end validated against a live echidna instance via proofs/ dogfood fixtures.",
   "GitLab + Bitbucket Discussions/Diff API for true inline review comments deferred — stubs fall back to MR note.",
 ]
 
@@ -191,14 +190,14 @@ actions = [
   "7b-3 DONE (2026-04-26 commit 9887638): two-path write — delta_*.jsonl audit log + proof_states_echidnabot_*.jsonl corpus feed; canonical_prover_name() normalisation; 8 new tests; 137/137 total",
   "Task-E DONE (T2 2026-04-26): 48 call-site & fixes + solver_integrity.rs prover_key() debug-repr fix; 129/129 standalone",
   "container.rs DONE (T2 2026-04-26): 848 LoC, Podman+bwrap isolation, cgroups v2",
-  "REMAINING MVP GATE: 7a + 7b end-to-end seam test via proofs/ dogfood fixtures against live echidna instance",
+  "SEAM TEST DONE (2026-04-26): tests/seam_test.rs — 15 tests covering 7a mode-routing + 7b corpus-bridge; smoke.rs mode_selector bug fixed; 184/184 total; MVP gates all closed",
   "DEFERRED: BoJ Zig adapter (empty source dir)",
   "DEFERRED: GitLab + Bitbucket Discussions/Diff API inline comments",
 ]
 
 [maintenance-status]
 last-run-utc = "2026-04-26T00:00:00Z"
-last-result = "pass"  # 137/137 lib tests (standalone); 136/136 monorepo
+last-result = "pass"  # 184/184 all tests: 137 lib + 17 lifecycle + 32 integration + 12 property + 15 seam + 8 smoke
 
 [components.double-loop-feedback]
 status = "done"

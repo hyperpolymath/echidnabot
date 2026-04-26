@@ -8,7 +8,7 @@
 
 use echidnabot::adapters::Platform;
 use echidnabot::dispatcher::ProverKind;
-use echidnabot::scheduler::{JobId, JobPriority, JobResult, JobScheduler, JobStatus, ProofJob};
+use echidnabot::scheduler::{JobResult, JobScheduler, JobStatus, ProofJob};
 use echidnabot::store::{
     models::{ProofJobRecord, Repository},
     SqliteStore, Store,

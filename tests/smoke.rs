@@ -15,6 +15,7 @@ use echidnabot::api::rate_limit::WebhookRateLimiter;
 use echidnabot::api::webhooks::AppState;
 use echidnabot::config::Config;
 use echidnabot::dispatcher::EchidnaClient;
+use echidnabot::modes::ModeSelector;
 use echidnabot::scheduler::JobScheduler;
 use echidnabot::store::SqliteStore;
 use std::sync::Arc;
@@ -37,6 +38,7 @@ async fn make_test_server() -> TestServer {
         store,
         scheduler,
         rate_limiter: None,
+        mode_selector: ModeSelector::default(),
     };
 
     let app = Router::new()
@@ -161,6 +163,7 @@ async fn smoke_rate_limiting_returns_429_at_limit() {
         store,
         scheduler,
         rate_limiter: Some(Arc::new(WebhookRateLimiter::new(2))),
+        mode_selector: ModeSelector::default(),
     };
 
     let app = Router::new()
