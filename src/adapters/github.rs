@@ -7,13 +7,16 @@ use std::path::PathBuf;
 
 use super::{
     CheckConclusion, CheckRun, CheckRunId, CheckStatus, CommentId, IssueId, NewIssue,
-    PlatformAdapter, PrId, RepoId,
+    PlatformAdapter, PrId, RepoId, ReviewCommentLocation,
 };
 use crate::error::{Error, Result};
 
 /// GitHub adapter using Octocrab
 pub struct GitHubAdapter {
     client: octocrab::Octocrab,
+    /// Raw HTTP client for APIs not covered by Octocrab (e.g. inline review comments).
+    http: reqwest::Client,
+    token: String,
 }
 
 impl GitHubAdapter {
@@ -24,7 +27,12 @@ impl GitHubAdapter {
             .build()
             .map_err(|e| Error::GitHub(e.to_string()))?;
 
-        Ok(Self { client })
+        let http = reqwest::Client::builder()
+            .user_agent("echidnabot/0.1.0")
+            .build()
+            .map_err(|e| Error::GitHub(e.to_string()))?;
+
+        Ok(Self { client, http, token: token.to_string() })
     }
 
     /// Create adapter from environment variable
@@ -221,5 +229,62 @@ impl PlatformAdapter for GitHubAdapter {
                 }
             }
         }
+    }
+
+    async fn create_review_comment(
+        &self,
+        repo: &RepoId,
+        pr: PrId,
+        body: &str,
+        location: ReviewCommentLocation,
+    ) -> Result<CommentId> {
+        let pr_num: u64 = pr.0.parse().map_err(|_| Error::GitHub("Invalid PR ID".to_string()))?;
+
+        // GitHub API: POST /repos/{owner}/{repo}/pulls/{pull_number}/comments
+        // Requires commit_id, path, side, and line (or position for legacy diffs).
+        let url = format!(
+            "https://api.github.com/repos/{}/{}/pulls/{}/comments",
+            repo.owner, repo.name, pr_num
+        );
+
+        let payload = serde_json::json!({
+            "body": body,
+            "commit_id": location.commit_sha,
+            "path": location.path,
+            "side": "RIGHT",
+            "line": location.line,
+        });
+
+        let response = self
+            .http
+            .post(&url)
+            .header("Authorization", format!("Bearer {}", self.token))
+            .header("Accept", "application/vnd.github.v3+json")
+            .json(&payload)
+            .send()
+            .await
+            .map_err(|e| Error::GitHub(e.to_string()))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let text = response.text().await.unwrap_or_default();
+            // 422 = file not in diff; callers fall back to create_comment.
+            return Err(Error::GitHub(format!(
+                "Review comment rejected by GitHub ({}): {}",
+                status, text
+            )));
+        }
+
+        let data: serde_json::Value = response
+            .json()
+            .await
+            .map_err(|e| Error::GitHub(e.to_string()))?;
+
+        Ok(CommentId(
+            data["id"]
+                .as_u64()
+                .map(|id| id.to_string())
+                .ok_or_else(|| Error::GitHub("Missing id in review comment response".to_string()))?,
+        ))
     }
 }

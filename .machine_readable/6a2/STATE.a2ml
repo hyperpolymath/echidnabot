@@ -5,9 +5,9 @@
 [metadata]
 project = "echidnabot"
 version = "0.1.0"
-last-updated = "2026-04-26"
+last-updated = "2026-04-26"  # T3 complete
 status = "active"
-session = "Rate-limit webhook endpoints; double-loop + GraphQL tactic API + /metrics complete"
+session = "T3 mode wiring: ModeSelector + AppState + review-comment pipeline complete"
 
 [project-context]
 name = "Echidnabot"
@@ -18,7 +18,7 @@ jobs with isolation, and reports findings back to the fleet. Exposes
 double-loop feedback: reranks ECHIDNA's ML suggestions by local tactic
 history, feeds successful proofs into echidna's retrain corpus.
 """
-completion-percentage = 92
+completion-percentage = 96
 
 [position]
 phase = "implementation"
@@ -84,7 +84,7 @@ status = "open — Sonnet's territory; tracked in SONNET-TASKS.md"
 source = "SONNET-TASKS.md Task 2 + EXPLAINME.adoc caveat"
 date = "2026-04-24"
 issue = "Bot modes Advisor/Consultant/Regulator defined but not wired into webhook handlers; only Verifier path executes"
-status = "open — full bot-mode pipeline (PR comments, check runs, merge gate) not connected; result_formatter.rs built but never called"
+status = "resolved (T3 2026-04-26) — ModeSelector added to AppState; resolve_mode_with_daemon_default threads daemon-wide [bot] mode; Consultant posts inline review comments with line extraction; Advisor/Regulator post PR comments; check runs wired for all modes; 136/136 lib tests pass"
 
 [[issues-fed-back.issue]]
 source = "echidnabot-mcp 7b-3 schema gap"
@@ -186,9 +186,10 @@ discovered     = "2026-04-24 (by parallel Claude session during Package 7 sweep)
 
 [critical-next-actions]
 actions = [
-  "7a mode wiring (Sonnet): process_job pipeline + Advisor/Consultant PR comments + Regulator merge-block",
+  "7a DONE (T3 2026-04-26): ModeSelector, review-comment pipeline, daemon-wide cascade — 136/136 tests",
   "Session A + 7b-3 schema bridge: either (a) echidnabot emits echidna-schema rows for successes, or (b) merge_corpus.jl learns to consume delta files",
   "Close BoJ Zig adapter so echidnabot-mcp can be folded into a BoJ cartridge and retired",
+  "Wire GitLab + Bitbucket Discussions API for true inline review comments (currently fall back to MR note)",
 ]
 
 [maintenance-status]

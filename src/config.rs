@@ -52,9 +52,28 @@ pub struct Config {
     #[serde(default)]
     pub boj: Option<BoJConfig>,
 
-    /// Bot operating mode
+    /// Daemon-wide bot mode default. Per-repo directives and the DB column
+    /// take precedence; this is the final fallback before `BotMode::Verifier`.
+    ///
+    /// TOML: `[bot]\nmode = "advisor"` (or verifier / consultant / regulator)
     #[serde(default)]
-    pub bot_mode: BotMode,
+    pub bot: BotConfig,
+}
+
+/// Daemon-wide bot operating mode settings.
+///
+/// ```toml
+/// [bot]
+/// mode = "advisor"   # verifier | advisor | consultant | regulator
+/// ```
+#[derive(Debug, Deserialize, Clone, Default)]
+pub struct BotConfig {
+    /// Daemon-wide default operating mode. Used as a fallback when a repo
+    /// has no per-repo directive file and its DB column is still the
+    /// built-in default (Verifier). Overridden by per-repo directive or
+    /// explicit `register --mode` setting.
+    #[serde(default)]
+    pub mode: BotMode,
 }
 
 /// BoJ server connection settings. Endpoint can also be overridden by

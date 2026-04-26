@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: PMPL-1.0
+// SPDX-License-Identifier: PMPL-1.0-or-later
 //! Bitbucket platform adapter (minimal clone support)
 
 use async_trait::async_trait;
@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 use super::{
     CheckConclusion, CheckRun, CheckRunId, CheckStatus, CommentId, IssueId, NewIssue,
-    PlatformAdapter, PrId, RepoId,
+    PlatformAdapter, PrId, RepoId, ReviewCommentLocation,
 };
 use crate::error::{Error, Result};
 
@@ -328,5 +328,20 @@ impl PlatformAdapter for BitbucketAdapter {
             .await
             .map_err(|e| Error::GitHub(format!("Bitbucket source response: {}", e)))?;
         Ok(Some(body))
+    }
+
+    async fn create_review_comment(
+        &self,
+        repo: &RepoId,
+        pr: PrId,
+        body: &str,
+        _location: ReviewCommentLocation,
+    ) -> Result<CommentId> {
+        // Bitbucket inline comments (Diff Comments API) are not yet implemented.
+        // Fall back to a general PR comment so Consultant mode always posts.
+        tracing::debug!(
+            "Bitbucket create_review_comment: falling back to general PR comment (Diff Comments API not wired)"
+        );
+        self.create_comment(repo, pr, body).await
     }
 }

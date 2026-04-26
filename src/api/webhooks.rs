@@ -21,7 +21,7 @@ use crate::adapters::{Platform, PrId, RepoId};
 use crate::api::rate_limit::{rate_limit_middleware, WebhookRateLimiter};
 use crate::config::Config;
 use crate::error::Result;
-use crate::modes;
+use crate::modes::{self, ModeSelector};
 use crate::scheduler::{JobPriority, JobScheduler, ProofJob};
 use crate::store::Store;
 use crate::store::models::ProofJobRecord;
@@ -34,6 +34,11 @@ pub struct AppState {
     pub scheduler: Arc<JobScheduler>,
     /// Per-IP sliding-window rate limiter for webhook endpoints. `None` = unlimited.
     pub rate_limiter: Option<Arc<WebhookRateLimiter>>,
+    /// Daemon-wide mode selector — the fallback when no per-repo directive
+    /// or DB column setting is found. Populated from `[bot] mode` in the
+    /// TOML config. Avoids a DB lookup for the common "no per-repo setting"
+    /// case inside webhook handlers.
+    pub mode_selector: ModeSelector,
 }
 
 /// Create webhook router with optional per-IP rate limiting.
@@ -436,7 +441,11 @@ async fn enqueue_repo_jobs(
             None
         }
     };
-    let mode = modes::resolve_mode(&repo, directive_content.as_deref());
+    let mode = modes::resolve_mode_with_daemon_default(
+        &repo,
+        directive_content.as_deref(),
+        state.mode_selector.default_mode,
+    );
     let is_pr = matches!(event_kind, RepoEventKind::PullRequest);
 
     tracing::info!(
@@ -520,8 +529,9 @@ async fn handle_consultant_mention(
     };
 
     // Phase 7: directive content lookup is still TODO (executor would
-    // clone target repo). For now the cascade falls through to DB mode.
-    let mode = modes::resolve_mode(&repo, None);
+    // clone target repo). For now the cascade falls through to DB mode,
+    // with the daemon-wide mode_selector as the next fallback.
+    let mode = modes::resolve_mode_with_daemon_default(&repo, None, state.mode_selector.default_mode);
     if mode != modes::BotMode::Consultant {
         tracing::debug!(
             "@echidnabot mention on {} but mode is {} (not Consultant) — ignoring",

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: PMPL-1.0
+// SPDX-License-Identifier: PMPL-1.0-or-later
 //! Platform adapters for GitHub, GitLab, Bitbucket
 
 use serde::{Deserialize, Serialize};
@@ -99,6 +99,22 @@ pub struct NewIssue {
     pub labels: Vec<String>,
 }
 
+/// Location anchor for an inline PR review comment.
+///
+/// Used by Consultant mode to attach failure notes directly to the
+/// offending line in the diff rather than posting a general PR comment.
+/// When the file or line is unknown, `line` defaults to 1.
+#[derive(Debug, Clone)]
+pub struct ReviewCommentLocation {
+    /// The commit SHA to anchor the comment to (must be in the PR's history).
+    pub commit_sha: String,
+    /// Path of the file to comment on, relative to the repo root.
+    pub path: String,
+    /// Line number (1-based) on the RIGHT side of the diff. Defaults to 1
+    /// when the prover output does not contain a parseable location.
+    pub line: u32,
+}
+
 /// Build the right `PlatformAdapter` for a given platform.
 ///
 /// Single source of truth for adapter construction — used by both
@@ -171,4 +187,18 @@ pub trait PlatformAdapter: Send + Sync {
         branch: Option<&str>,
         path: &str,
     ) -> Result<Option<String>>;
+
+    /// Post an inline review comment on a specific line in the PR diff.
+    ///
+    /// Used by Consultant mode to anchor failure notes to the offending
+    /// proof line. Returns `Err` when the file/line is not in the diff or
+    /// when the platform does not support inline review comments — callers
+    /// should fall back to `create_comment` on error.
+    async fn create_review_comment(
+        &self,
+        repo: &RepoId,
+        pr: PrId,
+        body: &str,
+        location: ReviewCommentLocation,
+    ) -> Result<CommentId>;
 }

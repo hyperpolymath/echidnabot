@@ -15,7 +15,7 @@ use echidnabot::api::graphql::GraphQLState;
 use echidnabot::api::{create_schema, webhook_router};
 use echidnabot::dispatcher::{EchidnaClient, ProofResult, ProofStatus, ProverKind};
 use echidnabot::dispatcher::echidna_client::ProverStatus;
-use echidnabot::modes::{self, BotMode};
+use echidnabot::modes::{self, BotMode, ModeSelector};
 use echidnabot::result_formatter;
 use echidnabot::scheduler::{JobScheduler, ProofJob};
 use echidnabot::store::{SqliteStore, Store};
@@ -252,6 +252,7 @@ async fn serve(config: &Config, host: &str, port: u16) -> Result<()> {
         store: store.clone(),
         scheduler: scheduler.clone(),
         rate_limiter,
+        mode_selector: ModeSelector::new(config.bot.mode),
     };
 
     let app = Router::new()
@@ -672,7 +673,11 @@ async fn report_to_platform(
     } else {
         None
     };
-    let mode = modes::resolve_mode(&repo, directive_content.as_deref());
+    let mode = modes::resolve_mode_with_daemon_default(
+        &repo,
+        directive_content.as_deref(),
+        config.bot.mode,
+    );
 
     // Verifier mode is silent on PRs but still posts a check run.
     let proof_result = ProofResult {
@@ -816,7 +821,8 @@ async fn report_to_platform(
     }
 
     // Modes that want PR comments: Advisor (suggestions), Consultant
-    // (Q&A prompt), Regulator (block notice). Verifier stays silent.
+    // (inline review comment on offending line), Regulator (block notice).
+    // Verifier stays silent.
     let wants_comment = matches!(
         mode,
         BotMode::Advisor | BotMode::Consultant | BotMode::Regulator
@@ -845,7 +851,37 @@ async fn report_to_platform(
                 ));
             }
             let pr_id = PrId(pr_number.to_string());
-            if let Err(err) = adapter.create_comment(&repo_id, pr_id, &body).await {
+
+            // Consultant mode: attempt an inline review comment on the first
+            // failing proof file so the annotation lands next to the code.
+            // Falls back to a general PR comment when the file is not in the
+            // diff or when the adapter returns an error (e.g. GitLab/Bitbucket
+            // stubs that always fall back internally).
+            let comment_result = if mode == BotMode::Consultant {
+                if let Some(failed_file) = job_result.failed_files.first() {
+                    let location = echidnabot::adapters::ReviewCommentLocation {
+                        commit_sha: job.commit_sha.clone(),
+                        path: failed_file.clone(),
+                        line: extract_error_line(&job_result.prover_output).unwrap_or(1),
+                    };
+                    match adapter.create_review_comment(&repo_id, pr_id.clone(), &body, location).await {
+                        Ok(id) => Ok(id),
+                        Err(review_err) => {
+                            tracing::debug!(
+                                "Review comment failed for {} PR #{} ({}); falling back to PR comment",
+                                repo.full_name(), pr_number, review_err
+                            );
+                            adapter.create_comment(&repo_id, pr_id, &body).await
+                        }
+                    }
+                } else {
+                    adapter.create_comment(&repo_id, pr_id, &body).await
+                }
+            } else {
+                adapter.create_comment(&repo_id, pr_id, &body).await
+            };
+
+            if let Err(err) = comment_result {
                 tracing::warn!(
                     "create_comment failed for {} PR #{} (mode {}): {}",
                     repo.full_name(),
@@ -1242,6 +1278,42 @@ fn collect_files_by_extension(root: &Path, extensions: &[String]) -> Vec<PathBuf
     let mut results = Vec::new();
     collect_files_inner(root, extensions, &mut results);
     results
+}
+
+/// Extract the first line number from a prover error message.
+///
+/// Tries common error-location patterns from major proof assistants:
+/// - Coq/Rocq:    `File "X", line N`
+/// - Lean 4:      `X:N:M:` (file:line:col)
+/// - Agda:        `at X:N,M-N,M`
+/// - Isabelle:    `line N of X`
+///
+/// Returns `None` when no pattern matches; callers default to line 1.
+fn extract_error_line(prover_output: &str) -> Option<u32> {
+    for line in prover_output.lines() {
+        // Coq: File "path", line N, ...
+        if let Some(rest) = line.find(", line ").map(|i| &line[i + 7..]) {
+            if let Some(n) = rest.split([',', ' ']).next().and_then(|s| s.parse().ok()) {
+                return Some(n);
+            }
+        }
+        // Lean: path:N:M: ...
+        let parts: Vec<&str> = line.splitn(4, ':').collect();
+        if parts.len() >= 3 {
+            if let (Ok(n), _) = (parts[1].trim().parse::<u32>(), parts[2].trim().parse::<u32>()) {
+                if n > 0 {
+                    return Some(n);
+                }
+            }
+        }
+        // Isabelle: line N of ...
+        if let Some(rest) = line.find("line ").map(|i| &line[i + 5..]) {
+            if let Some(n) = rest.split_whitespace().next().and_then(|s| s.parse().ok()) {
+                return Some(n);
+            }
+        }
+    }
+    None
 }
 
 fn collect_files_inner(root: &Path, extensions: &[String], results: &mut Vec<PathBuf>) {

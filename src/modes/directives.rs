@@ -79,14 +79,36 @@ pub fn parse_a2ml_directive(content: &str) -> Option<BotMode> {
 ///
 /// Cascade:
 ///   1. directive content (echidnabot.a2ml > all.a2ml > .scm fallback)
-///   2. repo.mode (DB column)
+///   2. repo.mode (DB column, when non-default)
 ///   3. `BotMode::default()`
 ///
-/// `directive_content` is the result of fetching the most specific directive
-/// the caller could find. Callers should try `echidnabot.a2ml` first, fall
-/// back to `all.a2ml`, and pass `None` if neither exists. The format is
-/// detected from content (A2ML if it parses as TOML, else legacy Scheme).
+/// For the extended cascade that includes a daemon-wide default between
+/// steps 2 and 3, use `resolve_mode_with_daemon_default`.
 pub fn resolve_mode(repo: &Repository, directive_content: Option<&str>) -> BotMode {
+    resolve_mode_with_daemon_default(repo, directive_content, BotMode::default())
+}
+
+/// Resolve the bot mode using the full four-level cascade.
+///
+/// Cascade:
+///   1. directive content (echidnabot.a2ml > all.a2ml > .scm fallback)
+///   2. repo.mode (DB column, when non-default)
+///   3. `daemon_default` — daemon-wide `[bot] mode` from the TOML config
+///   4. `BotMode::default()` (= Verifier)
+///
+/// `daemon_default` is the `ModeSelector.default_mode` stored on `AppState`.
+/// Pass `BotMode::default()` to reproduce the pre-T3 three-level cascade.
+///
+/// Note: a repo registered with `--mode verifier` (the default) is
+/// indistinguishable from "not explicitly set". The daemon-wide setting
+/// therefore wins for repos that were never given an explicit mode. Repos
+/// that need to stay at Verifier when the daemon default is something else
+/// should set a per-repo directive file.
+pub fn resolve_mode_with_daemon_default(
+    repo: &Repository,
+    directive_content: Option<&str>,
+    daemon_default: BotMode,
+) -> BotMode {
     if let Some(content) = directive_content {
         // Try A2ML first (post-2026-04-12 canonical), then legacy Scheme.
         if let Some(mode) = parse_a2ml_directive(content) {
@@ -102,9 +124,17 @@ pub fn resolve_mode(repo: &Repository, directive_content: Option<&str>) -> BotMo
             return scheme_mode;
         }
     }
-    // Fall back to per-repo DB setting.
-    tracing::debug!("Mode {} resolved from repository.mode (DB)", repo.mode);
-    repo.mode
+    // Use the per-repo DB setting when it differs from the built-in default.
+    if repo.mode != BotMode::default() {
+        tracing::debug!("Mode {} resolved from repository.mode (DB)", repo.mode);
+        return repo.mode;
+    }
+    // Fall back to the daemon-wide configured default.
+    tracing::debug!(
+        "Mode {} resolved from daemon-wide config default (repo.mode is default)",
+        daemon_default
+    );
+    daemon_default
 }
 
 #[cfg(test)]
@@ -202,5 +232,48 @@ mod tests {
         // Repository::new sets mode to BotMode::default() (Verifier).
         let repo = Repository::new(Platform::GitHub, "owner".into(), "name".into());
         assert_eq!(resolve_mode(&repo, None), BotMode::Verifier);
+    }
+
+    // ─── resolve_mode_with_daemon_default tests ──────────────────────────
+
+    #[test]
+    fn daemon_default_wins_over_built_in_default() {
+        // Repo has no explicit mode (defaults to Verifier). Daemon says Advisor.
+        let repo = Repository::new(Platform::GitHub, "owner".into(), "name".into());
+        assert_eq!(
+            resolve_mode_with_daemon_default(&repo, None, BotMode::Advisor),
+            BotMode::Advisor,
+        );
+    }
+
+    #[test]
+    fn explicit_db_mode_wins_over_daemon_default() {
+        // Repo explicitly set to Regulator → wins over Advisor daemon default.
+        let repo = fixture_repo(BotMode::Regulator);
+        assert_eq!(
+            resolve_mode_with_daemon_default(&repo, None, BotMode::Advisor),
+            BotMode::Regulator,
+        );
+    }
+
+    #[test]
+    fn directive_wins_over_daemon_default() {
+        let repo = Repository::new(Platform::GitHub, "owner".into(), "name".into());
+        let directive = r#"[bot]
+mode = "consultant"
+"#;
+        assert_eq!(
+            resolve_mode_with_daemon_default(&repo, Some(directive), BotMode::Regulator),
+            BotMode::Consultant,
+        );
+    }
+
+    #[test]
+    fn daemon_default_verifier_leaves_default_unchanged() {
+        let repo = Repository::new(Platform::GitHub, "owner".into(), "name".into());
+        assert_eq!(
+            resolve_mode_with_daemon_default(&repo, None, BotMode::Verifier),
+            BotMode::Verifier,
+        );
     }
 }

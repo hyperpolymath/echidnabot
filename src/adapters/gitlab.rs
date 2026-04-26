@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: PMPL-1.0
+// SPDX-License-Identifier: PMPL-1.0-or-later
 //! GitLab platform adapter (minimal clone support)
 
 use async_trait::async_trait;
@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 use super::{
     CheckConclusion, CheckRun, CheckRunId, CheckStatus, CommentId, IssueId, NewIssue,
-    PlatformAdapter, PrId, RepoId,
+    PlatformAdapter, PrId, RepoId, ReviewCommentLocation,
 };
 use crate::error::{Error, Result};
 
@@ -323,5 +323,21 @@ impl PlatformAdapter for GitLabAdapter {
             .await
             .map_err(|e| Error::GitHub(format!("GitLab files response: {}", e)))?;
         Ok(Some(body))
+    }
+
+    async fn create_review_comment(
+        &self,
+        repo: &RepoId,
+        pr: PrId,
+        body: &str,
+        _location: ReviewCommentLocation,
+    ) -> Result<CommentId> {
+        // GitLab inline review comments require the Discussions API which
+        // is not yet implemented in this adapter. Fall back to a general
+        // MR note so Consultant mode always posts something useful.
+        tracing::debug!(
+            "GitLab create_review_comment: falling back to general MR note (Discussions API not wired)"
+        );
+        self.create_comment(repo, pr, body).await
     }
 }

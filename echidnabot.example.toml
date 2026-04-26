@@ -49,6 +49,19 @@ queue_size = 100
 # token = "glpat-xxxxxxxxxxxxxxxxxxxx"
 # webhook_secret = "your-webhook-secret"
 
+# Bot operating mode (daemon-wide default)
+# Per-repo directives (.machine_readable/bot_directives/echidnabot.a2ml) and
+# the per-repo mode registered via `echidnabot register --mode` take precedence.
+# This is the final fallback before the built-in default (verifier).
+#
+# [bot]
+# mode = "verifier"   # verifier | advisor | consultant | regulator
+#
+# verifier  — silent pass/fail via check run only (default)
+# advisor   — check run + PR comment with ML tactic suggestions on failure
+# consultant — check run + inline review comment on offending lines; responds to @echidnabot mentions
+# regulator  — check run + PR comment; sets check to failure + blocks merge on coverage drop
+
 # Environment variables can override any setting:
 # ECHIDNABOT__SERVER__PORT=9090
 # ECHIDNABOT__DATABASE__URL=postgres://...

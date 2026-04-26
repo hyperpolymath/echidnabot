@@ -10,10 +10,36 @@
 //! - **Regulator**: Blocks PR merges when proofs fail
 
 pub mod directives;
-pub use directives::{fetch_directive_via_adapter, parse_a2ml_directive, resolve_mode};
+pub use directives::{
+    fetch_directive_via_adapter, parse_a2ml_directive, resolve_mode,
+    resolve_mode_with_daemon_default,
+};
 
 use serde::{Deserialize, Serialize};
 use std::fmt;
+
+/// Daemon-wide mode selector — the final fallback in the resolution cascade.
+///
+/// Stored in `AppState` so webhook handlers can read the configured daemon
+/// default without an async DB lookup. Wraps the `[bot] mode` value from
+/// the TOML config.
+///
+/// Resolution priority (highest → lowest):
+///   1. Target-repo `.machine_readable/bot_directives/echidnabot.a2ml`
+///   2. Per-repo `repositories.mode` DB column (if non-default)
+///   3. Daemon-wide `ModeSelector.default_mode` (this struct)
+///   4. `BotMode::default()` = Verifier (last resort)
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ModeSelector {
+    /// The daemon-wide fallback mode, read from `[bot] mode` in the TOML config.
+    pub default_mode: BotMode,
+}
+
+impl ModeSelector {
+    pub fn new(mode: BotMode) -> Self {
+        Self { default_mode: mode }
+    }
+}
 
 /// Bot operating mode
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
