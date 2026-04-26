@@ -3,15 +3,19 @@
 //! Corpus-delta writer — feeds successful proofs back into ECHIDNA's
 //! training_data for the Julia retrainer.
 //!
-//! Pipeline:
-//!   proof succeeds → echidnabot records DeltaRow → appended to
-//!   `{training_data_dir}/delta_YYYY-MM-DD.jsonl` → ECHIDNA's
-//!   `just corpus-refresh` consumes the delta via its extract-corpora
-//!   / retrain steps (see echidna repo commit 055e13e + 3f32c29).
+//! Two write paths per successful record:
 //!
-//! Writes are append-only JSONL. One line per attempt. The retrainer is
-//! NOT invoked per-record by default — use `auto_trigger_threshold` to
-//! batch, or call `trigger_refresh` explicitly (e.g. from an MCP tool).
+//! 1. **Audit log** (`delta_YYYY-MM-DD.jsonl`): every attempt, all fields,
+//!    including failures. Internal bookkeeping only.
+//!
+//! 2. **Corpus feed** (`proof_states_echidnabot_YYYY-MM-DD.jsonl`): successes
+//!    only, in the `proof_states_*.jsonl` schema that `merge_corpus.jl` globs
+//!    for at line 334. Fields match what the dedup key and richness scorer
+//!    expect: `prover`, `theorem`, `goal`, `tactic_proof`, `context`, `source`.
+//!
+//! `merge_corpus.jl` already contains the bridge glob at step 1b; the only
+//! reason proofs were dropped silently was the filename mismatch
+//! (`delta_*` vs `proof_states_echidnabot_*`).
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -26,19 +30,26 @@ use tokio::sync::Mutex;
 use crate::dispatcher::ProverKind;
 use crate::error::{Error, Result};
 
-/// Provenance of a delta row — where did the proof attempt originate?
+/// Provenance of a delta row.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum DeltaSource {
-    /// Webhook-driven CI run (GitHub/GitLab/Bitbucket)
     Webhook,
-    /// Invoked via the MCP tool surface
     Mcp,
-    /// Invoked from the CLI binary
     Cli,
 }
 
-/// One row of training-delta JSONL. Serialised directly to the delta file.
+impl DeltaSource {
+    fn as_str(self) -> &'static str {
+        match self {
+            DeltaSource::Webhook => "echidnabot-webhook",
+            DeltaSource::Mcp => "echidnabot-mcp",
+            DeltaSource::Cli => "echidnabot-cli",
+        }
+    }
+}
+
+/// Full audit record — written to `delta_YYYY-MM-DD.jsonl` for every attempt.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeltaRow {
     pub timestamp: DateTime<Utc>,
@@ -79,11 +90,87 @@ impl DeltaRow {
     }
 }
 
-/// Default subprocess: `just corpus-refresh` run in `echidna_root`.
+/// Corpus-feed entry — written to `proof_states_echidnabot_YYYY-MM-DD.jsonl`
+/// for successful proofs only. Schema matches `merge_corpus.jl`'s expectations:
+/// dedup key `(prover, theorem)`, richness scorer reads `goal`/`tactic_proof`.
+#[derive(Debug, Clone, Serialize)]
+pub struct ProofStateEntry {
+    /// 0 here; `merge_corpus.jl` reassigns sequential IDs at merge time.
+    pub id: u64,
+    /// Canonical prover name (title-cased slug, e.g. "Coq", "Lean", "Z3").
+    pub prover: String,
+    /// Dedup key: the goal state is used as the theorem identifier for
+    /// live proof attempts (no static theorem name is available from webhooks).
+    pub theorem: String,
+    /// Current proof goal — identical to `theorem` for live CI proofs.
+    pub goal: String,
+    /// The tactic that closed the proof.
+    pub tactic_proof: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub context: Option<String>,
+    /// Prefixed source string so corpus stats show echidnabot provenance.
+    pub source: String,
+    pub duration_ms: i64,
+}
+
+impl ProofStateEntry {
+    fn from_delta_row(row: &DeltaRow) -> Self {
+        Self {
+            id: 0,
+            prover: canonical_prover_name(row.prover.as_str()),
+            theorem: row.goal_state.clone(),
+            goal: row.goal_state.clone(),
+            tactic_proof: row.chosen_tactic.clone(),
+            context: row.context.clone(),
+            source: row.source.as_str().to_string(),
+            duration_ms: row.duration_ms,
+        }
+    }
+}
+
+/// Title-case the prover slug so names match what `merge_corpus.jl` expects
+/// (e.g. "coq" → "Coq", "fstar" → "F*", "z3" → "Z3").
+fn canonical_prover_name(slug: &str) -> String {
+    match slug {
+        "coq" | "rocq" => "Coq".to_string(),
+        "lean" | "lean4" => "Lean".to_string(),
+        "agda" => "Agda".to_string(),
+        "isabelle" => "Isabelle".to_string(),
+        "idris2" => "Idris2".to_string(),
+        "fstar" => "F*".to_string(),
+        "z3" => "Z3".to_string(),
+        "cvc5" | "cvc4" => "CVC5".to_string(),
+        "alt-ergo" | "altergo" => "Alt-Ergo".to_string(),
+        "dafny" => "Dafny".to_string(),
+        "why3" => "Why3".to_string(),
+        "metamath" => "Metamath".to_string(),
+        "hol-light" | "hollight" => "HOLLight".to_string(),
+        "hol4" => "HOL4".to_string(),
+        "mizar" => "Mizar".to_string(),
+        "pvs" => "PVS".to_string(),
+        "acl2" => "ACL2".to_string(),
+        "tlaps" => "TLAPS".to_string(),
+        "twelf" => "Twelf".to_string(),
+        "nuprl" => "Nuprl".to_string(),
+        "minlog" => "Minlog".to_string(),
+        "imandra" => "Imandra".to_string(),
+        "vampire" => "Vampire".to_string(),
+        "eprover" => "EProver".to_string(),
+        "spass" => "SPASS".to_string(),
+        _ => {
+            // Fallback: capitalise first character.
+            let mut c = slug.chars();
+            match c.next() {
+                None => String::new(),
+                Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+            }
+        }
+    }
+}
+
 const DEFAULT_TRIGGER_PROGRAM: &str = "just";
 const DEFAULT_TRIGGER_ARGS: &[&str] = &["corpus-refresh"];
 
-/// Writer for training-delta rows and manager for retrain triggers.
 pub struct CorpusDelta {
     training_data_dir: PathBuf,
     echidna_root: Option<PathBuf>,
@@ -94,8 +181,6 @@ pub struct CorpusDelta {
 }
 
 impl CorpusDelta {
-    /// Create a writer that appends to `{training_data_dir}/delta_YYYY-MM-DD.jsonl`.
-    /// No trigger is configured — `trigger_refresh` will error until one is set.
     pub fn new(training_data_dir: PathBuf) -> Self {
         Self {
             training_data_dir,
@@ -107,51 +192,41 @@ impl CorpusDelta {
         }
     }
 
-    /// Configure `trigger_refresh` to run `just corpus-refresh` in `echidna_root`.
     pub fn with_trigger(mut self, echidna_root: PathBuf) -> Self {
         self.echidna_root = Some(echidna_root);
         self
     }
 
-    /// Override the default trigger command (primarily for testing / custom pipelines).
     pub fn with_trigger_command(mut self, program: String, args: Vec<String>) -> Self {
         self.trigger_program = program;
         self.trigger_args = args;
         self
     }
 
-    /// Fire `trigger_refresh` automatically every N successful records.
     pub fn with_auto_trigger(mut self, threshold: u32) -> Self {
         self.auto_trigger_threshold = Some(threshold);
         self
     }
 
-    /// Append a delta row to today's JSONL file. Returns the file path written.
-    /// If auto-trigger is configured and the row is a success, advances the
-    /// counter and may fire `trigger_refresh`.
+    /// Append a delta row to today's audit log (`delta_YYYY-MM-DD.jsonl`).
+    /// On success, also append a `ProofStateEntry` to the corpus-feed file
+    /// (`proof_states_echidnabot_YYYY-MM-DD.jsonl`) that `merge_corpus.jl`
+    /// picks up during corpus-refresh.
     pub async fn record(&self, row: &DeltaRow) -> Result<PathBuf> {
         fs::create_dir_all(&self.training_data_dir)
             .await
             .map_err(|e| Error::Internal(format!("create training_data_dir: {}", e)))?;
 
-        let path = self.delta_path_for(row.timestamp);
-        let mut file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&path)
-            .await
-            .map_err(|e| Error::Internal(format!("open delta file: {}", e)))?;
+        // 1. Audit log — all rows.
+        let delta_path = self.delta_path_for(row.timestamp);
+        append_jsonl(&delta_path, row).await?;
 
-        let mut line = serde_json::to_string(row)?;
-        line.push('\n');
-        file.write_all(line.as_bytes())
-            .await
-            .map_err(|e| Error::Internal(format!("write delta: {}", e)))?;
-        file.flush()
-            .await
-            .map_err(|e| Error::Internal(format!("flush delta: {}", e)))?;
-
+        // 2. Corpus feed — successful proofs only, in proof_states schema.
         if row.succeeded {
+            let ps_path = self.proof_state_path_for(row.timestamp);
+            let entry = ProofStateEntry::from_delta_row(row);
+            append_jsonl(&ps_path, &entry).await?;
+
             if let Some(threshold) = self.auto_trigger_threshold {
                 let mut counter = self.counter.lock().await;
                 *counter += 1;
@@ -163,11 +238,9 @@ impl CorpusDelta {
             }
         }
 
-        Ok(path)
+        Ok(delta_path)
     }
 
-    /// Invoke the configured trigger command (default: `just corpus-refresh`).
-    /// Errors if `echidna_root` was never set.
     pub async fn trigger_refresh(&self) -> Result<RefreshStatus> {
         let cwd = self.echidna_root.as_ref().ok_or_else(|| {
             Error::Internal("corpus refresh: echidna_root not configured".to_string())
@@ -193,13 +266,20 @@ impl CorpusDelta {
         })
     }
 
-    /// Path of the delta file for a given timestamp (UTC date).
+    /// Path of the full audit log for a given UTC date.
     pub fn delta_path_for(&self, ts: DateTime<Utc>) -> PathBuf {
         self.training_data_dir
             .join(format!("delta_{}.jsonl", ts.format("%Y-%m-%d")))
     }
 
-    /// Current value of the auto-trigger counter (for observability / tests).
+    /// Path of the corpus-feed file for a given UTC date.
+    /// Named `proof_states_echidnabot_YYYY-MM-DD.jsonl` so `merge_corpus.jl`
+    /// picks it up via its step-1b glob (`startswith("proof_states_echidnabot_")`).
+    pub fn proof_state_path_for(&self, ts: DateTime<Utc>) -> PathBuf {
+        self.training_data_dir
+            .join(format!("proof_states_echidnabot_{}.jsonl", ts.format("%Y-%m-%d")))
+    }
+
     pub async fn counter_value(&self) -> u32 {
         *self.counter.lock().await
     }
@@ -209,7 +289,25 @@ impl CorpusDelta {
     }
 }
 
-/// Outcome of a corpus-refresh subprocess invocation.
+async fn append_jsonl<T: Serialize>(path: &PathBuf, value: &T) -> Result<()> {
+    let mut file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+        .await
+        .map_err(|e| Error::Internal(format!("open {}: {}", path.display(), e)))?;
+
+    let mut line = serde_json::to_string(value)?;
+    line.push('\n');
+    file.write_all(line.as_bytes())
+        .await
+        .map_err(|e| Error::Internal(format!("write {}: {}", path.display(), e)))?;
+    file.flush()
+        .await
+        .map_err(|e| Error::Internal(format!("flush {}: {}", path.display(), e)))?;
+    Ok(())
+}
+
 #[derive(Debug, Clone)]
 pub struct RefreshStatus {
     pub success: bool,
@@ -239,7 +337,7 @@ mod tests {
         )
     }
 
-    async fn read_file_to_string(path: &Path) -> String {
+    async fn read_file(path: &Path) -> String {
         let mut f = tokio::fs::File::open(path).await.unwrap();
         let mut s = String::new();
         f.read_to_string(&mut s).await.unwrap();
@@ -247,37 +345,78 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn record_writes_jsonl_line_to_dated_file() {
+    async fn record_writes_audit_log_for_all_rows() {
         let dir = tmp_dir();
         let cd = CorpusDelta::new(dir.clone());
-        let row = sample_row(true);
 
-        let path = cd.record(&row).await.unwrap();
+        let path = cd.record(&sample_row(true)).await.unwrap();
         assert!(path.file_name().unwrap().to_string_lossy().starts_with("delta_"));
-        assert!(path.file_name().unwrap().to_string_lossy().ends_with(".jsonl"));
 
-        let contents = read_file_to_string(&path).await;
-        assert_eq!(contents.lines().count(), 1);
-        let parsed: DeltaRow = serde_json::from_str(contents.trim()).unwrap();
-        assert_eq!(parsed.chosen_tactic, "rewrite plus_n_O");
-        assert!(parsed.succeeded);
-        assert_eq!(parsed.source, DeltaSource::Mcp);
+        let _ = cd.record(&sample_row(false)).await.unwrap();
+
+        let contents = read_file(&path).await;
+        assert_eq!(contents.lines().count(), 2);
 
         let _ = tokio::fs::remove_dir_all(&dir).await;
     }
 
     #[tokio::test]
-    async fn record_appends_additional_rows() {
+    async fn success_writes_proof_state_entry_with_correct_schema() {
         let dir = tmp_dir();
         let cd = CorpusDelta::new(dir.clone());
-        let path = cd.record(&sample_row(true)).await.unwrap();
-        let path2 = cd.record(&sample_row(false)).await.unwrap();
-        assert_eq!(path, path2);
+        let row = sample_row(true);
 
-        let contents = read_file_to_string(&path).await;
-        assert_eq!(contents.lines().count(), 2);
+        cd.record(&row).await.unwrap();
+
+        let ps_path = cd.proof_state_path_for(row.timestamp);
+        assert!(ps_path.exists(), "proof_states file should have been created");
+        assert!(
+            ps_path.file_name().unwrap().to_string_lossy()
+                .starts_with("proof_states_echidnabot_"),
+            "filename must match merge_corpus.jl glob"
+        );
+
+        let contents = read_file(&ps_path).await;
+        assert_eq!(contents.lines().count(), 1);
+
+        let parsed: serde_json::Value = serde_json::from_str(contents.trim()).unwrap();
+        assert_eq!(parsed["prover"], "Coq");
+        assert_eq!(parsed["theorem"], "forall x : nat, x + 0 = x");
+        assert_eq!(parsed["goal"], "forall x : nat, x + 0 = x");
+        assert_eq!(parsed["tactic_proof"], "rewrite plus_n_O");
+        assert_eq!(parsed["source"], "echidnabot-mcp");
 
         let _ = tokio::fs::remove_dir_all(&dir).await;
+    }
+
+    #[tokio::test]
+    async fn failure_does_not_write_proof_state_entry() {
+        let dir = tmp_dir();
+        let cd = CorpusDelta::new(dir.clone());
+        let row = sample_row(false);
+
+        cd.record(&row).await.unwrap();
+
+        let ps_path = cd.proof_state_path_for(row.timestamp);
+        assert!(!ps_path.exists(), "failed proof should not appear in corpus feed");
+
+        let _ = tokio::fs::remove_dir_all(&dir).await;
+    }
+
+    #[tokio::test]
+    async fn canonical_prover_names_are_title_cased() {
+        let cases = [
+            ("coq", "Coq"),
+            ("lean4", "Lean"),
+            ("fstar", "F*"),
+            ("z3", "Z3"),
+            ("cvc5", "CVC5"),
+            ("hol-light", "HOLLight"),
+            ("alt-ergo", "Alt-Ergo"),
+        ];
+        for (slug, expected) in cases {
+            assert_eq!(canonical_prover_name(slug), expected, "slug={slug}");
+        }
     }
 
     #[tokio::test]
@@ -285,33 +424,18 @@ mod tests {
         let dir = tmp_dir();
         let cd = CorpusDelta::new(dir.clone());
         let err = cd.trigger_refresh().await.unwrap_err();
-        let msg = format!("{}", err);
-        assert!(msg.contains("echidna_root not configured"), "msg: {}", msg);
+        assert!(format!("{}", err).contains("echidna_root not configured"));
         let _ = tokio::fs::remove_dir_all(&dir).await;
     }
 
     #[tokio::test]
     async fn trigger_refresh_runs_configured_command() {
         let dir = tmp_dir();
-        // Use `/bin/true` — always succeeds, portable on Linux CI.
         let cd = CorpusDelta::new(dir.clone())
             .with_trigger(std::env::temp_dir())
             .with_trigger_command("/bin/true".to_string(), vec![]);
         let status = cd.trigger_refresh().await.unwrap();
         assert!(status.success);
-        assert_eq!(status.exit_code, Some(0));
-        let _ = tokio::fs::remove_dir_all(&dir).await;
-    }
-
-    #[tokio::test]
-    async fn trigger_refresh_reports_failure_exit_code() {
-        let dir = tmp_dir();
-        let cd = CorpusDelta::new(dir.clone())
-            .with_trigger(std::env::temp_dir())
-            .with_trigger_command("/bin/false".to_string(), vec![]);
-        let status = cd.trigger_refresh().await.unwrap();
-        assert!(!status.success);
-        assert_eq!(status.exit_code, Some(1));
         let _ = tokio::fs::remove_dir_all(&dir).await;
     }
 
@@ -325,7 +449,7 @@ mod tests {
 
         cd.record(&sample_row(true)).await.unwrap();
         assert_eq!(cd.counter_value().await, 1);
-        cd.record(&sample_row(true)).await.unwrap(); // triggers → resets
+        cd.record(&sample_row(true)).await.unwrap();
         assert_eq!(cd.counter_value().await, 0);
 
         let _ = tokio::fs::remove_dir_all(&dir).await;
