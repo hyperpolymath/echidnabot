@@ -5,7 +5,7 @@
 [metadata]
 project = "echidnabot"
 version = "0.1.0"
-last-updated = "2026-04-25"
+last-updated = "2026-04-26"
 status = "active"
 session = "Rate-limit webhook endpoints; double-loop + GraphQL tactic API + /metrics complete"
 
@@ -308,8 +308,8 @@ false-positives or operator-trusted-input patterns.
 [session-2026-04-25-task-e]
 title       = "ProverKind enum→slug migration: 12-variant → dynamic 113-prover support"
 phase       = "implementation"
-completion  = 80
-status      = "active — 26 compilation errors remain; architectural change proven"
+completion  = 100
+status      = "done — 0 compilation errors; 132 lib tests + 8 integration tests pass (2026-04-26)"
 date        = "2026-04-25"
 session-key = "echidnabot-task-e"
 
