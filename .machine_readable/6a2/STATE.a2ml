@@ -78,7 +78,7 @@ discovered = "src/main.rs `register` subcommand + repositories schema"
 source = "SONNET-TASKS.md Task 1"
 date = "2026-04 (pre-session)"
 issue = "src/executor/container.rs is empty — proofs ran without isolation, malicious proof could execute arbitrary code"
-status = "open — Sonnet's territory; tracked in SONNET-TASKS.md"
+status = "resolved — PodmanExecutor + bwrap fallback implemented (commits 34f080f, 16dad70, 3c41a71); Tier-3 prover extensions synced to gitbot-fleet monorepo in a2338be5"
 
 [[issues-fed-back.issue]]
 source = "SONNET-TASKS.md Task 2 + EXPLAINME.adoc caveat"
