@@ -5,9 +5,9 @@
 [metadata]
 project = "echidnabot"
 version = "0.1.0"
-last-updated = "2026-04-26"  # T3 complete
+last-updated = "2026-04-26"  # 7b-3 schema bridge + Task-E call-site fixes + container.rs
 status = "active"
-session = "T3 mode wiring: ModeSelector + AppState + review-comment pipeline complete"
+session = "7b-3 schema bridge resolved; Task-E 48-error + solver_integrity debug-repr fixed; container.rs 848 LoC; 137/137 tests"
 
 [project-context]
 name = "Echidnabot"
@@ -18,7 +18,7 @@ jobs with isolation, and reports findings back to the fleet. Exposes
 double-loop feedback: reranks ECHIDNA's ML suggestions by local tactic
 history, feeds successful proofs into echidna's retrain corpus.
 """
-completion-percentage = 96
+completion-percentage = 99
 
 [position]
 phase = "implementation"
@@ -158,8 +158,9 @@ milestones = [
 
 [blockers-and-issues]
 issues = [
-  "7b-3 schema gap: CorpusDelta emits delta_YYYY-MM-DD.jsonl; echidna merge_corpus.jl expects proof_states_*.jsonl in a hardcoded whitelist. Successful deltas not yet auto-ingested. Coordination ticket with Session A.",
-  "BoJ server unreachable on this workstation (V adapter removed, Zig rewrite empty). Native MCP shipped as temporary documented exception — see ADR-001 in META.a2ml.",
+  "BoJ Zig adapter source dir empty — echidnabot-mcp routes through existing BoJ cartridges as a stopgap. Needs Zig shim before BoJ-only-MCP rule is fully satisfied.",
+  "7a + 7b seam test: modes and double-loop both done but not end-to-end validated against a live echidna instance via proofs/ dogfood fixtures.",
+  "GitLab + Bitbucket Discussions/Diff API for true inline review comments deferred — stubs fall back to MR note.",
 ]
 
 [known-drift]
@@ -187,19 +188,22 @@ discovered     = "2026-04-24 (by parallel Claude session during Package 7 sweep)
 [critical-next-actions]
 actions = [
   "7a DONE (T3 2026-04-26): ModeSelector, review-comment pipeline, daemon-wide cascade — 136/136 tests",
-  "Session A + 7b-3 schema bridge: either (a) echidnabot emits echidna-schema rows for successes, or (b) merge_corpus.jl learns to consume delta files",
-  "Close BoJ Zig adapter so echidnabot-mcp can be folded into a BoJ cartridge and retired",
-  "Wire GitLab + Bitbucket Discussions API for true inline review comments (currently fall back to MR note)",
+  "7b-3 DONE (2026-04-26 commit 9887638): two-path write — delta_*.jsonl audit log + proof_states_echidnabot_*.jsonl corpus feed; canonical_prover_name() normalisation; 8 new tests; 137/137 total",
+  "Task-E DONE (T2 2026-04-26): 48 call-site & fixes + solver_integrity.rs prover_key() debug-repr fix; 129/129 standalone",
+  "container.rs DONE (T2 2026-04-26): 848 LoC, Podman+bwrap isolation, cgroups v2",
+  "REMAINING MVP GATE: 7a + 7b end-to-end seam test via proofs/ dogfood fixtures against live echidna instance",
+  "DEFERRED: BoJ Zig adapter (empty source dir)",
+  "DEFERRED: GitLab + Bitbucket Discussions/Diff API inline comments",
 ]
 
 [maintenance-status]
-last-run-utc = "2026-04-24T18:00:00Z"
-last-result = "pass"  # 119/119 lib tests + 6/6 echidnabot-mcp tests
+last-run-utc = "2026-04-26T00:00:00Z"
+last-result = "pass"  # 137/137 lib tests (standalone); 136/136 monorepo
 
 [components.double-loop-feedback]
-status = "mostly-done"
-completion = 80
-notes = "7b-1..5 DONE, 7b-6 in progress, schema-gap carve-out in (blockers-and-issues)"
+status = "done"
+completion = 100
+notes = "7b-1..5 DONE, 7b-3 schema bridge fixed (9887638), 7b-6 deferred (BoJ Zig adapter). MVP gate = seam test."
 
 [[components.double-loop-feedback.subtask]]
 id      = "7b-1"
@@ -216,9 +220,9 @@ commit  = "b6ef652"
 [[components.double-loop-feedback.subtask]]
 id      = "7b-3"
 title   = "CorpusDelta writer + trigger_refresh"
-status  = "done-with-gap"
-commit  = "1e26340"
-gap     = "Schema mismatch with echidna merge_corpus.jl — see issues list"
+status  = "done"
+commit  = "9887638"
+notes   = "Two-path write: delta_*.jsonl (audit, all rows) + proof_states_echidnabot_*.jsonl (corpus feed, successes only). canonical_prover_name() mapping. 8 tests."
 
 [[components.double-loop-feedback.subtask]]
 id      = "7b-4"
