@@ -204,6 +204,16 @@ pub fn is_small_kernel(prover: &ProverKind) -> bool {
         "acl2" => false,     // Built on Common Lisp
         "hol4" => true,      // Small ML kernel
 
+        // Tier-3 small-kernel systems
+        "idris2" | "idris" => true,  // Dependent-type kernel
+        "fstar" => true,             // F* type-theory kernel
+
+        // Tier-3 large-TCB systems
+        "vampire" | "eprover" | "spass" => false,  // Large first-order ATPs
+        "dafny" | "why3" | "alt-ergo" => false,    // VC-based tools
+        "tamarin" | "proverif" => false,           // Protocol model checkers
+        "dreal" | "abc" => false,                  // Numerical / hardware checkers
+
         // Unknown provers: assume false (conservative estimate)
         _ => false,
     }
@@ -251,6 +261,19 @@ mod tests {
         assert!(!is_small_kernel(&ProverKind::new("mizar")));
         assert!(!is_small_kernel(&ProverKind::new("pvs")));
         assert!(!is_small_kernel(&ProverKind::new("acl2")));
+
+        // Tier-3 small-kernel
+        assert!(is_small_kernel(&ProverKind::new("idris2")));
+        assert!(is_small_kernel(&ProverKind::new("fstar")));
+
+        // Tier-3 large-TCB
+        assert!(!is_small_kernel(&ProverKind::new("vampire")));
+        assert!(!is_small_kernel(&ProverKind::new("eprover")));
+        assert!(!is_small_kernel(&ProverKind::new("dafny")));
+        assert!(!is_small_kernel(&ProverKind::new("why3")));
+        assert!(!is_small_kernel(&ProverKind::new("tamarin")));
+        assert!(!is_small_kernel(&ProverKind::new("proverif")));
+        assert!(!is_small_kernel(&ProverKind::new("dreal")));
     }
 
     #[test]
