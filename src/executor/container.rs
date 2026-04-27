@@ -640,6 +640,16 @@ fn prover_extension(prover: &ProverKind) -> String {
         "pvs" => ".pvs".to_string(),
         "acl2" => ".lisp".to_string(),
         "hol4" => ".sml".to_string(),
+        // Tier-3 dependent-type / VC / ATP / protocol-checker systems
+        "idris2" | "idris" => ".idr".to_string(),
+        "fstar" => ".fst".to_string(),
+        "dafny" => ".dfy".to_string(),
+        "why3" => ".mlw".to_string(),
+        "vampire" | "eprover" | "spass" => ".p".to_string(),
+        "tamarin" => ".spthy".to_string(),
+        "proverif" => ".pv".to_string(),
+        "dreal" | "alt-ergo" => ".smt2".to_string(),
+        "abc" => ".aig".to_string(),
         _ => ".txt".to_string(),  // Default for unknown provers
     }
 }
@@ -678,6 +688,18 @@ mod tests {
         assert_eq!(prover_extension(&ProverKind::new("metamath")), ".mm");
         assert_eq!(prover_extension(&ProverKind::new("z3")), ".smt2");
         assert_eq!(prover_extension(&ProverKind::new("agda")), ".agda");
+
+        // Tier-3
+        assert_eq!(prover_extension(&ProverKind::new("idris2")), ".idr");
+        assert_eq!(prover_extension(&ProverKind::new("fstar")), ".fst");
+        assert_eq!(prover_extension(&ProverKind::new("dafny")), ".dfy");
+        assert_eq!(prover_extension(&ProverKind::new("why3")), ".mlw");
+        assert_eq!(prover_extension(&ProverKind::new("vampire")), ".p");
+        assert_eq!(prover_extension(&ProverKind::new("eprover")), ".p");
+        assert_eq!(prover_extension(&ProverKind::new("tamarin")), ".spthy");
+        assert_eq!(prover_extension(&ProverKind::new("proverif")), ".pv");
+        assert_eq!(prover_extension(&ProverKind::new("dreal")), ".smt2");
+        assert_eq!(prover_extension(&ProverKind::new("abc")), ".aig");
     }
 
     #[test]
