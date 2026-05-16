@@ -18,7 +18,7 @@ jobs:
           TS_CONFIGS=$(find . -type f \( -name "tsconfig*.json" -o -name "package.json" \) 2>/dev/null | grep -v 'node_modules' || true)
 
           if [ -n "$TS_FILES" ] || [ -n "$JS_FILES" ] || [ -n "$TS_CONFIGS" ]; then
-            echo "❌ TypeScript/JavaScript usage detected. Use ReScript instead."
+            echo "❌ TypeScript/JavaScript usage detected. Use AffineScript instead."
             [ -n "$TS_FILES" ] && echo "$TS_FILES"
             [ -n "$JS_FILES" ] && echo "$JS_FILES"
             [ -n "$TS_CONFIGS" ] && echo "$TS_CONFIGS"
