@@ -1,5 +1,16 @@
 # SPDX-License-Identifier: PMPL-1.0
 # SPDX-FileCopyrightText: 2025 hyperpolymath
+#
+# Retained per standards#102 rule 3 (KEEP+DEP). guix.scm mirrors the
+# core runtime/build set (pkg-config, rust, rust-cargo, sqlite, openssl
+# + 23 pinned cargo crates); the sealed Containerfile (rust:1.83) adds
+# pkg-config + libsqlite3-dev + sqlite-libs + ca-certificates. This
+# flake's devShell is the SOLE source of `postgresql` and the entire
+# Rust dev-tool surface: cargo-edit, cargo-audit, cargo-outdated,
+# cargo-tarpaulin, cargo-deny, cargo-watch, cargo-deb,
+# cargo-generate-rpm, jq, sqlx-cli — none of which are in guix.scm
+# or the sealed container. Remove only after those reach Guix or the
+# sealed container.
 {
   description = "ECHIDNABOT - Proof-aware CI bot for theorem verification";
 
