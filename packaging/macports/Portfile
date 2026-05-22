@@ -8,7 +8,7 @@ PortGroup           github 1.0
 github.setup        hyperpolymath echidnabot 0.1.0 v
 revision            0
 categories          devel
-license             PMPL-1.0-or-later
+license             MPL-2.0
 maintainers         {hyperpolymath @hyperpolymath}
 description         Proof-aware CI bot for theorem proof verification
 long_description    ECHIDNABOT is a proof-aware CI bot that orchestrates ECHIDNA \

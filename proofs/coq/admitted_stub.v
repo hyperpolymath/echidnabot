@@ -1,4 +1,4 @@
-(* SPDX-License-Identifier: PMPL-1.0-or-later *)
+(* SPDX-License-Identifier: MPL-2.0 *)
 (* Dogfood fixture: deliberately admitted Coq proof. coqc exits 0 with
    an admit warning; echidnabot's axiom scanner (src/trust/axiom_tracker)
    detects the Admitted. token and — once Regulator mode is wired — will

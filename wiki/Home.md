@@ -78,4 +78,4 @@ Our principles:
 
 ---
 
-*echidnabot is licensed under PMPL-1.0-or-later*
+*echidnabot is licensed under MPL-2.0*

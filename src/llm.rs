@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: PMPL-1.0-or-later
+// SPDX-License-Identifier: MPL-2.0
 //! BoJ-mediated LLM client for Consultant-mode Q&A.
 //!
 //! Per the Bit 6(b) decision (locked 2026-04-25 to option (a)): route
@@ -7,7 +7,7 @@
 //! when BoJ revives + the V→Zig adapter ships, this client immediately
 //! starts working without further code changes here.
 //!
-//! Today, BoJ is unreachable on most workstations (V-lang adapter
+//! Today, BoJ is unreachable on most workstations (zig adapter
 //! removed 2026-04-10, Zig replacement empty per ADR-001). Calls fall
 //! through quickly with a clear error, and the Consultant handler
 //! degrades to a local-data-only response.

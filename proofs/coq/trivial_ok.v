@@ -1,4 +1,4 @@
-(* SPDX-License-Identifier: PMPL-1.0-or-later *)
+(* SPDX-License-Identifier: MPL-2.0 *)
 (* Dogfood fixture: trivial passing Coq proof — exercises the
    proofs/** path trigger in .github/workflows/echidnabot.yml. *)
 

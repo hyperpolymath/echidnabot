@@ -1,5 +1,5 @@
 {
-  "_comment": "SPDX-License-Identifier: PMPL-1.0-or-later",
+  "_comment": "SPDX-License-Identifier: MPL-2.0",
   "_description": "Seam-test fixture: minimal GitHub push webhook payload simulating a push event that touches a .v (Coq) file. Used by tests/seam_test.rs to exercise the 7a mode-routing + 7b corpus-bridge path without a live platform API.",
   "ref": "refs/heads/main",
   "after": "cafecafecafecafecafecafecafecafe12345678",

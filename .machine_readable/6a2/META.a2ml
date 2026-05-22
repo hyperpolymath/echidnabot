@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: PMPL-1.0-or-later
+# SPDX-License-Identifier: MPL-2.0
 # Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 #
 # META.a2ml — Echidnabot meta-level information
@@ -7,7 +7,7 @@ version = "0.1.0"
 last-updated = "2026-04-24"
 
 [project-info]
-license = "PMPL-1.0-or-later"
+license = "MPL-2.0"
 author = "Jonathan D.A. Jewell (hyperpolymath)"
 
 [architecture-decisions]
@@ -22,7 +22,7 @@ context      = """
 Estate policy (memory: feedback_boj_only_mcp) requires all MCP tools to route
 through the BoJ server. Two reinforcing reasons this bot currently cannot:
 
-  (a) Operational: the BoJ V-lang adapter was removed during the V-lang ban
+  (a) Operational: the BoJ zig adapter was removed during the zig ban
       (2026-04-10) and the Zig replacement at boj-server/adapter/zig/src/ is
       empty. The BoJ server is therefore unreachable on this workstation.
 

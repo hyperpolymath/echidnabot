@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: PMPL-1.0-or-later
+# SPDX-License-Identifier: MPL-2.0
 # Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 #
 # STATE.a2ml — Echidnabot project state
@@ -142,9 +142,9 @@ value = "All 18 jobs correctly marked Failed with consistent error; no cascading
 collected = "2026-04-24 e2e simulation"
 
 [[field-signal.signal]]
-source = "BoJ V-lang adapter status"
+source = "BoJ zig adapter status"
 metric = "MCP cartridge fallback dependency"
-value = "BoJ V-lang adapter removed (V-lang ban 2026-04-10); Zig replacement empty source dir; native echidnabot-mcp shipped as documented exception until BoJ re-enabled"
+value = "BoJ zig adapter removed (zig ban 2026-04-10); Zig replacement empty source dir; native echidnabot-mcp shipped as documented exception until BoJ re-enabled"
 collected = "ADR-001 in META.a2ml"
 
 # ═══════════════════════════════════════════════════════════════════════════════
