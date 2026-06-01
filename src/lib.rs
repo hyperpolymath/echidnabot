@@ -23,6 +23,7 @@ pub mod feedback; // Double-loop: proof-history reranker + corpus delta (Package
 pub mod fleet; // gitbot-fleet coordination layer
 pub mod llm; // BoJ-mediated LLM client (Consultant-mode Q&A)
 pub mod modes; // Bot operating modes (Verifier/Advisor/Consultant/Regulator)
+pub mod observability; // Structured logging init (tracing-subscriber, text/json)
 pub mod result_formatter; // Bridge between dispatcher results and bot modes
 pub mod scheduler;
 pub mod store;

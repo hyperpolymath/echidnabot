@@ -340,6 +340,53 @@ PORT=8080
 RUST_LOG=info
 ----
 
+=== Logging
+
+`echidnabot` emits all logs through the `tracing` ecosystem. Two output
+formats are supported, selected via environment variable:
+
+[cols="1,1,3"]
+|===
+|Env var |Value |Effect
+
+|`ECHIDNABOT_LOG_FORMAT`
+|`text` (default)
+|Human-friendly, colour-aware compact output. Suitable for local dev and
+terminal sessions.
+
+|`ECHIDNABOT_LOG_FORMAT`
+|`json`
+|Structured JSON, one event per line, with span/event fields flattened
+to top-level keys. Suitable for log aggregators (Loki, Elasticsearch,
+CloudWatch, etc.).
+
+|`RUST_LOG`
+|standard `tracing` filter directive
+|Per-target log levels (e.g. `RUST_LOG=echidnabot=debug,axum=info`).
+When unset, falls back to `info` (or `debug` when `--verbose` is passed).
+|===
+
+Examples:
+
+[source,bash]
+----
+# Local development — text output, debug level for echidnabot
+RUST_LOG=echidnabot=debug echidnabot serve
+
+# Production — JSON for log aggregators
+ECHIDNABOT_LOG_FORMAT=json RUST_LOG=info echidnabot serve
+
+# CI / container — JSON + verbose
+ECHIDNABOT_LOG_FORMAT=json RUST_LOG=debug echidnabot serve
+----
+
+JSON output looks roughly like:
+
+[source,json]
+----
+{"timestamp":"2026-06-01T12:34:56.789Z","level":"INFO","fields":{"message":"Listening on http://0.0.0.0:8080"},"target":"echidnabot"}
+----
+
 == Development
 
 === Building and Testing
