@@ -8,7 +8,6 @@
 image:https://img.shields.io/badge/RSR-Tier_1_Bot-cd7f32[RSR Tier-1]
 image:https://img.shields.io/badge/Phase-Beta-yellow[Phase]
 image:https://img.shields.io/badge/Guix-Primary-purple?logo=gnu[Guix]
-image:https://img.shields.io/badge/Nix-Fallback-blue?logo=nixos[Nix]
 
 == About This Document
 
@@ -81,7 +80,7 @@ echidnabot/
 ├── fuzz/                      # ClusterFuzzLite harnesses
 ├── docs/                      # Long-form documentation (casket-ssg)
 ├── wiki/                      # Wiki source (mirrored to GitHub wiki)
-├── packaging/                 # Container / Guix / Nix packaging artefacts
+├── packaging/                 # Container / Guix packaging artefacts
 ├── hooks/                     # Git hooks
 ├── examples/                  # Sample integrations
 ├── scripts/                   # Maintenance / one-shot tooling
@@ -91,8 +90,7 @@ echidnabot/
 ├── echidna/                   # Submodule pointing at upstream ECHIDNA
 ├── Cargo.toml / Cargo.lock    # Rust manifest
 ├── Containerfile              # OCI image (Chainguard base)
-├── guix.scm                   # Guix package definition (primary)
-├── flake.nix / flake.lock     # Nix flake (fallback)
+├── guix.scm                   # Guix package definition (primary; nix deprecated 2026-06-01)
 ├── Mustfile / Justfile-ish    # Task runner
 ├── echidnabot.toml            # Default config
 ├── echidnabot.example.toml    # Annotated example config
@@ -124,8 +122,10 @@ Rust ✓ (primary), AffineScript, Idris2 ✓ (ABI proofs), Zig ✓ (FFI),
 Ada, Haskell.
 
 === Tier 2 (acceptable)
-Nickel ✓ (configs in `config/`), Guile Scheme ✓ (`guix.scm`), Nix ✓
-(`flake.nix`).
+Nickel ✓ (configs in `config/`), Guile Scheme ✓ (`guix.scm`).
+Nix is **deprecated estate-wide** as of 2026-06-01 — Guix is the sole
+primary; nix flakes have been removed and are not a Tier 2 acceptable
+language any more.
 
 === Banned (per estate policy 2026-05-25)
 TypeScript (use AffineScript), Node.js / npm / Bun / pnpm / yarn (use
@@ -166,7 +166,6 @@ Per the estate boundary convention:
 |`codemeta.json` |✓ |
 |`Containerfile` |✓ |Chainguard base
 |`guix.scm` |✓ |Primary packaging
-|`flake.nix` |✓ |Fallback packaging
 |`.well-known/security.txt` |✓ |
 |`.well-known/ai.txt` |✓ |
 |`.well-known/humans.txt` |✓ |
