@@ -9,11 +9,17 @@
 
 Development roadmap for echidnabot -- Proof-Aware CI Bot.
 
-*Last Updated:* 2026-04-25 +
+*Last Updated:* 2026-06-01 +
 *Current Version:* v0.1.0 +
-*Overall Completion:* ~92%
+*Overall Completion:* ~100% feature-complete; production-hardening tail in flight +
+*Test Suite:* 184 tests passing (137 lib + 17 lifecycle + 32 integration + 12 property + 15 seam + 8 smoke)
 
 toc::[]
+
+NOTE: Older sections of this document (and the README) cite 129 tests.
+That figure was pre-Package-7b; the canonical current count is 184 per
+`.machine_readable/6a2/STATE.a2ml` (last-updated `2026-04-26`). Treat 184
+as authoritative.
 
 == Completed (v0.1.0 -- February 2026)
 

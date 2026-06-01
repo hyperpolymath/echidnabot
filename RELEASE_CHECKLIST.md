@@ -1,8 +1,20 @@
+<!--
+SPDX-License-Identifier: MPL-2.0
+SPDX-FileCopyrightText: 2025-2026 Jonathan D.A. Jewell (hyperpolymath)
+-->
+
 # echidnabot Release Checklist
 
-Complete checklist for making echidnabot a perfect release.
+Procedure for cutting a release of echidnabot, plus standing checklist
+of items that should already be in place before any release ships.
 
-## Repository Setup ✅
+**Current target:** v0.2.0 (production hardening — observability,
+deployment automation; see [`ROADMAP.adoc`](ROADMAP.adoc) "Remaining
+Work").
+
+**Last reviewed:** 2026-06-01
+
+## Repository Setup
 
 ### Done
 - [x] README.adoc - SEO-optimized, project-focused
@@ -65,19 +77,26 @@ Complete checklist for making echidnabot a perfect release.
 - [ ] Add release workflow for crates.io publishing
 - [ ] Add container publishing to ghcr.io
 
-## Documentation 🔄
+## Documentation
 
 ### Done
-- [x] README.adoc
-- [x] ARCHITECTURE.adoc (if present)
-- [x] CONTRIBUTING.adoc
+- [x] README.adoc + README.md (Markdown summary linking into .adoc)
+- [x] EXPLAINME.adoc — receipts behind README claims
+- [x] ROADMAP.adoc — phases + completion
+- [x] CONTRIBUTING.md
 - [x] SECURITY.md
 - [x] CODE_OF_CONDUCT.md
+- [x] MAINTAINERS.adoc
+- [x] CHANGELOG.md (auto-generated from conventional commits)
+- [x] CITATION.cff + codemeta.json
+- [x] ABI-FFI-README.md — Zig FFI + Idris2 ABI boundary
+- [x] 0-AI-MANIFEST.a2ml + .claude/CLAUDE.md — AI assistant pointers
+- [x] RSR_OUTLINE.adoc + RSR_COMPLIANCE.adoc
+- [x] docs/content/{index,getting-started,configuration,api}.md (casket-ssg)
 
 ### To Add
-- [ ] docs/DEPLOYMENT.md - Production deployment guide
-- [ ] docs/CONFIGURATION.md - Detailed config reference
-- [ ] Man pages (docs/man/echidnabot.1)
+- [ ] docs/DEPLOYMENT.md — Production deployment guide (k8s, helm, docker-compose)
+- [ ] Man pages (docs/man/echidnabot.1) via Mustfile recipe
 
 ## Branding Assets 📝
 
@@ -101,21 +120,34 @@ Complete checklist for making echidnabot a perfect release.
 - [ ] Run `cargo audit` and fix vulnerabilities
 - [ ] Run `cargo deny check` for license compliance
 
-## Core Functionality 🔄
+## Core Functionality
 
-### Phase 1 (MVP)
-- [ ] GitHub webhook handler with signature verification
-- [ ] Proof file detection (by extension)
-- [ ] ECHIDNA Core dispatcher client
-- [ ] GitHub Check Run reporter
-- [ ] SQLite persistence
-- [ ] CLI: serve, register, check, status
+### Phase 1 (MVP) — landed in v0.1.0
+- [x] GitHub webhook handler with signature verification (HMAC-SHA256)
+- [x] GitLab + Bitbucket webhook handlers
+- [x] Proof file detection (by extension across 7 file types)
+- [x] ECHIDNA Core dispatcher client (REST + GraphQL)
+- [x] GitHub Check Run reporter
+- [x] SQLite + PostgreSQL persistence
+- [x] CLI: `serve`, `register`, `check`, `status`, `init-db`
 
-### Phase 2 (Multi-Prover)
-- [ ] Auto-detect prover from file extension
-- [ ] Support Coq, Lean 4, Agda, Z3
-- [ ] Parallel proof checking
-- [ ] Aggregated results
+### Phase 2 (Multi-Prover) — landed in v0.1.0
+- [x] Auto-detect prover from file extension
+- [x] 12-prover surface (Coq, Lean 4, Agda, Isabelle, Z3, CVC5, Metamath, HOL Light, Mizar, PVS, ACL2, HOL4)
+- [x] `ProverKind` slug newtype — open-ended for 113 upstream provers
+- [x] Parallel proof checking (semaphore-bounded)
+- [x] Aggregated results
+
+### Phase 3 (Hardening) — see ROADMAP.adoc
+- [x] Container isolation (podman + bwrap, fail-safe)
+- [x] Retry + circuit breaker (5-failures-then-open, 5-min reset)
+- [x] Trust bridge (confidence levels, solver integrity, axiom tracking)
+- [x] Per-IP webhook rate limiting
+- [x] Prometheus `/metrics` endpoint
+- [x] Double-loop feedback (tactic-outcome recording + corpus delta)
+- [ ] OpenTelemetry distributed tracing
+- [ ] Structured JSON logging end-to-end
+- [ ] Graceful shutdown (finish in-progress jobs before exit)
 
 ## Security ✅
 

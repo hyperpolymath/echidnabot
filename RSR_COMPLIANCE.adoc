@@ -1,10 +1,16 @@
+// SPDX-License-Identifier: MPL-2.0
+// Copyright (c) 2025-2026 Jonathan D.A. Jewell <jonathan.jewell@open.ac.uk>
+
 = RSR Compliance: echidnabot
 :toc:
 :sectnums:
 
 == Overview
 
-This document describes the Rhodium Standard Repository (RSR) compliance status for *echidnabot*.
+Compliance status of *echidnabot* against the
+https://github.com/hyperpolymath/rhodium-standard-repositories[Rhodium
+Standard Repository] gates. See link:RSR_OUTLINE.adoc[RSR_OUTLINE.adoc]
+for the structural picture; this file is the **status checklist**.
 
 == Classification
 
@@ -13,78 +19,144 @@ This document describes the Rhodium Standard Repository (RSR) compliance status 
 |Attribute |Value
 
 |Project |echidnabot
-|Primary Language |Rust (Tier 1)
-|Secondary Language |Guile Scheme (Tier 2 - state management)
-|RSR Tier |Gold Target
-|Compliance Status |Compliant
-|Last Updated |2025-12-17
+|Primary Language |Rust (RSR Tier 1)
+|Secondary Languages |Idris2 (Tier 1, ABI proofs), Zig (Tier 1, FFI), Guile Scheme (Tier 2, packaging)
+|RSR Tier Target |Gold
+|Compliance Status |Compliant — Beta
+|Last Updated |2026-06-01
 |===
 
 == Language Tier Classification
 
-=== Tier 1 Languages (Preferred)
-* Rust ✓ (primary)
-* Elixir
-* Zig
-* Ada
-* Haskell
-* ReScript
+=== Tier 1 (preferred)
+* Rust ✓ (primary application code)
+* Idris2 ✓ (ABI definitions — `src/abi/`)
+* Zig ✓ (FFI scaffold — `ffi/zig/`, see link:ABI-FFI-README.md[ABI-FFI-README.md])
+* AffineScript (no use in this repo yet; planned for future config DSLs)
+* Ada, Haskell — N/A
 
-=== Tier 2 Languages (Acceptable)
-* Nickel (configuration)
-* Racket (scripting)
-* Guile Scheme ✓ (state management - META.scm, STATE.scm, ECOSYSTEM.scm)
-* Nix (derivations)
+=== Tier 2 (acceptable)
+* Nickel — config snapshots in `config/`
+* Guile Scheme ✓ — `guix.scm` packaging
+* Nix ✓ — `flake.nix` fallback packaging
 
-=== Restricted Languages
-* Python - Only allowed in salt/ directories for SaltStack
-* TypeScript/JavaScript - Not permitted, use ReScript
-* CUE - Not permitted, use Nickel or Guile
+=== Banned (per estate policy 2026-05-25)
+* TypeScript / JavaScript — use AffineScript
+* Node.js / npm / Bun / pnpm / yarn — use Deno
+* Go — use Rust
+* Python — outlawed estate-wide (SaltStack-only carve-out, none here)
+* Java / Kotlin / Swift — use Tauri / Dioxus
+* Jekyll — use casket-ssg
+* Dockerfile — use Containerfile
 
 == Compliance Checklist
 
-[cols="1,1,2"]
+[cols="3,1,3"]
 |===
 |Requirement |Status |Notes
 
 |Primary language is Tier 1/2 |✓ |Rust (Tier 1)
-|No restricted languages outside exemptions |✓ |Only Rust and Guile Scheme
-|.editorconfig present |✓ |Line length 100, spaces indent
-|.well-known/ directory |✓ |security.txt, ai.txt, humans.txt, consent-required.txt
-|justfile present |✗ |TODO: Add Justfile for task running
-|LICENSE.txt (AGPL + Palimpsest) |✓ |MPL-2.0
-|Containerfile present |✓ |Multi-stage build with Chainguard base
-|guix.scm present |✓ |Guix package definition (primary)
-|flake.nix present |✗ |TODO: Add Nix flake (fallback)
+|No banned languages outside exemptions |✓ |Only Rust + Idris2 + Zig + Guile Scheme
+|`.editorconfig` present |✓ |Line length 100, spaces indent
+|`.well-known/` directory |✓ |`security.txt`, `ai.txt`, `humans.txt`
+|Task runner present |✓ |`Mustfile` (Just-equivalent)
+|`LICENSE` (MPL-2.0) |✓ |Palimpsest commentary in `PALIMPSEST.adoc`
+|`Containerfile` present |✓ |Multi-stage with Chainguard base
+|`guix.scm` present |✓ |Primary package definition
+|`flake.nix` present |✓ |Fallback Nix flake (`flake.lock` committed)
+|`CHANGELOG.md` present |✓ |Auto-generated from conventional commits (standards#206)
+|`CITATION.cff` present |✓ |Academic citation metadata
+|`codemeta.json` present |✓ |CodeMeta software metadata
+|`MAINTAINERS.adoc` present |✓ |
+|`CODE_OF_CONDUCT.md` present |✓ |
+|`CONTRIBUTING.md` present |✓ |
+|`SECURITY.md` present |✓ |
+|`.machine_readable/6a2/` present |✓ |TOML-flavoured A2ML (migrated from Guile in `bdbc5a4`)
+|`0-AI-MANIFEST.a2ml` present |✓ |AI first-read pointer
+|`.claude/CLAUDE.md` present |✓ |AI agent operating rules
+|Conventional commits enforced |✓ |CI lints via `standards/changelog-reusable.yml`
+|GPG-signed commits enforced |✓ |Per-branch protection rule
 |===
 
 == Security Compliance
 
-[cols="1,1,2"]
+[cols="3,1,3"]
 |===
 |Requirement |Status |Notes
 
-|No MD5/SHA1 for security |✓ |Uses SHA-256 (sha2 crate)
-|HTTPS only |✓ |rustls-tls, no HTTP URLs
-|No hardcoded secrets |✓ |Env vars / Vault integration
-|SHA-pinned GitHub Actions |✓ |All workflows use SHA-pinned actions
-|Secret scanning |✓ |TruffleHog in quality.yml
-|Static analysis |✓ |CodeQL workflow
-|Fuzzing |✓ |ClusterFuzzLite with libfuzzer
+|No MD5/SHA1 for security |✓ |Uses SHA-256 (`sha2` crate); constant-time compare via `subtle`
+|HTTPS only |✓ |`rustls-tls`; no plain HTTP URLs in source or docs
+|No hardcoded secrets |✓ |Env vars / Vault integration only
+|SHA-pinned GitHub Actions |✓ |All workflows use SHA pins (see `.github/workflows/`)
+|Secret scanning |✓ |TruffleHog in quality CI
+|Static analysis |✓ |CodeQL workflow + Rust clippy gate
+|Fuzzing |✓ |ClusterFuzzLite with libfuzzer (`fuzz/` + `.clusterfuzzlite/`)
+|Container isolation |✓ |podman rootless + bwrap fallback; fail-safe (refuses unsandboxed)
+|Webhook signature verification |✓ |HMAC-SHA256 for GitHub/Bitbucket, token for GitLab
+|Supply-chain (cargo-audit) |✓ |`.github/workflows/cargo-audit.yml`
+|SBOM generation |Partial |CodeMeta + Cargo.lock; no separate SPDX SBOM yet
 |===
 
 == Exemptions
 
-None
+[cols="2,3"]
+|===
+|Exemption |Justification
 
-== Action Items
+|`echidnabot-mcp` outside BoJ
+|Documented carve-out in `.machine_readable/6a2/AGENTIC.a2ml`
+ `[exceptions.boj-only-mcp]`. Sunset: when BoJ cartridge supports the
+ double-loop feedback protocol.
 
-* [ ] Add Justfile for task running
-* [ ] Add flake.nix for Nix users (fallback package manager)
+|Dogfood proofs include intentional failures
+|`proofs/coq/admitted_stub.v` and `proofs/lean/sorry_stub.lean` are
+ fixtures used to exercise the failure path of CI. Bot self-mode is
+ `advisor` (not `regulator`) to avoid blocking own merges.
+
+|Standalone repo + monorepo dual-truth
+|echidnabot is registered as a submodule in `hyperpolymath/echidna` but
+ checked in as regular files. Acknowledged drift; fix path tracked in
+ `STATE.a2ml` `[known-drift]`.
+
+|`Cargo.toml` path dep on `../../shared-context`
+|Standalone-clone builds fail at dep resolution. Acknowledged; tracked
+ in issue #18. Working build requires the gitbot-fleet layout.
+|===
+
+== Outstanding Action Items
+
+(Empty if all items below are checked — update on the same commit as
+the work landing.)
+
+* [ ] Generate SPDX SBOM at release time and attach to GitHub Release
+* [ ] Resolve `gitbot-shared-context` path dependency for standalone
+      buildability (issue #18)
+* [ ] Realise the Zig FFI scaffold (replace `{{project}}` placeholders;
+      see link:ABI-FFI-README.md[ABI-FFI-README.md] "Current Status")
+* [ ] Wire trust-bridge results into the main scheduler loop (started
+      per ROADMAP but verify end-to-end)
+
+== Verification Commands
+
+[source,bash]
+----
+# Conventional-commits + governance lint
+gh workflow run governance.yml
+
+# Security scans
+gh workflow run codeql.yml
+gh workflow run scorecard.yml
+gh workflow run cargo-audit.yml
+
+# Hypatia estate-wide scan
+gh workflow run hypatia-scan.yml
+----
 
 == References
 
-* link:https://github.com/hyperpolymath/RSR-template-repo[RSR Template Repository]
-* link:CONTRIBUTING.adoc[Contributing Guidelines]
-* link:CODE_OF_CONDUCT.md[Code of Conduct]
-* link:docs/ARCHITECTURE.adoc[Architecture Documentation]
+* link:RSR_OUTLINE.adoc[RSR_OUTLINE.adoc] — structural picture
+* link:https://github.com/hyperpolymath/rhodium-standard-repositories[Rhodium Standard Repositories]
+* link:https://github.com/hyperpolymath/standards[hyperpolymath/standards] — CI reusables + policies
+* link:CONTRIBUTING.md[CONTRIBUTING.md]
+* link:CODE_OF_CONDUCT.md[CODE_OF_CONDUCT.md]
+* link:SECURITY.md[SECURITY.md]

@@ -1,15 +1,44 @@
+# SPDX-License-Identifier: MPL-2.0
+# SPDX-FileCopyrightText: 2025-2026 Jonathan D.A. Jewell (hyperpolymath)
+#
+# 0-AI-MANIFEST.a2ml — first-read pointer for AI assistants
+# Media-Type: application/vnd.ai-manifest+a2ml
 
-# AI Assistant Instructions
+[manifest]
+project = "echidnabot"
+purpose = "Proof-aware CI bot bridging GitHub/GitLab/Bitbucket webhooks to the ECHIDNA theorem-proving platform."
+license = "MPL-2.0"
+estate  = "hyperpolymath"
+fleet   = "gitbot-fleet (Tier-1 Verifier role)"
 
-## Repository Focus
-- `rsr-template-repo` is treated as a Rhodium Standard Repository; obey the Rhodium policies, maintain `.bot_directives`, and keep `.machines_readable/6scm/` authoritative.
-- Prefer to keep generated files out of source control, and regenerate them with the documented commands before committing.
+# ─── First-read order ───────────────────────────────────────────────────────
+[entry-points]
+human-readable     = ["README.adoc", "EXPLAINME.adoc", "ROADMAP.adoc"]
+ai-instructions    = [".claude/CLAUDE.md"]
+ai-state           = [
+    ".machine_readable/6a2/STATE.a2ml",
+    ".machine_readable/6a2/META.a2ml",
+    ".machine_readable/6a2/AGENTIC.a2ml",
+    ".machine_readable/6a2/ECOSYSTEM.a2ml",
+]
+bot-directives     = [".machine_readable/bot_directives/echidnabot.a2ml"]
+abi-ffi-surface    = ["ABI-FFI-README.md", "src/abi/", "ffi/zig/"]
 
-## Workflow
-1. Inspect `.machines_readable/6scm/STATE.scm` for blockers and next actions.
-2. Respect any constraints listed inside `.machines_readable/6scm/AGENTIC.scm` when tooling changes are requested.
-3. After finishing edits, update STATE with your outcomes and commit with a concise, imperative message.
+# ─── Operating rules ────────────────────────────────────────────────────────
+[workflow]
+inspect-first   = ".machine_readable/6a2/STATE.a2ml"   # blockers + next actions
+respect         = ".machine_readable/6a2/AGENTIC.a2ml" # tooling constraints + [exceptions.*]
+self-directive  = ".machine_readable/bot_directives/echidnabot.a2ml"  # current mode = advisor
 
-## Delivery Promises
-- Mention in summaries whether STATE, `contractiles/`, or `.bot_directives/` changed.
-- Keep this file in sync with the repository’s status; update it if the governance changes.
+# ─── Delivery promises ──────────────────────────────────────────────────────
+[promises]
+mention-state-changes  = true   # mention if STATE / contractiles / bot_directives changed
+keep-this-file-current = true   # update this manifest if governance changes
+respect-claude-md      = true   # .claude/CLAUDE.md is binding for AI assistants
+
+# ─── Format migration history ───────────────────────────────────────────────
+[history]
+2026-04-17 = "migrated from Guile Scheme (`.machine_readable/6scm/*.scm`) to TOML-flavoured A2ML (`.machine_readable/6a2/*.a2ml`)"
+2026-04-25 = "bot_directives extended with [bot] mode-resolver block"
+2026-04-26 = "test suite reached 184/184 passing"
+2026-05-30 = ".claude/CLAUDE.md flipped ReScript→AffineScript per estate policy"
