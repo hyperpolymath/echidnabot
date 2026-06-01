@@ -62,6 +62,17 @@ queue_size = 100
 # consultant — check run + inline review comment on offending lines; responds to @echidnabot mentions
 # regulator  — check run + PR comment; sets check to failure + blocks merge on coverage drop
 
+# Lifecycle / graceful-shutdown settings
+# On SIGTERM/SIGINT the daemon stops accepting new webhook requests, waits
+# (up to `shutdown_timeout_secs`) for in-flight proof jobs to drain, closes
+# the DB connection pool, and flushes observability before exiting.
+#
+# [lifecycle]
+# shutdown_timeout_secs = 30   # default; range 1..=300 is sensible
+#
+# Env override (wins over the TOML value, no restart needed):
+#   ECHIDNABOT_SHUTDOWN_TIMEOUT_SECS=60
+
 # Environment variables can override any setting:
 # ECHIDNABOT__SERVER__PORT=9090
 # ECHIDNABOT__DATABASE__URL=postgres://...
@@ -69,3 +80,4 @@ queue_size = 100
 # ECHIDNABOT__ECHIDNA__REST_ENDPOINT=http://...
 # ECHIDNABOT__ECHIDNA__MODE=rest
 # ECHIDNABOT__GITHUB__TOKEN=ghp_...
+# ECHIDNABOT_SHUTDOWN_TIMEOUT_SECS=30   # graceful-shutdown deadline (seconds)

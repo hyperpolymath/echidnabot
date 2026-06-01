@@ -18,6 +18,10 @@ use echidnabot::dispatcher::echidna_client::ProverStatus;
 use echidnabot::modes::{self, BotMode, ModeSelector};
 use echidnabot::result_formatter;
 use echidnabot::scheduler::{JobScheduler, ProofJob};
+use echidnabot::shutdown::{
+    resolve_shutdown_timeout, stub_tracer_shutdown_hook, wait_for_termination,
+    ShutdownCoordinator, ShutdownSignal,
+};
 use echidnabot::store::{SqliteStore, Store};
 use echidnabot::feedback::corpus_delta::{CorpusDelta, DeltaRow, DeltaSource};
 use echidnabot::store::models::{
@@ -271,21 +275,104 @@ async fn serve(config: &Config, host: &str, port: u16) -> Result<()> {
         .layer(Extension(schema))
         .with_state(app_state.clone());
 
+    // ── Graceful-shutdown wiring ─────────────────────────────────────────
+    //
+    // The coordinator owns the shutdown sequence:
+    //   1. Signal fires (SIGTERM / SIGINT).
+    //   2. axum stops accepting new connections (its
+    //      `with_graceful_shutdown` future returns).
+    //   3. The scheduler loop sees the signal and stops dispatching.
+    //   4. The coordinator drains in-flight jobs (bounded by
+    //      `lifecycle.shutdown_timeout_secs` / env override).
+    //   5. Registered hooks run in order: DB close → tracer flush.
+    //
+    // Env override (`ECHIDNABOT_SHUTDOWN_TIMEOUT_SECS`) wins over the TOML
+    // value so operators can adjust without redeploying. See
+    // `src/shutdown.rs` for the full design.
+    let timeout = resolve_shutdown_timeout(config.lifecycle.shutdown_timeout_secs);
+    let mut coordinator = ShutdownCoordinator::new(timeout);
+    let scheduler_signal = coordinator.signal();
+    let axum_signal = coordinator.signal();
+    // Standalone trigger handle for the signal-listener task; using a
+    // separate handle avoids capturing the coordinator by move (which
+    // would conflict with the later `coordinator.run()` call).
+    let signal_trigger = coordinator.trigger_handle();
+    let error_trigger = coordinator.trigger_handle();
+
+    // Register subsystem hooks. Order matters: DB closes after the
+    // scheduler has drained (set up by the coordinator's run() phase
+    // ordering), and tracer-flush runs last so any final shutdown logs
+    // are emitted before the buffer is torn down.
+    let store_for_hook = store.clone();
+    coordinator.register("db-pool-close", move || async move {
+        store_for_hook.close().await;
+        tracing::info!("DB pool closed");
+    });
+    // OpenTelemetry agent will replace this stub with the real
+    // TracerShutdown handle once their PR lands. Until then the hook is
+    // a no-op log line — registering it now keeps the call-site stable.
+    coordinator.register("tracer-flush", || async move {
+        stub_tracer_shutdown_hook().await;
+    });
+
     tokio::spawn(run_scheduler_loop(
         scheduler.clone(),
         store.clone(),
         echidna.clone(),
         app_state.config.clone(),
+        scheduler_signal,
     ));
 
     let listener = tokio::net::TcpListener::bind(format!("{}:{}", host, port)).await?;
-    tracing::info!("Listening on http://{}:{}", host, port);
+    tracing::info!(
+        "Listening on http://{}:{} (shutdown timeout: {}s)",
+        host,
+        port,
+        timeout.as_secs()
+    );
 
-    axum::serve(
+    // Spawn the signal listener as a side task. When SIGTERM/SIGINT
+    // arrives it pulls the coordinator's trigger; axum's
+    // with_graceful_shutdown wakes; the scheduler loop wakes; we then
+    // await the server's natural drain.
+    tokio::spawn(async move {
+        wait_for_termination().await;
+        signal_trigger.trigger();
+    });
+
+    // Run axum with graceful-shutdown wired into the coordinator's
+    // signal. `axum::serve(...).await` returns AFTER the shutdown
+    // future has fired AND all in-flight HTTP connections have
+    // drained — so by the time we get past this await the HTTP plane
+    // is fully quiesced.
+    let serve_result = axum::serve(
         listener,
         app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
     )
-    .await?;
+    .with_graceful_shutdown(async move {
+        axum_signal.triggered().await;
+        tracing::info!("Axum graceful shutdown triggered — draining HTTP connections");
+    })
+    .await;
+    if let Err(e) = serve_result {
+        tracing::error!("axum::serve error: {}", e);
+        // Server died without a signal — fire shutdown so hooks still
+        // run and the process exits cleanly.
+        error_trigger.trigger();
+    } else {
+        tracing::info!("HTTP server drained cleanly");
+    }
+
+    // Drain in-flight jobs + run subsystem hooks. `run()` consumes the
+    // coordinator and returns the count of jobs that timed out (0 on
+    // a clean shutdown).
+    let remaining = coordinator.run(Some(scheduler.clone())).await;
+    if remaining > 0 {
+        tracing::warn!(
+            "{} job(s) were still in flight when shutdown deadline fired",
+            remaining
+        );
+    }
     Ok(())
 }
 
@@ -571,7 +658,16 @@ async fn run_scheduler_loop(
     store: Arc<dyn Store>,
     echidna: Arc<EchidnaClient>,
     config: Arc<Config>,
+    shutdown: ShutdownSignal,
 ) {
+    // Pin a single shutdown future for the loop. Each iteration races
+    // it against the next-poll wait so an idle scheduler exits promptly
+    // when the signal fires. In-flight jobs are NOT cancelled — they
+    // continue in their own task scope; the coordinator's drain phase
+    // waits for the in-flight counter to reach 0 (bounded by the
+    // configured deadline).
+    let shutdown_fut = shutdown.triggered();
+    tokio::pin!(shutdown_fut);
     loop {
         if let Some(job) = scheduler.try_start_next().await {
             if let Err(err) = mark_job_running(store.as_ref(), &job).await {
@@ -625,7 +721,17 @@ async fn run_scheduler_loop(
                 .complete_job(job.id, result)
                 .await;
         } else {
-            sleep(Duration::from_millis(250)).await;
+            // Idle — wait briefly for either the next polling tick or
+            // the shutdown signal. Whichever fires first wins; on
+            // shutdown we return immediately rather than burning
+            // another 250ms before noticing.
+            tokio::select! {
+                _ = sleep(Duration::from_millis(250)) => {}
+                _ = &mut shutdown_fut => {
+                    tracing::info!("Scheduler loop observed shutdown signal — stopping dispatch");
+                    return;
+                }
+            }
         }
     }
 }

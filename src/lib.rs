@@ -26,6 +26,7 @@ pub mod modes; // Bot operating modes (Verifier/Advisor/Consultant/Regulator)
 pub mod observability; // Structured logging init (tracing-subscriber, text/json)
 pub mod result_formatter; // Bridge between dispatcher results and bot modes
 pub mod scheduler;
+pub mod shutdown; // Graceful-shutdown coordinator (drain in-flight + close DB + flush observability)
 pub mod store;
 pub mod trust; // ECHIDNA Trust Bridge (confidence, integrity, axiom tracking)
 

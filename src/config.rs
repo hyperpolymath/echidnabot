@@ -58,6 +58,49 @@ pub struct Config {
     /// TOML: `[bot]\nmode = "advisor"` (or verifier / consultant / regulator)
     #[serde(default)]
     pub bot: BotConfig,
+
+    /// Lifecycle / graceful-shutdown settings.
+    ///
+    /// TOML: `[lifecycle]\nshutdown_timeout_secs = 30`
+    /// Env override: `ECHIDNABOT_SHUTDOWN_TIMEOUT_SECS` (env wins).
+    #[serde(default)]
+    pub lifecycle: LifecycleConfig,
+}
+
+/// Lifecycle settings — how long to wait for in-flight work to drain
+/// during a graceful shutdown before forcing teardown.
+///
+/// ```toml
+/// [lifecycle]
+/// shutdown_timeout_secs = 30
+/// ```
+#[derive(Debug, Deserialize, Clone)]
+pub struct LifecycleConfig {
+    /// Deadline (seconds) for the in-flight-job drain phase of shutdown.
+    /// After this elapses the coordinator proceeds to subsystem teardown
+    /// (DB close, tracer flush) even if jobs are still running — they
+    /// will be aborted as the runtime stops.
+    ///
+    /// Default 30s — generous enough for most provers to finish a
+    /// single verification round, short enough that systemd/k8s won't
+    /// escalate to SIGKILL first (systemd's default `TimeoutStopSec` is
+    /// 90s, k8s's default `terminationGracePeriodSeconds` is 30s).
+    ///
+    /// Overridden by env var `ECHIDNABOT_SHUTDOWN_TIMEOUT_SECS`.
+    #[serde(default = "default_shutdown_timeout_secs")]
+    pub shutdown_timeout_secs: u64,
+}
+
+impl Default for LifecycleConfig {
+    fn default() -> Self {
+        Self {
+            shutdown_timeout_secs: default_shutdown_timeout_secs(),
+        }
+    }
+}
+
+fn default_shutdown_timeout_secs() -> u64 {
+    crate::shutdown::DEFAULT_SHUTDOWN_TIMEOUT_SECS
 }
 
 /// Daemon-wide bot operating mode settings.

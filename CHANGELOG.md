@@ -21,6 +21,18 @@ this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - feat(observability): structured JSON logging via `tracing-subscriber` — new `src/observability.rs` module + `ECHIDNABOT_LOG_FORMAT=text|json` env var (default `text`); shared init point for CLI, server, and future OpenTelemetry layer
+- feat(lifecycle): graceful shutdown — drain in-flight + close DB + flush observability
+  ([ROADMAP "Graceful shutdown (finish in-progress jobs)" item])
+  - On `SIGTERM` / `SIGINT`: webhooks stop accepting, scheduler stops
+    dispatching, in-flight jobs drain (default 30s deadline), SQLite
+    pool closes cleanly, OpenTelemetry tracer flush hook fires (stub
+    until the observability agent's PR lands).
+  - New module `echidnabot::shutdown` exposes `ShutdownCoordinator`,
+    `ShutdownSignal`, `ShutdownTrigger`, `wait_for_termination`,
+    `resolve_shutdown_timeout`.
+  - New config block `[lifecycle] shutdown_timeout_secs = 30` and env
+    override `ECHIDNABOT_SHUTDOWN_TIMEOUT_SECS` (env wins).
+  - New `SqliteStore::close()` for explicit pool drain (idempotent).
 - feat(trust+executor): Tier-3 prover coverage (idris2/fstar/ATPs/protocol-checkers)
 - feat(T3): wire bot modes into webhook response pipeline
 - feat(feedback+graphql): double-loop write path, tactic GraphQL API, ProverKind fixes
