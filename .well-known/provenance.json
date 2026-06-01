@@ -1,7 +1,7 @@
 {
   "$schema": "https://hyperpolymath.org/schemas/provenance-v1.json",
   "project": "echidnabot",
-  "version": "{{VERSION}}",
+  "version": "0.1.0",
   "canonical": "https://github.com/hyperpolymath/echidnabot",
   "singleSourceOfTruth": "github",
   "mirrors": [
@@ -36,8 +36,8 @@
     "attestation": "sigstore"
   },
   "metadata": {
-    "created": "{{CREATED_DATE}}",
-    "updated": "{{UPDATED_DATE}}",
+    "created": "2025-01-01",
+    "updated": "2026-06-01",
     "generator": "conative-gating"
   }
 }

@@ -11,7 +11,7 @@ Community: Rhodium Standard Initiative
 License Philosophy: Palimpsest License
 
 /* SITE */
-Last update: {{LAST_UPDATE}}
+Last update: 2026-06-01
 Software: Serum (Elixir SSG)
 Standards: Consent-Aware HTTP, RSR
 

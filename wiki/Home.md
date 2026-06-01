@@ -73,7 +73,7 @@ Every commit with proof files gets verified. Broken proofs block merges (in `reg
 | **Container Isolation**| podman rootless + bwrap fallback; fail-safe (refuses unsandboxed) |
 | **Trust Bridge**       | 5-level confidence, SHA-256 solver integrity, axiom tracking |
 | **GraphQL API**        | Query and control programmatically                         |
-| **Self-Hosting**       | Run your own instance; Containerfile + Guix + Nix supplied |
+| **Self-Hosting**       | Run your own instance; Containerfile + Guix supplied      |
 
 ## Where echidnabot sits in the estate
 

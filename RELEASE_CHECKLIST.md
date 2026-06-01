@@ -172,10 +172,12 @@ Work").
 - [x] Justfile for task automation
 
 ### To Add
-- [ ] flake.nix for Nix users
 - [ ] cargo-deb configuration
 - [ ] cargo-rpm configuration
 - [ ] Homebrew formula (optional)
+
+(Nix flake intentionally NOT planned: nix is deprecated estate-wide
+as of 2026-06-01.)
 
 ## Release Process
 
@@ -240,7 +242,6 @@ Work").
 3. **This Month**
    - Achieve MVP release (v0.2)
    - 50% test coverage
-   - flake.nix packaging
 
 4. **Next Quarter**
    - v1.0 production release

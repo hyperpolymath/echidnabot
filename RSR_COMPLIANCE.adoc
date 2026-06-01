@@ -38,7 +38,10 @@ for the structural picture; this file is the **status checklist**.
 === Tier 2 (acceptable)
 * Nickel — config snapshots in `config/`
 * Guile Scheme ✓ — `guix.scm` packaging
-* Nix ✓ — `flake.nix` fallback packaging
+
+Nix is **deprecated estate-wide** as of 2026-06-01 — `flake.nix` /
+`flake.lock` removed from this repo on the same date; Guix is the sole
+packaging primary going forward.
 
 === Banned (per estate policy 2026-05-25)
 * TypeScript / JavaScript — use AffineScript
@@ -62,8 +65,7 @@ for the structural picture; this file is the **status checklist**.
 |Task runner present |✓ |`Mustfile` (Just-equivalent)
 |`LICENSE` (MPL-2.0) |✓ |Palimpsest commentary in `PALIMPSEST.adoc`
 |`Containerfile` present |✓ |Multi-stage with Chainguard base
-|`guix.scm` present |✓ |Primary package definition
-|`flake.nix` present |✓ |Fallback Nix flake (`flake.lock` committed)
+|`guix.scm` present |✓ |Sole packaging primary (nix deprecated 2026-06-01)
 |`CHANGELOG.md` present |✓ |Auto-generated from conventional commits (standards#206)
 |`CITATION.cff` present |✓ |Academic citation metadata
 |`codemeta.json` present |✓ |CodeMeta software metadata
@@ -131,8 +133,9 @@ the work landing.)
 * [ ] Generate SPDX SBOM at release time and attach to GitHub Release
 * [ ] Resolve `gitbot-shared-context` path dependency for standalone
       buildability (issue #18)
-* [ ] Realise the Zig FFI scaffold (replace `{{project}}` placeholders;
-      see link:ABI-FFI-README.md[ABI-FFI-README.md] "Current Status")
+* [ ] Realise the Zig FFI scaffold (replace `echidnabot` template
+      placeholders in `ffi/zig/`; see link:ABI-FFI-README.md[ABI-FFI-README.md]
+      "Current Status")
 * [ ] Wire trust-bridge results into the main scheduler loop (started
       per ROADMAP but verify end-to-end)
 

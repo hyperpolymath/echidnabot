@@ -23,8 +23,7 @@ This document covers the practicalities. For project conduct, see
 git clone https://github.com/hyperpolymath/echidnabot.git
 cd echidnabot
 
-# Reproducible environments (pick one)
-nix develop                       # Nix flake (flake.nix)
+# Reproducible environment (Guix is the estate primary; nix is deprecated 2026-06-01)
 guix shell -D -f guix.scm         # Guix package (guix.scm)
 
 # Or bring your own toolchain (Rust 1.75+, SQLite, podman/bwrap)
@@ -78,7 +77,7 @@ echidnabot/
 ├── benches/                # cargo-criterion benchmarks
 ├── docs/                   # Long-form documentation (casket-ssg)
 ├── wiki/                   # Wiki source (mirrored to GitHub wiki)
-├── packaging/              # Container/Guix/Nix packaging
+├── packaging/              # Container/Guix packaging
 ├── .machine_readable/      # A2ML state, bot directives, contractiles
 ├── .well-known/            # security.txt / ai.txt / humans.txt
 └── .github/workflows/      # CI — quality, codeql, scorecard, hypatia-scan
