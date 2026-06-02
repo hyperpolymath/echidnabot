@@ -5,9 +5,9 @@
 [metadata]
 project = "echidnabot"
 version = "0.1.0"
-last-updated = "2026-04-26"  # seam test: 7a mode-routing + 7b corpus-bridge end-to-end
+last-updated = "2026-06-02"
 status = "active"
-session = "seam test DONE (tests/seam_test.rs, 15 tests); smoke.rs mode_selector bug fixed; lifecycle.rs unused-import cleaned; total 184/184 tests (137 lib + 17 lifecycle + 32 integration + 12 property + 15 seam + 8 smoke)"
+session = "Production-hardening wave 2026-06-02: JSON logging (#63) + graceful shutdown (#64) + OpenTelemetry tracing (#65) + Docker Compose stack (#69) + Codeberg adapter scaffold (#74) + canonical-source two-purpose split (#55) + contractile family completion (#77 + #78); rsa phantom dep / sqlx default-features trim (#46); SHA-pin bumps (#50); workflow routing through standards reusables (#54); governance SHA pin (#53); echo-types audit (#48); panic-attack classifications (#47); doc maxout (#49); CITATION harmonised (#72). Test count 142+ (137 baseline + 6 new obs + scatter)."
 
 [project-context]
 name = "Echidnabot"
