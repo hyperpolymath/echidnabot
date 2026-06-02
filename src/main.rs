@@ -127,16 +127,40 @@ enum Commands {
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    // Initialize tracing via the shared observability module.
-    // Output format is selected by `ECHIDNABOT_LOG_FORMAT` (text|json);
-    // log level by `RUST_LOG` with a fallback driven by `--verbose`.
-    let fallback_filter = if cli.verbose { "debug" } else { "info" };
-    echidnabot::observability::init_tracing(fallback_filter);
+    // Load config first — the OTLP endpoint may come from [observability]
+    // in echidnabot.toml. The env var (OTEL_EXPORTER_OTLP_ENDPOINT) wins
+    // over the TOML value (see ObservabilityConfig::resolved_endpoint).
+    //
+    // We can't honour --verbose via tracing-subscriber's `EnvFilter::try_new`
+    // *and* respect RUST_LOG simultaneously without ordering games; the
+    // observability module honours RUST_LOG via EnvFilter::try_from_default_env
+    // and we fall back to "info" / "debug" if unset.
+    //
+    // Output format is selected by `ECHIDNABOT_LOG_FORMAT` (text|json) —
+    // see `observability::LogFormat::from_env`.
+    if cli.verbose && std::env::var("RUST_LOG").is_err() {
+        // Make --verbose meaningful when the operator hasn't explicitly
+        // set RUST_LOG. Setting it before init_tracing lets EnvFilter
+        // pick it up naturally. Safe on edition 2021 (the unsafe wrap
+        // is a 2024-edition-only requirement); single-threaded startup
+        // anyway — no tokio runtime yet, no other threads spawned.
+        std::env::set_var("RUST_LOG", "debug");
+    }
 
-    // Load config
     let config = Config::load(&cli.config)?;
 
-    match cli.command {
+    // Initialise tracing via the observability module. Returns a
+    // TracerShutdown handle we must keep alive until the application
+    // exits — dropping it flushes pending spans.
+    let otlp_endpoint = config.observability.resolved_endpoint();
+    if let Some(ref endpoint) = otlp_endpoint {
+        // Log via plain eprintln since the subscriber isn't installed yet.
+        eprintln!("Initialising OpenTelemetry OTLP exporter → {endpoint}");
+    }
+    let _tracer_guard = echidnabot::observability::init_tracing(otlp_endpoint, false)
+        .map_err(|e| echidnabot::Error::Config(format!("tracing init failed: {e}")))?;
+
+    let result = match cli.command {
         Commands::Serve { host, port } => {
             // CLI flag wins; otherwise honour the TOML [server] section.
             let host = host.unwrap_or_else(|| config.server.host.clone());
@@ -185,7 +209,15 @@ async fn main() -> Result<()> {
             tracing::info!("Initializing database");
             init_db(&config).await
         }
-    }
+    };
+
+    // Flush any in-flight OTel spans before the process exits.
+    // The tracer guard's Drop impl would handle this anyway, but an
+    // explicit shutdown gives us a chance to surface errors and is the
+    // hook the graceful-shutdown agent will reuse from its signal handler.
+    _tracer_guard.shutdown();
+
+    result
 }
 
 async fn serve(config: &Config, host: &str, port: u16) -> Result<()> {

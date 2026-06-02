@@ -54,6 +54,15 @@ pub fn webhook_router(state: AppState) -> Router<AppState> {
 }
 
 /// GitHub webhook handler
+#[tracing::instrument(
+    name = "webhook.github",
+    skip(state, headers, body),
+    fields(
+        payload_bytes = body.len(),
+        event_type = tracing::field::Empty,
+        delivery_id = tracing::field::Empty,
+    )
+)]
 async fn handle_github_webhook(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -81,6 +90,13 @@ async fn handle_github_webhook(
         .and_then(|v| v.to_str().ok())
         .map(String::from);
 
+    // Record the event_type + delivery_id on the active span so distributed
+    // traces can be grouped by event in the collector UI.
+    let span = tracing::Span::current();
+    span.record("event_type", event_type);
+    if let Some(ref id) = delivery_id {
+        span.record("delivery_id", id.as_str());
+    }
     tracing::info!("GitHub event type: {}", event_type);
 
     match event_type {
@@ -184,6 +200,11 @@ async fn handle_github_webhook(
 }
 
 /// GitLab webhook handler
+#[tracing::instrument(
+    name = "webhook.gitlab",
+    skip(state, headers, body),
+    fields(payload_bytes = body.len())
+)]
 async fn handle_gitlab_webhook(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -305,6 +326,11 @@ async fn handle_gitlab_webhook(
 }
 
 /// Bitbucket webhook handler
+#[tracing::instrument(
+    name = "webhook.bitbucket",
+    skip(state, headers, body),
+    fields(payload_bytes = body.len())
+)]
 async fn handle_bitbucket_webhook(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -376,7 +402,7 @@ async fn handle_bitbucket_webhook(
     (StatusCode::OK, "OK")
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 enum RepoEventKind {
     Push,
     PullRequest,
@@ -391,6 +417,17 @@ enum RepoEventKind {
 /// `delivery_id` is the platform-specific webhook traceability id —
 /// `X-GitHub-Delivery`, `X-Gitlab-Webhook-UUID`, or `X-Hook-UUID` — so a
 /// stored job can be correlated back to the exact webhook that produced it.
+#[tracing::instrument(
+    name = "dispatch.job",
+    skip(state),
+    fields(
+        platform = ?platform,
+        repo = %format!("{owner}/{name}"),
+        commit = commit,
+        pr_number = pr_number,
+        priority = ?priority,
+    )
+)]
 async fn enqueue_repo_jobs(
     state: &AppState,
     platform: Platform,

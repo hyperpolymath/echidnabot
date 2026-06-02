@@ -20,6 +20,7 @@ this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- feat(observability): OpenTelemetry distributed tracing via OTLP — spans propagate from webhook receipt → dispatcher → executor → echidna call → feedback; configurable endpoint via `[observability] otlp_endpoint` or the standard `OTEL_EXPORTER_OTLP_ENDPOINT` env var
 - feat(observability): structured JSON logging via `tracing-subscriber` — new `src/observability.rs` module + `ECHIDNABOT_LOG_FORMAT=text|json` env var (default `text`); shared init point for CLI, server, and future OpenTelemetry layer
 - feat(lifecycle): graceful shutdown — drain in-flight + close DB + flush observability
   ([ROADMAP "Graceful shutdown (finish in-progress jobs)" item])
