@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: MPL-2.0
+# CODEOWNERS - Code ownership for echidnabot
+# See https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner for everything
+* @hyperpolymath
+
+# Core bot crates
+/src/ @hyperpolymath
+/crates/ @hyperpolymath
+
+# Infrastructure and CI/CD
+/.github/ @hyperpolymath
+/scripts/ @hyperpolymath
+
+# SCM and machine-readable metadata
+/.machine_readable/ @hyperpolymath
