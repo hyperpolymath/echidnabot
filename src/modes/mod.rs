@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MPL-2.0
+// Copyright (c) Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 //! Bot operating modes for different verification workflows
 //!
 //! Echidnabot supports four operating modes that control how verification
@@ -10,9 +11,14 @@
 //! - **Regulator**: Blocks PR merges when proofs fail
 
 pub mod directives;
+pub mod manifest;
 pub use directives::{
     fetch_directive_via_adapter, parse_a2ml_directive, resolve_mode,
     resolve_mode_with_daemon_default,
+};
+pub use manifest::{
+    AxiomSeverity, AxiomsSection, BlockedOnSection, BotSection, MergeBlockSection,
+    ProofsSection, ProverConfig, ProversSection, RepoManifest,
 };
 
 use serde::{Deserialize, Serialize};
