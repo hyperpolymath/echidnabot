@@ -34,6 +34,7 @@ this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   - New config block `[lifecycle] shutdown_timeout_secs = 30` and env
     override `ECHIDNABOT_SHUTDOWN_TIMEOUT_SECS` (env wins).
   - New `SqliteStore::close()` for explicit pool drain (idempotent).
+- feat(deployment): Docker Compose + PostgreSQL stack with optional ECHIDNA REST stub under `--profile dev`; initial Postgres migration; `docs/deployment.adoc` quickstart (closes #60)
 - feat(trust+executor): Tier-3 prover coverage (idris2/fstar/ATPs/protocol-checkers)
 - feat(T3): wire bot modes into webhook response pipeline
 - feat(feedback+graphql): double-loop write path, tactic GraphQL API, ProverKind fixes
