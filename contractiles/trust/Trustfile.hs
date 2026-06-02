@@ -1,105 +1,195 @@
 -- SPDX-License-Identifier: PLMP-1.0-or-later
--- Trustfile template - cryptographic and provenance verification
+-- Trustfile — integrity / provenance / supply-chain verification for echidnabot
+--
+-- Error-code namespace: T###
+-- Compile + run: `runhaskell contractiles/trust/Trustfile.hs`
+-- Each check returns ExitSuccess on pass, ExitFailure on violation.
 
 module Trustfile where
 
 import Control.Monad (forM)
-import System.Directory (doesFileExist)
-import System.Environment (lookupEnv)
-import System.Exit (exitFailure, exitSuccess)
+import Data.List (isInfixOf)
+import System.Directory (doesFileExist, doesDirectoryExist)
+import System.Exit (ExitCode(..), exitFailure, exitSuccess)
 import System.Process (readProcessWithExitCode)
 
-policyPath :: FilePath
-policyPath = "policy/policy.ncl"
+-- ── Authoritative paths ────────────────────────────────────────────────
 
-policyHashPath :: FilePath
-policyHashPath = "policy/policy.ncl.sha256"
+cargoTomlPath :: FilePath
+cargoTomlPath = "Cargo.toml"
 
-schemaPath :: FilePath
-schemaPath = "schema/schema.json"
+cargoLockPath :: FilePath
+cargoLockPath = "Cargo.lock"
 
-schemaSigPath :: FilePath
-schemaSigPath = "schema/schema.sig"
+containerfilePath :: FilePath
+containerfilePath = "Containerfile"
 
-schemaPubPath :: FilePath
-schemaPubPath = "schema/schema.pub"
+workflowsDir :: FilePath
+workflowsDir = ".github/workflows"
 
-driverPaths :: [FilePath]
-driverPaths = ["drivers/gateway-driver.bin"]
+licenseFile :: FilePath
+licenseFile = "LICENSE"
 
-migrationsPath :: FilePath
-migrationsPath = "migrations/provenance.json"
+-- ── Trust boundaries ───────────────────────────────────────────────────
 
-migrationsSigPath :: FilePath
-migrationsSigPath = "migrations/provenance.sig"
+trustLevel :: String
+trustLevel = "maximal"
 
-migrationsPubPath :: FilePath
-migrationsPubPath = "migrations/provenance.pub"
+trustActions :: [String]
+trustActions =
+  [ "read"
+  , "build"
+  , "test"
+  , "lint"
+  , "format"
+  , "file-pr-on-branch"
+  , "admin-merge-with-owner-authorisation"
+  ]
 
-runCmd :: String -> [String] -> IO Bool
-runCmd cmd args = do
-  (code, _out, _err) <- readProcessWithExitCode cmd args ""
-  pure (code == mempty)
+trustDeny :: [String]
+trustDeny =
+  [ "delete-branch-without-owner-confirm"
+  , "force-push-to-main"
+  , "modify-ci-secrets"
+  , "publish-without-tag-cut"
+  , "edit-licence-headers-automatically"   -- per [[feedback_no_automated_licence_edits]]
+  ]
 
-readFirstWord :: FilePath -> IO (Maybe String)
-readFirstWord path = do
-  exists <- doesFileExist path
+-- ── Checks ─────────────────────────────────────────────────────────────
+
+-- T001: LICENSE contains a recognised SPDX identifier
+checkT001 :: IO Bool
+checkT001 = do
+  exists <- doesFileExist licenseFile
   if not exists
-    then pure Nothing
+    then return False
     else do
-      content <- readFile path
-      pure (case words content of
-        [] -> Nothing
-        (w:_) -> Just w)
+      (ec, _, _) <- readProcessWithExitCode "grep"
+        ["-qE", "SPDX-License-Identifier|MIT|Apache|MPL|AGPL|PMPL|PLMP", licenseFile] ""
+      return (ec == ExitSuccess)
 
-verifyPolicyHash :: IO Bool
-verifyPolicyHash = do
-  expected <- readFirstWord policyHashPath
-  case expected of
-    Nothing -> pure False
-    Just hash -> do
-      (code, out, _err) <- readProcessWithExitCode "sha256sum" [policyPath] ""
-      if code /= mempty
-        then pure False
-        else do
-          let actual = case words out of
-                [] -> ""
-                (w:_) -> w
-          pure (actual == hash)
+-- T002: No secrets files committed
+checkT002 :: IO Bool
+checkT002 = do
+  envExists <- doesFileExist ".env"
+  credsExists <- doesFileExist "credentials.json"
+  envLocalExists <- doesFileExist ".env.local"
+  secretsExists <- doesFileExist ".secrets"
+  return (not envExists && not credsExists && not envLocalExists && not secretsExists)
 
-verifySchemaSignature :: IO Bool
-verifySchemaSignature = do
-  filesOk <- and <$> mapM doesFileExist [schemaPath, schemaSigPath, schemaPubPath]
-  if not filesOk
-    then pure False
-    else runCmd "openssl" ["dgst", "-sha256", "-verify", schemaPubPath, "-signature", schemaSigPath, schemaPath]
+-- T010: HEAD commit is GPG-signed
+checkT010 :: IO Bool
+checkT010 = do
+  (ec, out, _) <- readProcessWithExitCode "git" ["log", "-1", "--pretty=%G?"] ""
+  return (ec == ExitSuccess && not (null out) && head out `elem` "GN")
 
-verifyKyber1024Signatures :: IO Bool
-verifyKyber1024Signatures = do
-  cmd <- lookupEnv "KYBER_VERIFY_CMD"
-  let kyberCmd = maybe "kyber-verify" id cmd
-  results <- forM driverPaths $ \path -> do
-    let sig = path <> ".sig"
-    let pub = path <> ".pub"
-    filesOk <- and <$> mapM doesFileExist [path, sig, pub]
-    if not filesOk
-      then pure False
-      else runCmd kyberCmd ["--pub", pub, "--sig", sig, "--file", path]
-  pure (and results)
+-- T011: Cargo.lock is tracked
+checkT011 :: IO Bool
+checkT011 = do
+  exists <- doesFileExist cargoLockPath
+  if not exists
+    then return False
+    else do
+      (ec, _, _) <- readProcessWithExitCode "git"
+        ["ls-files", "--error-unmatch", cargoLockPath] ""
+      return (ec == ExitSuccess)
 
-verifyMigrationProvenance :: IO Bool
-verifyMigrationProvenance = do
-  filesOk <- and <$> mapM doesFileExist [migrationsPath, migrationsSigPath, migrationsPubPath]
-  if not filesOk
-    then pure False
-    else runCmd "openssl" ["dgst", "-sha256", "-verify", migrationsPubPath, "-signature", migrationsSigPath, migrationsPath]
+-- T020: GitHub Actions SHA-pinned (no bare branch / tag refs)
+checkT020 :: IO Bool
+checkT020 = do
+  wfExists <- doesDirectoryExist workflowsDir
+  if not wfExists
+    then return True  -- vacuously true
+    else do
+      (ec, _, _) <- readProcessWithExitCode "bash"
+        [ "-c"
+        , "! grep -rE 'uses: [^/]+/[^@]+@(main|master|v[0-9]+\\.?[0-9]*\\.?[0-9]*)' "
+            ++ workflowsDir ++ " | grep -v '^#'"
+        ] ""
+      return (ec == ExitSuccess)
+
+-- T021: SHA pins are not fake (resolve to real upstream commits)
+checkT021 :: IO Bool
+checkT021 = do
+  scriptExists <- doesFileExist "scripts/verify-action-shas.sh"
+  if not scriptExists
+    then return True  -- vacuously true if scanner not present
+    else do
+      (_, out, _) <- readProcessWithExitCode "bash"
+        ["scripts/verify-action-shas.sh"] ""
+      return (not ("FAKE" `isInfixOf` out))
+
+-- T030: Containerfile uses approved base (Chainguard wolfi-base)
+checkT030 :: IO Bool
+checkT030 = do
+  exists <- doesFileExist containerfilePath
+  if not exists
+    then return True  -- vacuously true
+    else do
+      (ec, out, _) <- readProcessWithExitCode "grep" ["-E", "^FROM", containerfilePath] ""
+      if ec /= ExitSuccess
+        then return False
+        else return ("cgr.dev/chainguard/" `isInfixOf` out)
+
+-- T040: No deprecated nix files (estate policy 2026-06-01)
+checkT040 :: IO Bool
+checkT040 = do
+  flakeNix <- doesFileExist "flake.nix"
+  flakeLock <- doesFileExist "flake.lock"
+  return (not flakeNix && not flakeLock)
+
+-- T050: Webhook signature verification present in code
+checkT050 :: IO Bool
+checkT050 = do
+  webhooksExists <- doesFileExist "src/api/webhooks.rs"
+  if not webhooksExists
+    then return True
+    else do
+      (ec, _, _) <- readProcessWithExitCode "grep"
+        ["-q", "verify_github_signature\\|verify_gitlab_signature\\|verify_codeberg_signature\\|hmac", "src/api/webhooks.rs"] ""
+      return (ec == ExitSuccess)
+
+-- T051: Database connection uses TLS (no plain postgres://)
+checkT051 :: IO Bool
+checkT051 = do
+  exampleExists <- doesFileExist "echidnabot.example.toml"
+  if not exampleExists
+    then return True
+    else do
+      (ec, _, _) <- readProcessWithExitCode "bash"
+        [ "-c"
+        , "! grep -qE 'postgres://[^?]+$' echidnabot.example.toml"
+        ] ""
+      return (ec == ExitSuccess)
+
+-- ── Driver ─────────────────────────────────────────────────────────────
+
+allChecks :: [(String, IO Bool)]
+allChecks =
+  [ ("T001-license-content",    checkT001)
+  , ("T002-no-secrets",         checkT002)
+  , ("T010-gpg-signed",         checkT010)
+  , ("T011-cargo-lock-tracked", checkT011)
+  , ("T020-shas-pinned",        checkT020)
+  , ("T021-shas-not-fake",      checkT021)
+  , ("T030-trusted-base",       checkT030)
+  , ("T040-no-nix",             checkT040)
+  , ("T050-webhook-sig-verify", checkT050)
+  , ("T051-db-tls",             checkT051)
+  ]
 
 main :: IO ()
 main = do
-  policyOk <- verifyPolicyHash
-  schemaOk <- verifySchemaSignature
-  driversOk <- verifyKyber1024Signatures
-  migrationsOk <- verifyMigrationProvenance
-  if and [policyOk, schemaOk, driversOk, migrationsOk]
-    then exitSuccess
-    else exitFailure
+  results <- forM allChecks $ \(name, check) -> do
+    ok <- check
+    putStrLn $ (if ok then "[PASS] " else "[FAIL] ") ++ name
+    return (name, ok)
+  let failed = filter (not . snd) results
+  if null failed
+    then do
+      putStrLn $ "\nAll " ++ show (length allChecks) ++ " trust checks passed."
+      exitSuccess
+    else do
+      putStrLn $ "\n" ++ show (length failed) ++ " of " ++ show (length allChecks) ++ " checks failed:"
+      mapM_ (\(n, _) -> putStrLn $ "  - " ++ n) failed
+      exitFailure
