@@ -1,6 +1,6 @@
 # CITATION.cff - Citation File Format for echidnabot
 # https://citation-file-format.github.io/
-# SPDX-License-Identifier: PMPL-1.0 OR LicenseRef-Palimpsest-0.5
+# SPDX-License-Identifier: MPL-2.0
 
 cff-version: 1.2.0
 title: "echidnabot: Proof-Aware CI Bot"
@@ -38,7 +38,7 @@ keywords:
   - github-app
   - rhodium-standard
   - RSR
-license: PMPL-1.0
+license: MPL-2.0
 license-url: "https://github.com/hyperpolymath/echidnabot/blob/main/LICENSE.txt"
 version: "0.1.0"
 date-released: "2025-12-10"
