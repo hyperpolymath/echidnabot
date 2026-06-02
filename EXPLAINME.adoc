@@ -8,27 +8,53 @@ caveats where evidence is partial.
 
 == Key Claims From README
 
-[quote, README "Current Status (v0.1.0)"]
+[quote, README "Current Status"]
 ____
-Overall completion: ~90% — Core infrastructure, platform adapters,
-ECHIDNA integration, container isolation, bot modes, retry/circuit
-breaker, and trust bridge are implemented. 129 automated tests across
-unit and integration suites.
+Production-hardened bridge to ECHIDNA with structured logging,
+OpenTelemetry tracing, graceful shutdown, and Docker Compose
+deployment.
 ____
 
-*Evidence — test count*: `cargo test --lib` reports 119 unit tests + 14
-new feedback-loop tests (Package 7b-1 landed 2026-04-24) = 133 passing.
-The 129 figure in README is slightly stale — the 7b-1 / 7b-2 / 7b-3
-commits (`0cc4b4a`, `b6ef652`, `1e26340`) added the feedback tests
-above what README was written against.
+*Evidence — test count*: as of 2026-06-02, `cargo test --lib` reports
+142+ passing (137 pre-existing baseline + 6 new observability + scattered
+adds from #46/#47/#48/#49/#50/#53/#54/#55/#63/#64/#65/#69/#72/#74/#77/#78).
+The May-era figure of "129 / 133" is superseded.
 
-*Evidence — "90% complete"*: the claim aggregates across components
-with uneven depth. Platform adapters + webhook signature verification
-+ SQLite/Postgres persistence are concretely implemented (see
-`src/platform/`, `src/store/`). Container isolation (`src/executor/container.rs`)
-was previously empty and is in active development on Session B's
-branch. The 90% figure overstates the bot-modes dimension — see next
-claim.
+*Evidence — production hardening, all landed 2026-06-02*:
+
+* **Structured JSON logging** (#63): `ECHIDNABOT_LOG_FORMAT={text,json}` env
+  selector; new `src/observability.rs` module; entire codebase already
+  100% on `tracing` (no `eprintln!`/`println!` migration required).
+* **Graceful shutdown** (#64): SIGTERM/SIGINT → axum `with_graceful_shutdown`
+  → scheduler stop-dispatch → drain in-flight with deadline → registered
+  hooks for `db-pool-close` + `tracer-flush`. New `src/shutdown.rs`
+  (343 lines); 12 tests added.
+  `ECHIDNABOT_SHUTDOWN_TIMEOUT_SECS` (default 30).
+* **OpenTelemetry distributed tracing** (#65): `OTEL_EXPORTER_OTLP_ENDPOINT`
+  env override; 9 spans across webhook/dispatch/echidna-client/executor/
+  feedback; tracer-shutdown integrated with graceful-shutdown coordinator.
+* **Docker Compose stack** (#69): `compose.yml` v2 + Containerfile +
+  PostgreSQL 16-alpine + optional echidna-stub service; `migrations/`
+  scaffolded; `docs/deployment.adoc`. Closes #60.
+* **Codeberg/Forgejo adapter scaffold** (#74): new
+  `src/adapters/codeberg.rs` with PlatformAdapter trait impl,
+  X-Gitea-Signature webhook verification, reqwest + serde_json direct.
+  Refs #62.
+* **Canonical-source two-purpose split** (#55): documents standalone vs
+  `gitbot-fleet/bots/echidnabot/` divergence (109 file delta as of
+  2026-06-02). Closes #51.
+* **Contractile family** (#77 + #78): full `must|adjust|trust|bust|dust`
+  coverage. 15 Must / 11 Adjust / 17 Bust / 13 Dust / 10 Trust checks
+  with probe + severity + recovery. Mirrors echidna#214 pattern.
+
+*Evidence — completion percentage*: as of 2026-06-02 the core verifier
+loop + structured-logging + tracing + graceful-shutdown + adapter set
++ container deployment are all in main. Remaining roadmap items
+(`#57 proof caching / #58 multi-prover consensus / #59 K8s
+distributed`) are explicitly long-term per the roadmap audit. Reading
+"production-hardened bridge" as the current claim, evidence is full;
+the older 90% figure was an aggregate across uneven dimensions and
+is superseded.
 
 [quote, README "Bot Modes"]
 ____
@@ -56,14 +82,21 @@ ____
 *Evidence*: `src/dispatcher/echidna_client.rs` implements HTTP client
 against ECHIDNA's REST + GraphQL APIs. The enum covers 12 provers.
 
-*Caveat — upstream drift*: the upstream echidna engine supports **105
-prover backends** (see echidna's `src/rust/provers/mod.rs::ProverKind`,
-113 variants after `c8c0acf` added 8 more). Echidnabot sees only 12 of
-these. Consumers who need the full surface today should go through the
-BoJ-only-MCP cartridge at `boj-server/cartridges/echidna-llm-mcp`,
-which exposes all 105. Drift tracked in `docs/handover/` and in the
-upstream-tracking field of AGENTIC.a2ml's [exceptions.boj-only-mcp]
-block.
+*GraphQL contract update 2026-06-02*: the seam audit (echidna#180)
+identified that 3 GraphQL ops echidnabot's client issued (`verifyProof`,
+`suggestTactics(prover,context,goalState)`, `proverStatus`) were absent
+from echidna's server schema. Resolved by echidna#188 which added those
+ops to `MutationRoot`/`QueryRoot`. The existing `suggestTactics(proofId,
+limit)` was renamed to `suggestTacticsByProofId` as part of that work.
+Echidnabot's client may benefit from consuming the new typed `outcome`
+/ `mode` / `smtStatus` fields (gitbot-fleet#245 follow-up).
+
+*Caveat — upstream prover-count drift*: upstream echidna supports many
+more backends than echidnabot's `ProverKind` enum sees (canonical count
+at `echidna/docs/PROVER_COUNT.md`). Consumers who need the full surface
+today should go through the BoJ-only-MCP cartridge at
+`boj-server/cartridges/echidna-llm-mcp`. Drift tracked in
+`docs/handover/` and in `AGENTIC.a2ml [exceptions.boj-only-mcp]`.
 
 [quote, README "The Solution" diagram]
 ____
@@ -81,12 +114,31 @@ the fix.
 
 == What Exists But Is Not Yet In README
 
+=== 2026-06-02 production-hardening wave
+
+See "Key Claims From README" §1 above for the full list.
+
 === Double-loop learning (Package 7b, landed 2026-04-24)
 
 - `TacticOutcomeRecord` table + CRUD (`src/store/models.rs`, `src/store/sqlite.rs`)
 - History-weighted tactic reranker (`0cc4b4a`, `b6ef652`, `1e26340`)
 - Corpus-update writer emitting both `delta_*.jsonl` (audit) and
   `proof_states_echidnabot_*.jsonl` (echidna ingest schema)
+
+=== Contractile family (2026-06-02)
+
+`contractiles/` directory carries five operational contracts with their
+own error-code namespaces:
+
+- **Mustfile** (`M###`) — physical-state invariants (15 checks)
+- **Adjustfile** (`A###`) — adaptive maintenance / migrations (11)
+- **Bustfile** (`B###`) — breakage / rollback recipes (17)
+- **Dustfile** (`D###`) — fine-grained cleanup (13)
+- **Trustfile.hs** (`T###`) — integrity / provenance verification (10)
+
+Run `just must-check` etc.; each check has a probe + severity + recovery
+(or adjust / dust action) cross-referenced to sibling recipes for
+self-healing cascades.
 
 === BoJ-only-MCP exception
 
