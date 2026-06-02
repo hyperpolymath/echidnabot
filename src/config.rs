@@ -33,6 +33,12 @@ pub struct Config {
     #[serde(default)]
     pub gitlab: Option<GitLabConfig>,
 
+    /// Codeberg / Forgejo / Gitea integration (issue #62 scaffold —
+    /// adapter is functional but light on features, see
+    /// `src/adapters/codeberg.rs`).
+    #[serde(default)]
+    pub codeberg: Option<CodebergConfig>,
+
     /// Scheduler configuration
     #[serde(default)]
     pub scheduler: SchedulerConfig,
@@ -407,6 +413,40 @@ pub struct GitLabConfig {
     pub token: String,
 
     /// Webhook secret
+    pub webhook_secret: Option<String>,
+}
+
+/// Codeberg / Forgejo / Gitea connection settings.
+///
+/// `url` defaults to `https://codeberg.org` in the adapter when this
+/// section is absent. Point it at any self-hosted Forgejo or Gitea
+/// instance to reuse the same adapter:
+///
+/// ```toml
+/// [codeberg]
+/// url = "https://forgejo.example.org"
+/// token = "..."
+/// webhook_secret = "..."
+/// ```
+///
+/// `token` is optional — read-only endpoints (file fetch, default
+/// branch) work without it on public repos. Mutating endpoints
+/// (statuses, comments, issues) require a token; the adapter
+/// returns `Error::Config("CODEBERG_TOKEN not set")` when missing.
+/// The `CODEBERG_TOKEN` env var also works as a fallback.
+#[derive(Debug, Deserialize, Clone)]
+pub struct CodebergConfig {
+    /// Codeberg / Forgejo / Gitea instance URL.
+    pub url: String,
+
+    /// Personal access token (PAT). Forgejo also supports app tokens
+    /// but the adapter does not yet distinguish — see TODO in
+    /// `src/adapters/codeberg.rs`.
+    pub token: Option<String>,
+
+    /// Webhook secret for `X-Gitea-Signature` HMAC-SHA256 verification.
+    /// Header name is `X-Gitea-Signature` on both Forgejo and Codeberg
+    /// (the Gitea fork name is retained for wire compatibility).
     pub webhook_secret: Option<String>,
 }
 

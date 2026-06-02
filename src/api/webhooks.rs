@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 // SPDX-FileCopyrightText: 2025 Jonathan D.A. Jewell
-//! Webhook handlers for GitHub, GitLab, and Bitbucket
+//! Webhook handlers for GitHub, GitLab, Bitbucket, and Codeberg/Forgejo
 
 use axum::{
     body::Bytes,
@@ -50,6 +50,7 @@ pub fn webhook_router(state: AppState) -> Router<AppState> {
         .route("/webhooks/github", post(handle_github_webhook))
         .route("/webhooks/gitlab", post(handle_gitlab_webhook))
         .route("/webhooks/bitbucket", post(handle_bitbucket_webhook))
+        .route("/webhooks/codeberg", post(handle_codeberg_webhook))
         .layer(middleware::from_fn_with_state(state, rate_limit_middleware))
 }
 
@@ -396,6 +397,125 @@ async fn handle_bitbucket_webhook(
                 &payload.comment.content.raw,
             )
             .await;
+        }
+    }
+
+    (StatusCode::OK, "OK")
+}
+
+/// Codeberg / Forgejo / Gitea webhook handler (issue #62 scaffold).
+///
+/// Codeberg runs Forgejo (a Gitea fork) and uses the Gitea webhook wire
+/// format unchanged:
+///
+/// - `X-Gitea-Event` header carries the event name (e.g. `push`,
+///   `pull_request`, `issue_comment`)
+/// - `X-Gitea-Signature` header carries an HMAC-SHA256 hex digest of
+///   the raw body, **without** the `sha256=` prefix GitHub uses
+/// - `X-Gitea-Delivery` is the per-delivery UUID (traceability)
+///
+/// Payload shapes mirror GitHub closely enough that we can deserialize
+/// the same `*PushPayload` / `*PullRequestPayload` shape with Gitea
+/// field names. This handler is **scaffold only** — it dispatches the
+/// three event types we already enqueue for other platforms (push, PR,
+/// issue_comment) and leaves the rest as `tracing::debug!` no-ops.
+async fn handle_codeberg_webhook(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> impl IntoResponse {
+    tracing::info!("Received Codeberg/Forgejo webhook");
+
+    // Verify HMAC-SHA256 signature if a secret is configured. Same
+    // primitive as GitHub but a different header name and a raw-hex
+    // (no `sha256=` prefix) value, hence its own helper.
+    if let Some(ref cb_config) = state.config.codeberg {
+        if let Some(ref secret) = cb_config.webhook_secret {
+            if let Err(e) = verify_codeberg_signature(&headers, &body, secret) {
+                tracing::warn!("Codeberg webhook signature verification failed: {}", e);
+                return (StatusCode::UNAUTHORIZED, "Invalid signature");
+            }
+        }
+    }
+
+    let event_type = headers
+        .get("X-Gitea-Event")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("unknown");
+    let delivery_id = headers
+        .get("X-Gitea-Delivery")
+        .and_then(|v| v.to_str().ok())
+        .map(String::from);
+
+    tracing::info!("Codeberg event type: {}", event_type);
+
+    match event_type {
+        "push" => {
+            if let Ok(payload) = serde_json::from_slice::<CodebergPushPayload>(&body) {
+                let (owner, name) = split_full_name(&payload.repository.full_name);
+                let _ = enqueue_repo_jobs(
+                    &state,
+                    Platform::Codeberg,
+                    &owner,
+                    &name,
+                    &payload.after,
+                    JobPriority::Normal,
+                    RepoEventKind::Push,
+                    None,
+                    delivery_id.clone(),
+                )
+                .await;
+            }
+        }
+        "pull_request" => {
+            if let Ok(payload) = serde_json::from_slice::<CodebergPullRequestPayload>(&body) {
+                let (owner, name) = split_full_name(&payload.repository.full_name);
+                let _ = enqueue_repo_jobs(
+                    &state,
+                    Platform::Codeberg,
+                    &owner,
+                    &name,
+                    &payload.pull_request.head.sha,
+                    JobPriority::High,
+                    RepoEventKind::PullRequest,
+                    Some(payload.pull_request.number),
+                    delivery_id.clone(),
+                )
+                .await;
+            }
+        }
+        "issue_comment" => {
+            // Consultant-mode trigger — mirrors GitHub's handler.
+            // TODO(#62): full payload-shape audit against Forgejo
+            // docs; the field set below covers the happy path but
+            // may need extending for edge cases (review comments
+            // dispatched as `issue_comment`, etc.).
+            if let Ok(payload) = serde_json::from_slice::<CodebergIssueCommentPayload>(&body) {
+                if !modes::is_any_mention(&payload.comment.body) {
+                    return (StatusCode::OK, "OK");
+                }
+                if payload
+                    .comment
+                    .user
+                    .as_ref()
+                    .is_some_and(|u| u.login.eq_ignore_ascii_case("echidnabot"))
+                {
+                    return (StatusCode::OK, "OK");
+                }
+                let (owner, name) = split_full_name(&payload.repository.full_name);
+                let _ = handle_consultant_mention(
+                    &state,
+                    Platform::Codeberg,
+                    &owner,
+                    &name,
+                    payload.issue.number,
+                    &payload.comment.body,
+                )
+                .await;
+            }
+        }
+        _ => {
+            tracing::debug!("Ignoring Codeberg event type: {}", event_type);
         }
     }
 
@@ -905,6 +1025,107 @@ struct BitbucketActor {
     username: String,
 }
 
+// --- Codeberg / Forgejo / Gitea payload shapes (issue #62 scaffold) ---
+//
+// Gitea field naming overlaps GitHub by design — `repository.full_name`,
+// `pull_request.head.sha`, `issue.number`, `comment.body` all match.
+// Only the *envelope* differs (header names, signature format), so we
+// can keep these structs minimal and Gitea-flavoured to make the
+// dispatch path readable.
+
+#[derive(Deserialize)]
+struct CodebergRepo {
+    full_name: String,
+}
+
+#[derive(Deserialize)]
+struct CodebergPushPayload {
+    /// The `after` SHA — same convention as GitHub's push hook.
+    after: String,
+    repository: CodebergRepo,
+}
+
+#[derive(Deserialize)]
+struct CodebergPullRequestPayload {
+    pull_request: CodebergPullRequest,
+    repository: CodebergRepo,
+}
+
+#[derive(Deserialize)]
+struct CodebergPullRequest {
+    /// Per-repo PR index (Gitea's equivalent of GitHub's PR number).
+    number: u64,
+    head: CodebergPullRequestHead,
+}
+
+#[derive(Deserialize)]
+struct CodebergPullRequestHead {
+    sha: String,
+}
+
+#[derive(Deserialize)]
+struct CodebergIssueCommentPayload {
+    repository: CodebergRepo,
+    issue: CodebergIssueRef,
+    comment: CodebergComment,
+}
+
+#[derive(Deserialize)]
+struct CodebergIssueRef {
+    /// Per-repo issue/PR number (Gitea unifies PRs into the Issues
+    /// surface — same payload shape on both).
+    number: u64,
+}
+
+#[derive(Deserialize)]
+struct CodebergComment {
+    body: String,
+    #[serde(default)]
+    user: Option<CodebergUser>,
+}
+
+#[derive(Deserialize)]
+struct CodebergUser {
+    /// Username (Gitea's "login" field, kept as `login` for
+    /// GitHub-payload-style readability).
+    login: String,
+}
+
+/// Verify Codeberg / Forgejo / Gitea webhook signature.
+///
+/// Wire format: `X-Gitea-Signature: <hex>` — raw HMAC-SHA256 hex of
+/// the request body keyed by the configured webhook secret. **No**
+/// `sha256=` prefix (that's the GitHub format). The Codeberg fork
+/// reuses Gitea's header name unchanged, hence the `X-Gitea-*` naming
+/// even though we call this the Codeberg adapter.
+///
+/// TODO(#62): some Forgejo deployments also emit `X-Hub-Signature-256`
+/// for GitHub compatibility — fall through to that when
+/// `X-Gitea-Signature` is absent so we work against the widest set of
+/// instances without per-instance config.
+fn verify_codeberg_signature(
+    headers: &HeaderMap,
+    body: &Bytes,
+    secret: &str,
+) -> std::result::Result<(), String> {
+    let signature = headers
+        .get("X-Gitea-Signature")
+        .and_then(|v| v.to_str().ok())
+        .ok_or_else(|| "Missing X-Gitea-Signature header".to_string())?;
+
+    let signature_bytes =
+        hex::decode(signature).map_err(|_| "Invalid hex in signature".to_string())?;
+
+    let mut mac = Hmac::<Sha256>::new_from_slice(secret.as_bytes())
+        .map_err(|_| "Invalid secret key".to_string())?;
+    mac.update(body);
+
+    mac.verify_slice(&signature_bytes)
+        .map_err(|_| "Signature mismatch".to_string())?;
+
+    Ok(())
+}
+
 /// Verify GitHub webhook signature (HMAC-SHA256)
 fn verify_github_signature(
     headers: &HeaderMap,
@@ -956,5 +1177,46 @@ mod tests {
         );
 
         assert!(verify_github_signature(&headers, &body, secret).is_ok());
+    }
+
+    #[test]
+    fn test_verify_codeberg_signature() {
+        let secret = "test-secret";
+        let body = Bytes::from(r#"{"test": "payload"}"#);
+
+        // Same HMAC-SHA256 primitive as GitHub, but Codeberg/Forgejo
+        // sends the raw hex without the `sha256=` prefix.
+        let mut mac = Hmac::<Sha256>::new_from_slice(secret.as_bytes()).unwrap();
+        mac.update(&body);
+        let expected = hex::encode(mac.finalize().into_bytes());
+
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            "X-Gitea-Signature",
+            expected.parse().unwrap(),
+        );
+
+        assert!(verify_codeberg_signature(&headers, &body, secret).is_ok());
+    }
+
+    #[test]
+    fn test_verify_codeberg_signature_missing_header() {
+        let body = Bytes::from(r#"{"test": "payload"}"#);
+        let headers = HeaderMap::new();
+        assert!(verify_codeberg_signature(&headers, &body, "secret").is_err());
+    }
+
+    #[test]
+    fn test_verify_codeberg_signature_mismatch() {
+        let body = Bytes::from(r#"{"test": "payload"}"#);
+        let mut headers = HeaderMap::new();
+        // 64 hex chars (valid SHA-256 length) but wrong key.
+        headers.insert(
+            "X-Gitea-Signature",
+            "0000000000000000000000000000000000000000000000000000000000000000"
+                .parse()
+                .unwrap(),
+        );
+        assert!(verify_codeberg_signature(&headers, &body, "secret").is_err());
     }
 }

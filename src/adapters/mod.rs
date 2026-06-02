@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MPL-2.0
-//! Platform adapters for GitHub, GitLab, Bitbucket
+//! Platform adapters for GitHub, GitLab, Bitbucket, Codeberg/Forgejo
 
 use serde::{Deserialize, Serialize};
 
 pub mod github;
 pub mod gitlab;
 pub mod bitbucket;
+pub mod codeberg;
 
 use async_trait::async_trait;
 use std::path::PathBuf;
@@ -123,13 +124,14 @@ pub struct ReviewCommentLocation {
 ///
 /// Falls back to a tokenless GitHub client when no token is configured —
 /// downstream call sites tolerate auth-failure as a warning, not a panic.
-/// Codeberg returns a Config error (Gitea API not yet supported).
+/// Codeberg uses the Forgejo/Gitea-compatible adapter (scaffold, issue #62).
 pub fn build_adapter(
     config: &crate::Config,
     platform: Platform,
 ) -> crate::error::Result<Box<dyn PlatformAdapter>> {
     use crate::adapters::{
-        bitbucket::BitbucketAdapter, github::GitHubAdapter, gitlab::GitLabAdapter,
+        bitbucket::BitbucketAdapter, codeberg::CodebergAdapter, github::GitHubAdapter,
+        gitlab::GitLabAdapter,
     };
     match platform {
         Platform::GitHub => {
@@ -144,9 +146,9 @@ pub fn build_adapter(
             config.gitlab.as_ref().map(|g| g.url.as_str()),
         ))),
         Platform::Bitbucket => Ok(Box::new(BitbucketAdapter::new(None))),
-        Platform::Codeberg => Err(crate::error::Error::Config(
-            "Codeberg platform reporting not yet implemented".to_string(),
-        )),
+        Platform::Codeberg => Ok(Box::new(CodebergAdapter::new(
+            config.codeberg.as_ref().map(|c| c.url.as_str()),
+        ))),
     }
 }
 
