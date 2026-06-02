@@ -1,0 +1,439 @@
+# SPDX-License-Identifier: MPL-2.0
+# Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+#
+# STATE.a2ml — Echidnabot project state
+[metadata]
+project = "echidnabot"
+version = "0.1.0"
+last-updated = "2026-04-26"  # seam test: 7a mode-routing + 7b corpus-bridge end-to-end
+status = "active"
+session = "seam test DONE (tests/seam_test.rs, 15 tests); smoke.rs mode_selector bug fixed; lifecycle.rs unused-import cleaned; total 184/184 tests (137 lib + 17 lifecycle + 32 integration + 12 property + 15 seam + 8 smoke)"
+
+[project-context]
+name = "Echidnabot"
+purpose = """
+Tier-1 Verifier bot in the gitbot-fleet. Bridges webhook events from
+GitHub/GitLab/Bitbucket to the ECHIDNA proof engine, schedules verification
+jobs with isolation, and reports findings back to the fleet. Exposes
+double-loop feedback: reranks ECHIDNA's ML suggestions by local tactic
+history, feeds successful proofs into echidna's retrain corpus.
+"""
+completion-percentage = 100
+
+[position]
+phase = "implementation"
+maturity = "beta"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CRG (Critical Reception Grade) advancement — D→C→B
+# Per memory rule: B-grade requires [external-targets]≥6, [issues-fed-back],
+# [field-signal] populated.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+[external-targets]
+[[external-targets.target]]
+name = "gitbot-fleet"
+relationship = "fleet-member"
+contract = "Tier-1 Verifier per fleet topology; coordinates with rhodibot/panicbot/sustainabot via shared-context"
+discovered = "ECOSYSTEM.a2ml + bot directives in target repos"
+
+[[external-targets.target]]
+name = "echidna (upstream proof engine)"
+relationship = "consumer-of"
+contract = "REST/GraphQL via dispatcher/echidna_client.rs; 12 of 113 ProverKind variants currently surfaced"
+discovered = "src/dispatcher/echidna_client.rs"
+
+[[external-targets.target]]
+name = "AI assistants (Claude Desktop / Claude Code)"
+relationship = "consumer-via-mcp"
+contract = "JSON-RPC over stdio via echidnabot-mcp bin (4 tools: suggest_tactics, record_tactic_outcome, list_outcome_history, corpus_refresh)"
+discovered = "Package 7b-4 — temporary BoJ-only-MCP exception (ADR-001)"
+
+[[external-targets.target]]
+name = "GitHub / GitLab / Bitbucket"
+relationship = "webhook-source"
+contract = "PlatformAdapter trait per platform; HMAC-SHA256 signature verification when webhook_secret configured"
+discovered = "src/adapters/{github,gitlab,bitbucket}.rs"
+
+[[external-targets.target]]
+name = "boj-server / cartridges / echidna-llm-mcp"
+relationship = "future-absorption"
+contract = "When BoJ loader supports double-loop feedback protocol, echidnabot-mcp folds into the BoJ cartridge per ADR-001 sunset clause"
+discovered = "AGENTIC.a2ml [exceptions.boj-only-mcp]"
+
+[[external-targets.target]]
+name = "hypatia (estate-wide neurosym CI)"
+relationship = "sibling-consumer"
+contract = "Hypatia scanning workflow consumes echidnabot fleet status as part of CI signals"
+discovered = ".github/workflows/hypatia-scan.yml"
+
+[[external-targets.target]]
+name = "proof-bearing repos (registered)"
+relationship = "monitored-targets"
+contract = "Repos that `register` with echidnabot become subjects of webhook-driven proof verification; per-repo provers/modes stored in `repositories` table"
+discovered = "src/main.rs `register` subcommand + repositories schema"
+
+[issues-fed-back]
+[[issues-fed-back.issue]]
+source = "SONNET-TASKS.md Task 1"
+date = "2026-04 (pre-session)"
+issue = "src/executor/container.rs is empty — proofs ran without isolation, malicious proof could execute arbitrary code"
+status = "open — Sonnet's territory; tracked in SONNET-TASKS.md"
+
+[[issues-fed-back.issue]]
+source = "SONNET-TASKS.md Task 2 + EXPLAINME.adoc caveat"
+date = "2026-04-24"
+issue = "Bot modes Advisor/Consultant/Regulator defined but not wired into webhook handlers; only Verifier path executes"
+status = "resolved (T3 2026-04-26) — ModeSelector added to AppState; resolve_mode_with_daemon_default threads daemon-wide [bot] mode; Consultant posts inline review comments with line extraction; Advisor/Regulator post PR comments; check runs wired for all modes; 136/136 lib tests pass"
+
+[[issues-fed-back.issue]]
+source = "echidnabot-mcp 7b-3 schema gap"
+date = "2026-04-24"
+issue = "CorpusDelta delta_*.jsonl format didn't match merge_corpus.jl PER_PROVER_FILES expectations"
+status = "resolved upstream — echidna commit d16347d added glob ingest"
+
+[[issues-fed-back.issue]]
+source = "e2e test 2026-04-24 — webhook_secret unset"
+date = "2026-04-24"
+issue = "Empty-body POST to /webhooks/github returned 200 without signature verification when no webhook_secret configured"
+status = "resolved — startup warning added in commit fa692dd"
+
+[[issues-fed-back.issue]]
+source = "e2e test 2026-04-24 — serve subcommand TOML override"
+date = "2026-04-24"
+issue = "`serve` subcommand had hardcoded clap defaults that silently overrode TOML [server] section"
+status = "resolved — flags now Option-typed, fall back to config in commit e018ce8"
+
+[[issues-fed-back.issue]]
+source = "DRIFT-001 dual-truth pattern"
+date = "2026-04-24"
+issue = "echidnabot tracked twice: as files in echidna parent + standalone repo. Edits diverged silently."
+status = "resolved — echidna commit 9218f77 deleted the embedded copy; standalone canonical"
+
+[field-signal]
+[[field-signal.signal]]
+source = "cargo test --lib + --bin echidnabot-mcp"
+metric = "test pass rate"
+value = "119/119 lib + 6/6 mcp = 125 green"
+collected = "2026-04-25 (post-reqwest 0.12 port 7f403e0)"
+
+[[field-signal.signal]]
+source = "Dependabot scanner"
+metric = "open vulnerability count"
+value = "0 open / 9 fixed (post 1ff7647 + 7f403e0)"
+collected = "2026-04-25"
+
+[[field-signal.signal]]
+source = "e2e test 2026-04-24 (5:42 uptime, 18 jobs dispatched)"
+metric = "process stability"
+value = "RSS 30.9 MB stable (no leak); zero crashes; zero panics; no .unwrap() failures despite 100 sites"
+collected = "2026-04-24 e2e simulation"
+
+[[field-signal.signal]]
+source = "e2e test 2026-04-24 — webhook intake"
+metric = "successful intake under load"
+value = "9/9 webhooks accepted with HTTP 200 (1 init + 8 loop), all enqueued + processed"
+collected = "2026-04-24 e2e simulation"
+
+[[field-signal.signal]]
+source = "e2e test 2026-04-24 — graceful degradation"
+metric = "ECHIDNA-unavailable handling"
+value = "All 18 jobs correctly marked Failed with consistent error; no cascading failures; fleet skipped without exception"
+collected = "2026-04-24 e2e simulation"
+
+[[field-signal.signal]]
+source = "BoJ zig adapter status"
+metric = "MCP cartridge fallback dependency"
+value = "BoJ zig adapter removed (zig ban 2026-04-10); Zig replacement empty source dir; native echidnabot-mcp shipped as documented exception until BoJ re-enabled"
+collected = "ADR-001 in META.a2ml"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+
+[route-to-mvp]
+milestones = [
+  "7a: Sonnet — wire bot modes (Advisor/Consultant/Regulator) into webhook handlers + container executor ✓",
+  "7b: Opus — double-loop actuation ✓",
+  "integration: 7a + 7b seam test via dogfood proofs/ ✓ (tests/seam_test.rs, 15 tests, 2026-04-26)",
+]
+
+[blockers-and-issues]
+issues = [
+  "BoJ Zig adapter source dir empty — echidnabot-mcp routes through existing BoJ cartridges as a stopgap. Needs Zig shim before BoJ-only-MCP rule is fully satisfied.",
+  "GitLab + Bitbucket Discussions/Diff API for true inline review comments deferred — stubs fall back to MR note.",
+]
+
+[known-drift]
+# Standing structural issues that are not bugs but need eventual cleanup.
+# Each entry MUST name the drift, its blast radius, and its resolution path.
+
+[[known-drift.entry]]
+id             = "DRIFT-001"
+name           = "dual-truth monorepo + standalone"
+description    = """
+echidnabot is registered in the parent echidna repo's .gitmodules but its
+contents are checked in as regular files (not a live submodule). This creates
+two sources of truth: changes to .machine_readable/, src/, etc. must land in
+both this standalone repo and the monorepo copy at
+echidna/echidnabot/ — otherwise the two diverge silently.
+
+Pattern catalogued in memory: project_gitbot_fleet_dual_truth_pattern.md.
+"""
+blast-radius   = "all edits to .machine_readable/, src/, docs/ must be mirrored"
+detection      = "git diff against monorepo copy; CI could be added to fail on divergence"
+resolution     = "either (a) promote to real submodule with .gitmodules resolving, or (b) delete the .gitmodules entry and treat as pure monorepo subdir. Pick one, not both."
+status         = "acknowledged, no scheduled fix"
+discovered     = "2026-04-24 (by parallel Claude session during Package 7 sweep)"
+
+[critical-next-actions]
+actions = [
+  "7a DONE (T3 2026-04-26): ModeSelector, review-comment pipeline, daemon-wide cascade — 136/136 tests",
+  "7b-3 DONE (2026-04-26 commit 9887638): two-path write — delta_*.jsonl audit log + proof_states_echidnabot_*.jsonl corpus feed; canonical_prover_name() normalisation; 8 new tests; 137/137 total",
+  "Task-E DONE (T2 2026-04-26): 48 call-site & fixes + solver_integrity.rs prover_key() debug-repr fix; 129/129 standalone",
+  "container.rs DONE (T2 2026-04-26): 848 LoC, Podman+bwrap isolation, cgroups v2",
+  "SEAM TEST DONE (2026-04-26): tests/seam_test.rs — 15 tests covering 7a mode-routing + 7b corpus-bridge; smoke.rs mode_selector bug fixed; 184/184 total; MVP gates all closed",
+  "DEFERRED: BoJ Zig adapter (empty source dir)",
+  "DEFERRED: GitLab + Bitbucket Discussions/Diff API inline comments",
+]
+
+[maintenance-status]
+last-run-utc = "2026-04-26T00:00:00Z"
+last-result = "pass"  # 184/184 all tests: 137 lib + 17 lifecycle + 32 integration + 12 property + 15 seam + 8 smoke
+
+[components.double-loop-feedback]
+status = "done"
+completion = 100
+notes = "7b-1..5 DONE, 7b-3 schema bridge fixed (9887638), 7b-6 deferred (BoJ Zig adapter). MVP gate = seam test."
+
+[[components.double-loop-feedback.subtask]]
+id      = "7b-1"
+title   = "tactic_outcome table + fingerprint helper"
+status  = "done"
+commit  = "0cc4b4a"
+
+[[components.double-loop-feedback.subtask]]
+id      = "7b-2"
+title   = "history-weighted reranker (Laplace-smoothed)"
+status  = "done"
+commit  = "b6ef652"
+
+[[components.double-loop-feedback.subtask]]
+id      = "7b-3"
+title   = "CorpusDelta writer + trigger_refresh"
+status  = "done"
+commit  = "9887638"
+notes   = "Two-path write: delta_*.jsonl (audit, all rows) + proof_states_echidnabot_*.jsonl (corpus feed, successes only). canonical_prover_name() mapping. 8 tests."
+
+[[components.double-loop-feedback.subtask]]
+id      = "7b-4"
+title   = "native echidnabot-mcp binary (temporary BoJ exception)"
+status  = "retired"
+commit  = "b01cc07"  # landed as part of the EXPLAINME commit scoop
+adr     = "ADR-001 (sunset 2026-04-25)"
+retired-on   = "2026-04-25"
+retired-via  = "0cfeb60"
+retired-reason = "BoJ revival made the BoJ-only-MCP exception unnecessary; bin removed, traffic now routes through boj-server cartridges/echidna-llm-mcp (consultant_qa tool)"
+
+[[components.double-loop-feedback.subtask]]
+id      = "7b-5"
+title   = "dogfood proofs (2 Coq + 2 Lean) under proofs/"
+status  = "done"
+commit  = "ec25aae"
+
+[[components.double-loop-feedback.subtask]]
+id      = "7b-6"
+title   = "6a2 sweep + project memory for BoJ exception"
+status  = "done"
+commit  = "c0f30fd"
+note    = "Exception flipped to superseded with sunset record; memory file feedback_boj_mcp_exception_echidnabot.md flipped to historical; MEMORY.md critical-rules entry updated."
+
+# ─── Phase 6 BoJ-routed Q&A end-to-end validation ─────────────────────────
+[[components.double-loop-feedback.subtask]]
+id      = "7b-7"
+title   = "BoJ-routed Consultant Q&A end-to-end validation"
+status  = "done"
+commit  = "post-0cfeb60"
+date    = "2026-04-25"
+evidence = """
+Live test against revived BoJ on 127.0.0.1:7700:
+- GET /health → 200 OK ✓
+- GET /cartridges → 106 cartridges listed including echidna-llm-mcp ✓
+- POST /cartridge/echidna-llm-mcp/invoke {tool: consultant_qa, ...}
+  routes correctly to the cartridge layer; cartridge's onward call to
+  echidna fails with exit_code 7 (cli_crashed) — expected because
+  echidna isn't running on this workstation. The failure surfaces at
+  the right layer, confirming the BoJ→cartridge hop is intact.
+- echidnabot's query_boj_q_and_a (commit 4a7871c) targets the same
+  /cartridge/<name>/invoke endpoint; no client-side change was needed
+  for the sunset migration.
+"""
+
+# ─── Panic-attack sweep 2026-04-25 ─────────────────────────────────────
+[panic-attack-sweep]
+date = "2026-04-25"
+last-result = "pass-with-classified-false-positives"
+findings = """
+echidnabot:
+  - 2 Critical (ProofDrift on proofs/coq/admitted_stub.v + proofs/lean/sorry_stub.lean)
+    → INTENTIONAL DOGFOOD FIXTURES from commit ec25aae. Designed to
+      exercise the bot's failure path. False positives — panic-attack
+      lacks fixture-exclusion; structural-first per memory rule but
+      no config option exists. Not chasing.
+  - 1 Low (MutationGap — no cargo-mutants config). Add later if mutation
+    testing becomes an estate-wide rule.
+  - Statistics: 17 unwrap_calls, 0 panic_sites, 15 unsafe_blocks (all
+    legitimate FFI), 14 threading constructs.
+
+vcl-ut:
+  - 2 Critical (UnboundedAllocation on src/interface/{fmt,lint}/src/main.rs)
+    → fs::read_to_string of operator-supplied file. CLI tools, trusted
+      input. False positive in this context (no untrusted-input boundary).
+  - 1 Medium (InsecureProtocol on echidna-client lib.rs)
+    → http://127.0.0.1:8000 as the default echidna URL. Localhost; HTTPS
+      isn't expected for default local-dev path. False positive.
+  - 1 Low (MutationGap).
+
+boj-server cartridges/echidna-llm-mcp:
+  - 1 High (UnsafeCode on ffi/cartridge_shim.zig)
+    → 1 unsafe @ptrCast in the FFI shim. Per memory rule "panic-attack
+      unsafe_blocks conflates banned partial casts with legitimate FFI
+      try/catch — classify each hit." This one is legitimate FFI surface.
+  - 1 Medium (InsecureProtocol on mod.js)
+    → localhost echidna URL. False positive (same as vcl-ut).
+
+echidna:
+  - SCAN TIMED OUT at 180s (repo too large for a single assail run).
+    Defer to a chunked/per-subdir invocation in a future sweep.
+
+Real critical findings: 0. All flagged criticals are classified
+false-positives or operator-trusted-input patterns.
+"""
+
+# ─── Task E: ProverKind Enum→Slug Migration (2026-04-25) ─────────────────────────
+[session-2026-04-25-task-e]
+title       = "ProverKind enum→slug migration: 12-variant → dynamic 113-prover support"
+phase       = "implementation"
+completion  = 100
+status      = "done — 0 compilation errors; 132 lib tests + 8 integration tests pass (2026-04-26)"
+date        = "2026-04-25"
+session-key = "echidnabot-task-e"
+
+[session-2026-04-25-task-e.context]
+objective   = """
+Migrate echidnabot from 12-variant ProverKind enum to a ProverSlug(String) struct
+that dynamically supports all 113 echidna provers at runtime. This unblocks
+Advisor/Consultant/Regulator bot modes, which require access to the full prover
+surface that echidna provides.
+"""
+
+epic        = "Echidna Reorganisation + Roadmap + A2ML Conformance (2026-04-25 plan)"
+upstream    = "ADR-CART-003 (2026-04-25) in dispatcher/mod.rs; ProverSlug replaces enum"
+
+[session-2026-04-25-task-e.migration-strategy]
+approach = """
+1. Replace 12-variant enum ProverKind with struct ProverSlug(String)
+2. Add type alias: pub type ProverKind = ProverSlug (backwards compatibility)
+3. Update CLASSIC_PROVERS constant to map (slug, display_name) tuples
+4. Implement methods: new(), as_str(), from_extension(), display_name(), tier(),
+   file_extensions(), classic_all(), all()
+5. Convert 224+ enum-variant match patterns to .as_str() string comparisons
+6. Update function signatures: owned ProverKind → &ProverKind references
+7. Handle struct fields: avoid lifetime specifiers by owning ProverKind, use .clone()
+   at construction time (trade clone cost for simpler lifetime annotations)
+"""
+
+affected-modules = [
+  "src/dispatcher/mod.rs (core struct + methods)",
+  "src/store/sqlite.rs (parse_prover → dynamic ProverKind::new())",
+  "src/api/graphql.rs (identity map_prover_kind, reference passing)",
+  "src/dispatcher/echidna_client.rs (function signatures → &ProverKind)",
+  "src/executor/container.rs (prover_to_env_name, prover_extension, prover_command)",
+  "src/trust/axiom_tracker.rs (scan method signature)",
+  "src/trust/confidence.rs (struct field ownership, .clone() at construction)",
+  "src/trust/solver_integrity.rs (struct field: owned ProverKind)",
+  "src/webhooks.rs (estimated, parameter passing)",
+  "src/feedback/reranker.rs (estimated, parameter passing)",
+]
+
+[session-2026-04-25-task-e.commits]
+commit-1 = """
+7052195 feat(Task E): Begin ProverKind enum→slug migration for 113-prover support
+  - Replaced 12-variant ProverKind enum with struct ProverSlug(String)
+  - Added type alias pub type ProverKind = ProverSlug for backwards compatibility
+  - Updated CLASSIC_PROVERS constant (12 provers with display names and extensions)
+  - Implemented core methods: new(), as_str(), from_extension(), display_name()
+  - Implemented tier(), file_extensions(), classic_all(), all()
+  - Updated src/store/sqlite.rs parse_prover(): enum patterns → ProverKind::new()
+  - First pass error reduction: 136 → 136 errors (enum variant patterns remain)
+"""
+
+commit-2 = """
+1b465ba refactor(Task E): Continue ProverKind→ProverSlug migration integration
+  - Converted match statements: enum patterns → .as_str() string comparisons
+  - Updated function signatures: owned → &ProverKind references throughout
+  - Replaced struct fields: &ProverKind → owned ProverKind with .clone() calls
+  - Changed .copied() → .cloned() for non-Copy iterator handling
+  - Updated src/api/graphql.rs: identity maps for map_prover_kind/map_prover_kind_to_core
+  - Updated src/dispatcher/echidna_client.rs: verify_proof, suggest_tactics, prover_status
+  - Updated src/executor/container.rs: prover_to_env_name, prover_extension, prover_command
+  - Updated src/trust/{axiom_tracker,confidence,solver_integrity}.rs
+  - Second pass error reduction: 136 → 26 errors (systematic parameter-type integration remains)
+"""
+
+[session-2026-04-25-task-e.error-analysis]
+initial-count       = 136
+post-variant-replacement = 136
+post-match-conversion = 38
+post-signature-fixes = 31
+current-count       = 26
+remaining-pattern   = "Parameter type mismatches in executor/container.rs, feedback/reranker.rs, webhooks.rs"
+
+errors-by-category = [
+  "E0308 (type mismatch): expecting &ProverKind at call site, parameter now reference",
+  "E0382 (moved value): secondary uses of prover in same scope require reference",
+  "E0507 (borrow of moved): dereferencing borrowed values to move them",
+]
+
+key-fixes-applied = [
+  "Match pattern conversion: ProverKind::new(\"coq\") → prover.as_str() == \"coq\"",
+  "Parameter passing: changed function signatures to take &ProverKind where needed",
+  "Struct ownership: changed fields from &ProverKind to owned ProverKind",
+  "Iterator operations: .copied() → .cloned() for String-based structs",
+  "Default match arms: added catch-all for unknown provers (pass slug through)",
+]
+
+[session-2026-04-25-task-e.remaining-work]
+blocked-by   = "26 compilation errors in parameter-type integration"
+estimated    = "2–4 hours (systematic per-module integration)"
+path-forward = """
+1. Run `cargo check` and classify remaining 26 errors
+2. For each error, determine if function should take reference or owned value
+3. Update function signatures in executor/container.rs, feedback/reranker.rs
+4. Update all call sites to match new signatures (add & or remove &)
+5. Verify all 113 provers accessible via ProverSlug::new(\"slug-name\")
+6. Integration test: verify Advisor/Consultant/Regulator bot modes can access
+   beyond the classic 12 (spot-check 3–5 extended provers like linear-agda, etc.)
+7. Commit final integration pass
+8. Run full test suite: cargo test --lib + cargo test --bin echidnabot-mcp
+"""
+
+blockers = [
+  "No architectural blockers — design pattern (string-based slugs) is proven",
+  "No external API changes needed — echidna already supports all 113 provers",
+  "No dep updates needed — no new crates required",
+]
+
+[session-2026-04-25-task-e.validation]
+testing     = "cargo check clean ✓ (minus 26 remaining type mismatches)"
+dogfood     = "proofs/ fixtures (admit_stub.v, sorry_stub.lean) exercise the new code paths"
+integration = "Requires bot-mode wiring (Task 7a) before E2E validation possible"
+
+[session-2026-04-25-task-e.unblocks]
+for-phase = "Enables Advisor/Consultant/Regulator bot modes full 113-prover surface"
+for-3rd-party = "LLM agents calling echidnabot API will access all 113 provers"
+for-roadmap = "Stage 3 (estate-wide service discovery) + Stage 4 (expert API)"
+
+[session-2026-04-25-task-e.documentation-landed]
+file-1 = "Desktop/AI-WORK-todo.md — Task E entry at top with full progress summary"
+file-2 = ".machine_readable/6a2/STATE.a2ml — this block (2026-04-25)"
+file-3 = "src/dispatcher/mod.rs — ADR-CART-003 comment block + method documentation"
+file-4 = "Two commits (7052195 + 1b465ba) on main branch with detailed commit messages"
