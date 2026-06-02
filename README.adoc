@@ -110,7 +110,7 @@ But your CI pipeline does not understand proofs:
 
 * **Observability** -- No Prometheus metrics endpoint or OpenTelemetry tracing
 * **Rate limiting** -- Webhook endpoints accept unlimited requests
-* **Deployment automation** -- No Docker Compose, Kubernetes manifests, or Helm charts
+* **Deployment automation** -- Compose stack landed (issue #60, see <<Deployment>>); Kubernetes manifests and Helm charts still TODO
 * **Pre-built prover images** -- Container startup requires prover binaries in the image
 * **Trust bridge not wired into main pipeline** -- Trust modules exist but are not yet called from the scheduler loop
 
@@ -386,6 +386,23 @@ JSON output looks roughly like:
 ----
 {"timestamp":"2026-06-01T12:34:56.789Z","level":"INFO","fields":{"message":"Listening on http://0.0.0.0:8080"},"target":"echidnabot"}
 ----
+
+== Deployment
+
+A reproducible Compose-based local + CI stack (PostgreSQL + echidnabot,
+plus an optional canned-JSON ECHIDNA stub under `--profile dev`) ships
+with the repo. Quickstart:
+
+[source,bash]
+----
+cp .env.example .env && $EDITOR .env
+docker compose up -d                       # core stack
+docker compose --profile dev up -d         # + echidna-server stub
+----
+
+Full details — service topology, healthchecks, validation, CI integration,
+and current limitations — live in link:docs/deployment.adoc[`docs/deployment.adoc`]
+(closes issue #60).
 
 == Development
 

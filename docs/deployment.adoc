@@ -1,0 +1,262 @@
+// SPDX-License-Identifier: MPL-2.0
+// SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell (hyperpolymath)
+
+= echidnabot Deployment Guide
+:toc: macro
+:toclevels: 3
+:source-highlighter: pygments
+
+_Quickstart for the Compose-based local + CI deployment stack (issue #60)._
+
+toc::[]
+
+== Overview
+
+This document covers the Compose-based deployment of echidnabot —
+a reproducible local-dev / CI-smoke stack that brings up:
+
+* `postgres` — PostgreSQL 16 (alpine) persistence layer
+* `echidnabot` — the bot itself, built from the root `Containerfile`
+* `echidna-server` — _optional_ canned-JSON stub of the ECHIDNA REST API,
+  enabled under `--profile dev`
+
+Per estate policy the file is `compose.yml` (Compose v2 canonical name),
+omits the deprecated top-level `version:` key, and works with both
+`docker compose` and `podman-compose`.
+
+NOTE: This stack is sized for development + CI smoke. Production deployment
+recommendations (HA Postgres, secrets management, ingress, observability)
+are out of scope here — see `ROADMAP.adoc` "Deployment" section for the
+remaining work.
+
+== Prerequisites
+
+* Docker 24+ with the `compose` plugin (`docker compose version` ≥ v2.20),
+  OR Podman 4+ with `podman-compose`
+* ~2 GB free disk for the Postgres image + Rust build cache
+* No host port conflicts on 8080 (echidnabot)
+
+== Quickstart
+
+[source,bash]
+----
+# 1. Clone + branch (replace with your fork if you're contributing)
+git clone https://github.com/hyperpolymath/echidnabot.git
+cd echidnabot
+
+# 2. Configure environment (copy the template, edit secrets)
+cp .env.example .env
+$EDITOR .env
+
+# 3. Bring up the core stack (postgres + echidnabot)
+docker compose up -d
+
+# 4. Verify
+docker compose ps
+docker compose logs -f echidnabot
+curl -s http://127.0.0.1:8080/health
+----
+
+To also bring up the canned-JSON ECHIDNA stub (no real prover orchestrator
+needed for end-to-end smoke):
+
+[source,bash]
+----
+docker compose --profile dev up -d
+curl -s http://127.0.0.1:9100/api/provers   # only if you publish that port
+----
+
+The stub is on the internal Compose network only — it's reached by
+echidnabot via DNS name `echidna-server:9100`.
+
+== Stack overview
+
+[cols="1,2,2"]
+|===
+|Service |Image |Notes
+
+|`postgres`
+|`docker.io/library/postgres:16-alpine`
+|Pinned major; named volume `pgdata` for persistence. Port NOT
+exposed to host by default — uncomment the `ports:` block in
+`compose.yml` to publish.
+
+|`echidnabot`
+|Built from `./Containerfile`, tagged `ghcr.io/hyperpolymath/echidnabot:local`
+|Publishes `8080` to host (override via `ECHIDNABOT_HOST_PORT`).
+`depends_on: postgres` with health-condition gate.
+
+|`echidna-server`
+|`docker.io/library/caddy:2-alpine` + `contrib/echidna-stub/Caddyfile`
+|Optional, profile `dev` only. Canned 200/JSON on `/api/verify` and
+`/api/provers`; honest 501 on anything else so smoke tests fail loud.
+|===
+
+=== Network
+
+Single bridge network `echidnabot-net`. Services resolve each other
+by name: `postgres`, `echidnabot`, `echidna-server`.
+
+=== Volumes
+
+[cols="1,3"]
+|===
+|Name |Purpose
+
+|`pgdata`
+|Postgres data dir (mounted at `/var/lib/postgresql/data`). Survives
+`docker compose down`; wipe with `docker compose down -v`.
+|===
+
+Migrations under `./migrations/` are bind-mounted read-only into
+`/docker-entrypoint-initdb.d/` on the Postgres service. The Postgres
+official image only runs init scripts on **first boot** (empty data
+dir); subsequent schema changes should land via sqlx-migrate at
+echidnabot startup once the PostgresStore backend is wired.
+
+== Configuration
+
+All configuration is driven through `.env` (see `.env.example` for
+the full template). Highlights:
+
+[cols="1,2"]
+|===
+|Variable |Meaning
+
+|`POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB`
+|Credentials for the Postgres service. The defaults are obviously fake
+(`changeme`) — replace before any non-local use.
+
+|`DATABASE_URL`
+|sqlx-compatible Postgres URL. Default points at the in-stack
+`postgres` service.
+
+|`ECHIDNA_API_URL` / `ECHIDNABOT__ECHIDNA__REST_ENDPOINT`
+|Where echidnabot's dispatcher POSTs verification requests. Defaults to
+the in-stack stub (`echidna-server:9100`).
+
+|`GITHUB_APP_ID` / `GITHUB_APP_PRIVATE_KEY_PATH` / `GITHUB_WEBHOOK_SECRET`
+|Optional. Leave commented for a no-platform smoke; uncomment to wire
+the GitHub adapter.
+
+|`OTEL_EXPORTER_OTLP_ENDPOINT`
+|Optional. Points at a local Jaeger / Tempo / OTel collector. Consumed
+by the OpenTelemetry path landing in PR #65.
+
+|`RUST_LOG`
+|Standard `tracing` filter (`info`, `echidnabot=debug`, etc.).
+|===
+
+== Common operations
+
+=== Apply schema manually
+
+The first-boot init runs `migrations/*.sql` automatically. To re-apply
+against an existing DB (idempotent — uses `IF NOT EXISTS`):
+
+[source,bash]
+----
+docker compose exec -T postgres \
+    psql -U "${POSTGRES_USER:-echidnabot}" -d "${POSTGRES_DB:-echidnabot}" \
+    < migrations/20260602000001_initial_schema.sql
+----
+
+=== Inspect Postgres
+
+[source,bash]
+----
+docker compose exec postgres \
+    psql -U "${POSTGRES_USER:-echidnabot}" -d "${POSTGRES_DB:-echidnabot}"
+----
+
+=== Tail logs
+
+[source,bash]
+----
+docker compose logs -f                  # all services
+docker compose logs -f echidnabot       # just the bot
+----
+
+=== Rebuild echidnabot after a code change
+
+[source,bash]
+----
+docker compose build echidnabot
+docker compose up -d echidnabot
+----
+
+=== Tear down
+
+[source,bash]
+----
+docker compose down                     # stop + remove containers, keep volumes
+docker compose down -v                  # also wipe pgdata
+----
+
+== Validation
+
+Validate the compose file syntax + interpolation without launching anything
+(requires a `.env` file — copy from `.env.example` first):
+
+[source,bash]
+----
+cp .env.example .env                        # one-time
+docker compose config                       # core stack
+docker compose --profile dev config         # including stub
+podman-compose config                       # Podman path
+----
+
+== Health checks
+
+Every service has a healthcheck:
+
+* `postgres` — `pg_isready` every 5 s, ready after ~10 s
+* `echidnabot` — `/health` over `/dev/tcp` every 10 s, ready after ~20 s
+* `echidna-server` — `wget --spider /health` every 10 s
+
+`echidnabot.depends_on.postgres` uses `condition: service_healthy` so
+the bot won't start until Postgres accepts connections.
+
+== CI integration
+
+GitHub Actions can drive this stack directly:
+
+[source,yaml]
+----
+- name: Bring up stack
+  run: docker compose --profile dev up -d --wait
+
+- name: Smoke test
+  run: |
+    curl -fsS http://127.0.0.1:8080/health
+    docker compose exec -T postgres \
+        psql -U echidnabot -d echidnabot -c '\dt'
+
+- name: Tear down
+  if: always()
+  run: docker compose --profile dev down -v
+----
+
+The `--wait` flag blocks until every service reaches `healthy`, which
+removes the need for ad-hoc `sleep` calls.
+
+== Limitations / out of scope
+
+* **PostgresStore not yet wired**: the runtime currently uses the
+  SQLite backend (`src/store/sqlite.rs`). Adding `src/store/postgres.rs`
+  + an sqlx feature toggle is a separate piece of work; this stack
+  provisions Postgres so that work can land cleanly on top.
+* **No Kubernetes / Helm**: out of scope for issue #60. Tracked in
+  `ROADMAP.adoc` "Deployment" section.
+* **No pre-built prover images**: the `echidna-server` service here is
+  a stub, not a real prover orchestrator. Pre-built prover images are
+  a separate (gated) roadmap item.
+
+== See also
+
+* `compose.yml` — the stack definition
+* `Containerfile` — the echidnabot image build
+* `.env.example` — environment template
+* `migrations/` — initial PostgreSQL schema
+* `contrib/echidna-stub/` — canned-JSON ECHIDNA REST stub for `--profile dev`
+* `ROADMAP.adoc` — the broader deployment roadmap (issue #60 origin)

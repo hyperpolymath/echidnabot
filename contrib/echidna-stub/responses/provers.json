@@ -1,0 +1,11 @@
+{
+  "provers": [
+    { "kind": "coq",      "tier": 1, "available": true },
+    { "kind": "lean4",    "tier": 1, "available": true },
+    { "kind": "agda",     "tier": 1, "available": true },
+    { "kind": "isabelle", "tier": 1, "available": true },
+    { "kind": "z3",       "tier": 1, "available": true },
+    { "kind": "cvc5",     "tier": 1, "available": true }
+  ],
+  "note": "stubbed response — echidna-server profile=dev"
+}

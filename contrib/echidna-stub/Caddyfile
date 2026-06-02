@@ -1,0 +1,50 @@
+# SPDX-License-Identifier: MPL-2.0
+# Canned-JSON stub of the ECHIDNA REST API. Enabled only under the
+# Compose `--profile dev` so production stacks don't accidentally
+# route real traffic through it. See compose.yml.
+
+{
+	# Quiet down — this is a smoke-test stub, not a production service.
+	admin off
+	auto_https off
+}
+
+:9100 {
+	# Liveness for Compose health check.
+	respond /health 200 {
+		body "ok"
+		close
+	}
+
+	# Top-level service info — mirrors echidnabot's own GET /.
+	respond / 200 {
+		body `{"service":"echidna-stub","note":"canned JSON for --profile dev only"}`
+		close
+	}
+
+	# Canned 200 + JSON for /api/verify. Real ECHIDNA returns a richer
+	# payload; this is enough to keep the dispatcher's happy path green.
+	handle /api/verify {
+		header Content-Type application/json
+		rewrite * /verify.json
+		file_server {
+			root /srv/responses
+		}
+	}
+
+	# /provers — list of supported provers (canned).
+	handle /api/provers {
+		header Content-Type application/json
+		rewrite * /provers.json
+		file_server {
+			root /srv/responses
+		}
+	}
+
+	# Fallback — any other ECHIDNA endpoint returns an honest 501 so
+	# the smoke test fails loudly on unimplemented routes rather than
+	# silently masking dispatcher bugs.
+	handle {
+		respond "stub: endpoint not implemented" 501
+	}
+}
