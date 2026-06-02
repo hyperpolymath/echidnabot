@@ -1,0 +1,164 @@
+# SPDX-License-Identifier: PLMP-1.0-or-later
+# Bustfile — breakage / rollback contract for echidnabot
+#
+# When a build, test, container, dispatch, webhook, or migration goes
+# wrong, this file declares the recovery sequence. Each scenario has
+# an error code, a probe to detect it, and a recovery recipe.
+# Run with: just bust-check
+# Error-code namespace: B###
+
+version: 1
+
+metadata:
+  name: echidnabot-bust-contract
+  spec: v0.1.0
+  description: "Breakage rollback for Rust build, sqlx migrations, container, dispatch, observability, webhooks."
+
+# ── Build-Bust ─────────────────────────────────────────────────────────
+
+build:
+
+  - name: B001-cargo-build-broken
+    description: "cargo build fails after dep update or upstream API change."
+    severity: critical
+    probe: "! cargo build --offline 2>&1 | grep -q 'error\\['"
+    recovery: "just bust-cargo-cache && cargo build"
+    escalation: "git revert <last-dep-bump>; cargo update -p <crate> --precise <known-good>"
+
+  - name: B002-shared-context-path-broken
+    description: "Cargo build fails on missing ../../shared-context (echidnabot lives in gitbot-fleet)."
+    severity: high
+    probe: "cargo check --offline 2>&1 | grep -q 'failed to read .*shared-context'"
+    recovery: "Build from gitbot-fleet/bots/echidnabot/ where the relative path resolves."
+    escalation: "see [[feedback_echidnabot_src_abi_namespace_intentional]] for the dual-tree story."
+
+  - name: B003-edition-mismatch
+    description: "let-chain or other edition-2024 syntax in edition-2021 file."
+    severity: high
+    probe: "cargo build 2>&1 | grep -q 'experimental.*let.*chain'"
+    recovery: "Bump Cargo.toml `edition = \"2024\"` OR rewrite the syntax to edition-compatible form."
+
+# ── Test-Bust ──────────────────────────────────────────────────────────
+
+tests:
+
+  - name: B010-cargo-test-broken
+    description: "cargo test --lib regression after change."
+    severity: critical
+    probe: "! cargo test --lib --offline 2>&1 | grep -q 'test result: ok'"
+    recovery: "git bisect run cargo test --lib; revert offending commit."
+
+  - name: B011-property-test-shrink-too-slow
+    description: "tests/property_tests.rs proptest shrinking blows past timeout."
+    severity: low
+    probe: "cargo test --tests --offline 2>&1 | grep -q 'shrinking'"
+    recovery: "Lower PROPTEST_CASES env (e.g. 64); investigate the offending invariant offline."
+
+  - name: B012-webhook-e2e-broken
+    description: "tests/webhook_e2e_test.rs fails (signature verification / payload decode)."
+    severity: high
+    probe: "! cargo test --test webhook_e2e_test --offline 2>&1 | grep -q 'test result: ok'"
+    recovery: "Check signature header (X-Hub-Signature-256, X-Gitlab-Token, X-Gitea-Signature) routing in src/api/webhooks.rs."
+
+# ── Container-Bust ─────────────────────────────────────────────────────
+
+container:
+
+  - name: B020-containerfile-build-broken
+    description: "podman build -f Containerfile fails."
+    severity: warning
+    probe: "! podman build -f Containerfile -q . 2>&1 | tail -3 | grep -qE 'sha256:[0-9a-f]'"
+    recovery: "podman system prune -af; rebuild."
+    escalation: "check Chainguard base tag drift; stapeln.toml layer cache invalidation."
+
+  - name: B021-compose-stack-broken
+    description: "docker compose / podman-compose up fails on compose.yml."
+    severity: warning
+    probe: "podman-compose config 2>&1 | grep -q 'error'"
+    recovery: "podman-compose down -v; clear pgdata volume; up fresh."
+    escalation: "check echidnabot#69 compose.yml syntax against current Compose v2 spec."
+
+# ── DB-Bust ────────────────────────────────────────────────────────────
+
+database:
+
+  - name: B030-sqlx-migration-failure
+    description: "sqlx migrate run failed mid-transaction."
+    severity: critical
+    probe: "manual — sqlx logs"
+    recovery: "sqlx migrate revert; fix the offending migration locally; sqlx migrate run again."
+    escalation: "if DB state corrupt: restore from backup; never force-apply a broken migration."
+
+  - name: B031-postgres-conn-drop
+    description: "Postgres connection pool exhausted / dropped."
+    severity: medium
+    probe: "grep -q 'PoolTimedOut\\|pool exhausted' /var/log/echidnabot*.log 2>/dev/null"
+    recovery: "Increase pool size in src/store/postgres.rs; check for connection leak in long-running query."
+
+  - name: B032-sqlite-locked
+    description: "SQLite database is locked (concurrent writer)."
+    severity: medium
+    probe: "grep -q 'database is locked' /var/log/echidnabot*.log 2>/dev/null"
+    recovery: "Ensure single-writer convention; switch to WAL mode if not already."
+
+# ── Dispatch-Bust ──────────────────────────────────────────────────────
+
+dispatch:
+
+  - name: B040-echidna-server-unreachable
+    description: "Calls to echidna server fail (timeout / connection refused)."
+    severity: high
+    probe: "curl -sf --max-time 5 ${ECHIDNA_API_URL:-http://localhost:8081}/api/health >/dev/null"
+    recovery: "Check echidna server alive; check ECHIDNA_API_URL env; check network policy."
+    escalation: "fall back to graphql endpoint if REST down (echidna#188 added 3 new GraphQL ops)."
+
+  - name: B041-graphql-contract-mismatch
+    description: "GraphQL operations echidnabot client calls are absent from echidna server."
+    severity: high
+    probe: "echidna#180 surfaced this; current state: verifyProof + suggestTactics + proverStatus added in #188."
+    recovery: "Ensure echidna server is on commit >= 08771e64 (PR #188 merge)."
+
+  - name: B042-job-queue-stalled
+    description: "Job queue has > 100 pending items / scheduler not processing."
+    severity: high
+    probe: "src/scheduler/job_queue.rs depth metric"
+    recovery: "Increase scheduler concurrency; investigate backend slowness; check dispatch failure rate."
+
+# ── Observability-Bust ─────────────────────────────────────────────────
+
+observability:
+
+  - name: B050-otel-endpoint-unreachable
+    description: "OTLP exporter cannot reach OTEL_EXPORTER_OTLP_ENDPOINT."
+    severity: low
+    probe: "Check observability config; OTLP exporter errors in stderr."
+    recovery: "Unset OTEL_EXPORTER_OTLP_ENDPOINT to disable; spans still log via fmt layer."
+
+  - name: B051-graceful-shutdown-timeout
+    description: "Shutdown timeout fired with N in-flight jobs."
+    severity: low
+    probe: "grep -q 'graceful shutdown timeout' /var/log/echidnabot*.log"
+    recovery: "Increase ECHIDNABOT_SHUTDOWN_TIMEOUT_SECS env; investigate why jobs hang past 30s."
+
+# ── Repo-Bust ──────────────────────────────────────────────────────────
+
+repo:
+
+  - name: B060-bad-commit-on-main
+    description: "A known-bad commit is on origin/main."
+    severity: high
+    recovery: "git revert <SHA> on a fresh branch; PR; admin-merge."
+    escalation: "force-push to main is PROHIBITED without owner confirmation."
+
+  - name: B061-tag-points-at-wrong-sha
+    description: "A release tag was cut at the wrong commit."
+    severity: medium
+    recovery: "git tag -d <tag>; git push origin :refs/tags/<tag>; re-tag at correct SHA; push."
+    escalation: "notify any downstream consumers of the tag re-point."
+
+bust-escalation-ladder:
+  - 1. revert a single commit (low blast radius)
+  - 2. reset local workspace (no remote impact)
+  - 3. invalidate a specific cache (just bust-* recipes)
+  - 4. force-push to main — PROHIBITED without owner confirmation
+  - 5. registry-level (delete release tag, archive package version) — human-only
