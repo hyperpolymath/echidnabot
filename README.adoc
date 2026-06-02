@@ -108,7 +108,7 @@ But your CI pipeline does not understand proofs:
 
 === What Is Not Yet Implemented
 
-* **Observability** -- No Prometheus metrics endpoint or OpenTelemetry tracing
+* **Observability** -- Prometheus metrics endpoint at `/metrics` (basic counters); OpenTelemetry distributed tracing wired via OTLP — see <<enable-distributed-tracing>>
 * **Rate limiting** -- Webhook endpoints accept unlimited requests
 * **Deployment automation** -- Compose stack landed (issue #60, see <<Deployment>>); Kubernetes manifests and Helm charts still TODO
 * **Pre-built prover images** -- Container startup requires prover binaries in the image
@@ -208,6 +208,44 @@ Three trust mechanisms:
 1. **Confidence Levels (1-5):** Assess proof trust based on prover kernel size, certificate presence, and cross-checking count
 2. **Solver Integrity:** SHA-256 manifest verification of solver binaries with constant-time comparison
 3. **Axiom Tracking:** Detects `sorry`, `Admitted`, `postulate`, `oops`, `--type-in-type`, axiom of choice, classical axioms; 3-tier severity (unsound / warning / informational)
+
+[[enable-distributed-tracing]]
+=== Enable Distributed Tracing (OpenTelemetry)
+
+Spans propagate through the full pipeline -- webhook receipt -> dispatcher -> executor -> ECHIDNA call -> feedback publish -- and export to any OTLP-compatible collector (Jaeger, Tempo, Honeycomb, etc.) over gRPC.
+
+Two ways to configure the OTLP endpoint:
+
+. **Environment variable** (standard `OTEL_*` env):
++
+[source,sh]
+----
+export OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:4317"
+echidnabot serve
+----
+
+. **TOML config** (`echidnabot.toml`):
++
+[source,toml]
+----
+[observability]
+otlp_endpoint = "http://localhost:4317"
+service_name  = "echidnabot"   # used as service.name resource attr
+----
+
+The environment variable takes precedence over the TOML value. When neither is set, span data is not exported -- the local fmt-layer logs remain active.
+
+Resource attributes set on every span: `service.name`, `service.version` (from `CARGO_PKG_VERSION`).
+
+Instrumented operations:
+
+* `webhook.github` / `webhook.gitlab` / `webhook.bitbucket` -- payload bytes + event type + delivery id
+* `dispatch.job` -- platform, repo, commit, PR number, priority
+* `echidna.verify` / `echidna.suggest` / `echidna.status` -- prover slug + API mode
+* `executor.run` -- prover, isolation backend, proof bytes
+* `feedback.publish` -- prover, tactic, succeeded, source
+
+In-flight spans are flushed on clean process exit via `TracerShutdown::shutdown()` (called from `main`).
 
 == Installation
 

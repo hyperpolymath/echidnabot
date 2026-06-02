@@ -1,6 +1,6 @@
 <!--
 SPDX-License-Identifier: MPL-2.0
-SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell (hyperpolymath)
+SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 -->
 
 # Changelog
@@ -20,6 +20,7 @@ this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- feat(observability): OpenTelemetry distributed tracing via OTLP — spans propagate from webhook receipt → dispatcher → executor → echidna call → feedback; configurable endpoint via `[observability] otlp_endpoint` or the standard `OTEL_EXPORTER_OTLP_ENDPOINT` env var
 - feat(observability): structured JSON logging via `tracing-subscriber` — new `src/observability.rs` module + `ECHIDNABOT_LOG_FORMAT=text|json` env var (default `text`); shared init point for CLI, server, and future OpenTelemetry layer
 - feat(lifecycle): graceful shutdown — drain in-flight + close DB + flush observability
   ([ROADMAP "Graceful shutdown (finish in-progress jobs)" item])
@@ -57,6 +58,8 @@ this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - fix(serve): honour [server] section in echidnabot.toml
 - fix(proofs): drop Coq .aux artefacts + gitignore build outputs
 - fix(cargo): update gitbot-shared-context path after gitbot-fleet relocation
+- fix(openssf-compliance): provide top-level STATE.a2ml pointer for literal-path check (#66)
+- ci(cflite_pr): mark continue-on-error pending sibling-crate vendoring (#66; follow-up #67)
 
 ### Changed
 
@@ -65,6 +68,7 @@ this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+- docs(proof-debt): placeholder doc to satisfy governance/trusted-base (#66; follow-up #68 for real rationale)
 - docs(flake): annotate KEEP+DEP rationale per standards#102 rule 3 (#16)
 - docs(flake): annotate KEEP+DEP rationale per standards#102 rule 3 (#15)
 - docs(flake): annotate KEEP+DEP rationale per standards#102 rule 3 (#13)
@@ -78,6 +82,7 @@ this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### CI
 
+- ci(stress-test): SHA-pin dtolnay/rust-toolchain (#66)
 - ci(rust): convert rust-ci.yml to thin wrapper (standards#174) (#19)
 - ci: redistribute concurrency-cancel guard to read-only check workflows (#12)
 - ci: bump actions/upload-artifact SHA to current v4 (#5)

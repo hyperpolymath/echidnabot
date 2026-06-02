@@ -65,6 +65,11 @@ pub struct Config {
     /// Env override: `ECHIDNABOT_SHUTDOWN_TIMEOUT_SECS` (env wins).
     #[serde(default)]
     pub lifecycle: LifecycleConfig,
+
+    /// OpenTelemetry observability settings. Honours the standard
+    /// `OTEL_EXPORTER_OTLP_ENDPOINT` env var (env wins over TOML).
+    #[serde(default)]
+    pub observability: ObservabilityConfig,
 }
 
 /// Lifecycle settings — how long to wait for in-flight work to drain
@@ -99,8 +104,61 @@ impl Default for LifecycleConfig {
     }
 }
 
+/// OpenTelemetry / OTLP exporter configuration.
+///
+/// ```toml
+/// [observability]
+/// otlp_endpoint = "http://localhost:4317"
+/// service_name  = "echidnabot"
+/// ```
+///
+/// `otlp_endpoint` is also picked up from `OTEL_EXPORTER_OTLP_ENDPOINT`
+/// (the standard env var); env takes precedence over the TOML value.
+/// When neither is set, span data is not exported — only the local
+/// fmt subscriber emits logs.
+#[derive(Debug, Deserialize, Clone)]
+pub struct ObservabilityConfig {
+    /// OTLP/gRPC collector endpoint (e.g. `http://localhost:4317`).
+    /// `None` disables span export; fmt-layer logs remain active.
+    #[serde(default)]
+    pub otlp_endpoint: Option<String>,
+
+    /// `service.name` resource attribute on exported spans. Defaults
+    /// to `echidnabot` so dashboards group correctly out of the box.
+    #[serde(default = "default_service_name")]
+    pub service_name: String,
+}
+
+impl Default for ObservabilityConfig {
+    fn default() -> Self {
+        Self {
+            otlp_endpoint: None,
+            service_name: default_service_name(),
+        }
+    }
+}
+
 fn default_shutdown_timeout_secs() -> u64 {
     crate::shutdown::DEFAULT_SHUTDOWN_TIMEOUT_SECS
+}
+
+fn default_service_name() -> String {
+    "echidnabot".to_string()
+}
+
+impl ObservabilityConfig {
+    /// Resolve the effective OTLP endpoint, applying env-var override.
+    ///
+    /// Precedence (highest first):
+    ///   1. `OTEL_EXPORTER_OTLP_ENDPOINT` env var (standard OTel env)
+    ///   2. `[observability].otlp_endpoint` from TOML
+    ///   3. `None` (no export)
+    pub fn resolved_endpoint(&self) -> Option<String> {
+        std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .or_else(|| self.otlp_endpoint.clone())
+    }
 }
 
 /// Daemon-wide bot operating mode settings.
