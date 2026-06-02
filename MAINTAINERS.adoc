@@ -1,18 +1,26 @@
 // SPDX-License-Identifier: MPL-2.0
+// Copyright (c) 2025-2026 Jonathan D.A. Jewell <jonathan.jewell@open.ac.uk>
+
 = Maintainers
 :toc: preamble
 
-This document lists the maintainers of this project and their responsibilities.
+This document lists the maintainers of *echidnabot* and their
+responsibilities. For governance more broadly across the
+hyperpolymath estate see
+https://github.com/hyperpolymath/standards[hyperpolymath/standards].
 
 == Current Maintainers
 
-[cols="2,3,2",options="header"]
+[cols="2,3,3",options="header"]
 |===
 | Name | Role | Contact
 
 | Jonathan D.A. Jewell
-| Lead Maintainer
-| https://github.com/hyperpolymath[@hyperpolymath]
+| Lead Maintainer / BDFL
+a| * GitHub: https://github.com/hyperpolymath[@hyperpolymath]
+* Email: `jonathan.jewell@open.ac.uk`
+* Commit email: `6759885+hyperpolymath@users.noreply.github.com`
+* GPG fingerprint: `4A03639C 1EB1F86C 7F0C97A9 1835A14A 2867091E`
 |===
 
 == Responsibilities
@@ -21,27 +29,59 @@ Maintainers are responsible for:
 
 * Reviewing and merging pull requests
 * Triaging issues and feature requests
-* Ensuring code quality and security standards
-* Managing releases and versioning
-* Upholding the project's code of conduct
+* Ensuring code quality, security, and documentation standards
+* Managing releases, tags, and versioning
+* Upholding the
+  link:CODE_OF_CONDUCT.md[Code of Conduct]
+* Coordinating with sibling bots in the
+  https://github.com/hyperpolymath/gitbot-fleet[gitbot-fleet]
+* Keeping `.machine_readable/6a2/STATE.a2ml` in sync with reality
 
 == Becoming a Maintainer
 
 Contributors who demonstrate:
 
 * Consistent, high-quality contributions
-* Understanding of the project's goals and standards
-* Constructive participation in discussions
+* Understanding of the project's goals, the estate's language policy,
+  and the Tier-1 Verifier role within the fleet
+* Constructive participation in discussions and reviews
 * Commitment to the project's long-term health
 
-May be invited to become maintainers at the discretion of existing maintainers.
+…may be invited to become maintainers at the discretion of existing
+maintainers.
 
 == Decision Making
 
-* Routine decisions (bug fixes, minor improvements) can be made by any maintainer
-* Significant changes require discussion and consensus among maintainers
-* Breaking changes or major features should be discussed in issues before implementation
+* **Routine decisions** (bug fixes, minor improvements, documentation,
+  dependency bumps) can be made by any maintainer.
+* **Significant changes** (new public surface, new bot mode, new
+  prover integration, packaging changes) require discussion and
+  consensus among maintainers.
+* **Breaking changes** or major features should be discussed in
+  issues (or
+  https://github.com/hyperpolymath/echidnabot/discussions[discussions])
+  before implementation.
+* **Estate-wide policy questions** (language tiers, CI workflow
+  shape, license posture) are escalated to
+  https://github.com/hyperpolymath/standards[hyperpolymath/standards].
+* **Security issues** follow link:SECURITY.md[SECURITY.md] —
+  coordinated disclosure, never via public issues.
+
+== Sunset / Stewardship
+
+If the lead maintainer becomes unavailable for an extended period,
+stewardship of echidnabot is to be coordinated by the
+gitbot-fleet maintainers collectively. Until that happens, the
+project remains under MPL-2.0; any subsequent forks must retain the
+same license and attribution per the Palimpsest commentary in
+link:PALIMPSEST.adoc[PALIMPSEST.adoc].
 
 == Contact
 
-For questions about project governance, open an issue or contact the maintainers listed above.
+* **General project questions:** open a
+  https://github.com/hyperpolymath/echidnabot/discussions[GitHub Discussion]
+* **Bug reports:** open a
+  https://github.com/hyperpolymath/echidnabot/issues[GitHub Issue]
+* **Security reports:** see link:SECURITY.md[SECURITY.md] (do *not*
+  open public issues for vulnerabilities)
+* **Direct maintainer contact:** the addresses listed above

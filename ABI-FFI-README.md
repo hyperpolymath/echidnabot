@@ -1,342 +1,343 @@
-{{~ Aditionally delete this line and fill out the template below ~}}
+<!--
+SPDX-License-Identifier: MPL-2.0
+SPDX-FileCopyrightText: 2025-2026 Jonathan D.A. Jewell (hyperpolymath)
+-->
 
-# {{PROJECT}} ABI/FFI Documentation
+# echidnabot ABI/FFI
 
-## Overview
+This document describes the **ABI** (Application Binary Interface) and **FFI**
+(Foreign Function Interface) layers of echidnabot, in line with the
+[Hyperpolymath estate convention](https://github.com/hyperpolymath/standards):
 
-This library follows the **Hyperpolymath RSR Standard** for ABI and FFI design:
+> **Zig = APIs + FFIs. Idris2 = ABIs.**
 
-- **ABI (Application Binary Interface)** defined in **Idris2** with formal proofs
-- **FFI (Foreign Function Interface)** implemented in **Zig** for C compatibility
-- **Generated C headers** bridge Idris2 ABI to Zig FFI
-- **Any language** can call through standard C ABI
+The Idris2 layer defines the binary contract (types, layout, foreign
+declarations); the Zig layer is the C-ABI implementation that any other
+language can link against.
 
-## Architecture
+---
+
+## Current Status
+
+The ABI/FFI surface in this repository is a **scaffold**, not a shipped
+artefact. The skeleton is in place — what is missing is:
+
+1. **Idris2 ABI definitions** (`src/abi/Types.idr`, `Layout.idr`,
+   `Foreign.idr`) exist but are not yet wired to Rust types in `src/`.
+   They will define the binary contract for the proof-job lifecycle
+   (`ProofJob`, `JobResult`, `ProverKind`, `Verdict`).
+2. **Zig FFI implementation** (`ffi/zig/src/main.zig`,
+   `ffi/zig/build.zig`) is a **template scaffold** carrying
+   `{{project}}` placeholders. It will not build until those are
+   substituted to `echidnabot` and the export functions are realised
+   against the real `ProofJob` API.
+3. **Generated C header** (`generated/abi/echidnabot.h`) does not yet
+   exist; will be produced by `idris2 --cg c-header` once the ABI is
+   sealed.
+
+Track this work via the [ABI/FFI epic](https://github.com/hyperpolymath/echidnabot/issues?q=is%3Aissue+label%3Aabi-ffi)
+on the issue tracker. The intended end-state is what this document
+describes; the current code reflects scaffold-only readiness.
+
+---
+
+## Intended Architecture
 
 ```
-┌─────────────────────────────────────────────┐
-│  ABI Definitions (Idris2)                   │
-│  src/abi/                                   │
-│  - Types.idr      (Type definitions)        │
-│  - Layout.idr     (Memory layout proofs)    │
-│  - Foreign.idr    (FFI declarations)        │
-└─────────────────┬───────────────────────────┘
-                  │
-                  │ generates (at compile time)
-                  ▼
-┌─────────────────────────────────────────────┐
-│  C Headers (auto-generated)                 │
-│  generated/abi/{{project}}.h                │
-└─────────────────┬───────────────────────────┘
-                  │
-                  │ imported by
-                  ▼
-┌─────────────────────────────────────────────┐
-│  FFI Implementation (Zig)                   │
-│  ffi/zig/src/main.zig                       │
-│  - Implements C-compatible functions        │
-│  - Zero-cost abstractions                   │
-│  - Memory-safe by default                   │
-└─────────────────┬───────────────────────────┘
-                  │
-                  │ compiled to lib{{project}}.so/.a
-                  ▼
-┌─────────────────────────────────────────────┐
-│  Any Language via C ABI                     │
-│  - Rust, ReScript, Julia, Python, etc.     │
-└─────────────────────────────────────────────┘
++---------------------------------------------+
+|  ABI Definitions (Idris2)                   |
+|  src/abi/                                   |
+|  - Types.idr      (binary type definitions) |
+|  - Layout.idr     (memory-layout proofs)    |
+|  - Foreign.idr    (FFI function declarations)|
++----------------------+----------------------+
+                       |
+                       | generates (compile-time)
+                       v
++---------------------------------------------+
+|  C Headers (generated)                      |
+|  generated/abi/echidnabot.h                 |
++----------------------+----------------------+
+                       |
+                       | imported by
+                       v
++---------------------------------------------+
+|  FFI Implementation (Zig)                   |
+|  ffi/zig/src/main.zig                       |
+|  - Implements C-compatible functions        |
+|  - Memory-safe by default                   |
++----------------------+----------------------+
+                       |
+                       | compiled to libechidnabot.{so,dylib,a}
+                       v
++---------------------------------------------+
+|  Any Language via C ABI                     |
+|  Rust, AffineScript, Julia, OCaml, ...      |
++---------------------------------------------+
 ```
+
+Why this split? See the
+[estate boundary memo](https://github.com/hyperpolymath/standards/blob/main/docs/boundary-conventions.md):
+Idris2 is the only language in the estate toolchain that can carry the
+*proofs* of layout compatibility, alignment, and forward-compatibility
+that an ABI demands. Zig is the only language that can emit a clean C
+ABI **without dragging in a runtime** — the resulting `.so` has no
+hidden Rust or libc surprises.
+
+---
 
 ## Directory Structure
 
 ```
-{{project}}/
-├── src/
-│   ├── abi/                    # ABI definitions (Idris2)
-│   │   ├── Types.idr           # Core type definitions with proofs
-│   │   ├── Layout.idr          # Memory layout verification
-│   │   └── Foreign.idr         # FFI function declarations
-│   └── lib/                    # Core library (any language)
+echidnabot/
+├── src/abi/                         # ABI definitions (Idris2)
+│   ├── Types.idr                    # Core type definitions with proofs
+│   ├── Layout.idr                   # Memory-layout verification
+│   └── Foreign.idr                  # FFI function declarations
 │
-├── ffi/
-│   └── zig/                    # FFI implementation (Zig)
-│       ├── build.zig           # Build configuration
-│       ├── build.zig.zon       # Dependencies
-│       ├── src/
-│       │   └── main.zig        # C-compatible FFI implementation
-│       ├── test/
-│       │   └── integration_test.zig
-│       └── include/
-│           └── {{project}}.h   # C header (optional, can be generated)
+├── ffi/zig/                         # FFI implementation (Zig)
+│   ├── build.zig                    # Build configuration (template, see above)
+│   ├── src/
+│   │   └── main.zig                 # C-compatible FFI implementation (template)
+│   └── test/
+│       └── integration_test.zig     # FFI integration tests
 │
-├── generated/                  # Auto-generated files
-│   └── abi/
-│       └── {{project}}.h       # Generated from Idris2 ABI
-│
-└── bindings/                   # Language-specific wrappers (optional)
-    ├── rust/
-    ├── rescript/
-    └── julia/
+└── generated/                       # (not yet present)
+    └── abi/
+        └── echidnabot.h             # Generated C header from src/abi/
 ```
+
+---
 
 ## Why Idris2 for ABI?
 
-### 1. **Formal Verification**
+### Formal verification
 
-Idris2's dependent types allow proving properties about the ABI at compile-time:
+Idris2's dependent types let us prove ABI properties at compile time:
 
 ```idris
 -- Prove struct size is correct
 public export
-exampleStructSize : HasSize ExampleStruct 16
+proofJobSize : HasSize ProofJob 64
 
 -- Prove field alignment is correct
 public export
-fieldAligned : Divides 8 (offsetOf ExampleStruct.field)
+priorityAligned : Divides 4 (offsetOf ProofJob.priority)
 
--- Prove ABI is platform-compatible
+-- Prove backwards compatibility
 public export
-abiCompatible : Compatible (ABI 1) (ABI 2)
+abiCompatible : Compatible (ABI 0) (ABI 1)
 ```
 
-### 2. **Type Safety**
+### Type-level invariants
 
-Encode invariants that C/Zig cannot express:
+Encode invariants C and Zig cannot express:
 
 ```idris
 -- Non-null pointer guaranteed at type level
 data Handle : Type where
   MkHandle : (ptr : Bits64) -> {auto 0 nonNull : So (ptr /= 0)} -> Handle
 
--- Array with length proof
+-- Buffer with length proof
 data Buffer : (n : Nat) -> Type where
   MkBuffer : Vect n Byte -> Buffer n
 ```
 
-### 3. **Platform Abstraction**
-
-Platform-specific types with compile-time selection:
+### Platform abstraction
 
 ```idris
 CInt : Platform -> Type
-CInt Linux = Bits32
+CInt Linux   = Bits32
 CInt Windows = Bits32
 
 CSize : Platform -> Type
-CSize Linux = Bits64
+CSize Linux   = Bits64
 CSize Windows = Bits64
 ```
 
-### 4. **Safe Evolution**
-
-Prove that new ABI versions are backward-compatible:
+### Safe evolution
 
 ```idris
 -- Compiler enforces compatibility
-abiUpgrade : ABI 1 -> ABI 2
-abiUpgrade old = MkABI2 {
-  -- Must preserve all v1 fields
-  v1_compat = old,
-  -- Can add new fields
+abiUpgrade : ABI 0 -> ABI 1
+abiUpgrade old = MkABI1 {
+  v0_compat    = old,
   new_features = defaults
 }
 ```
 
+---
+
 ## Why Zig for FFI?
 
-### 1. **C ABI Compatibility**
+### C ABI compatibility
 
 Zig exports C-compatible functions naturally:
 
 ```zig
-export fn library_function(param: i32) i32 {
-    return param * 2;
+export fn echidnabot_init() ?*Handle {
+    // ...
 }
 ```
 
-### 2. **Memory Safety**
+### Memory safety
 
 Compile-time safety without runtime overhead:
 
 ```zig
-// Null check enforced at compile time
 const handle = init() orelse return error.InitFailed;
 defer free(handle);
 ```
 
-### 3. **Cross-Compilation**
-
-Built-in cross-compilation to any platform:
+### Cross-compilation built in
 
 ```bash
-zig build -Dtarget=x86_64-linux
-zig build -Dtarget=aarch64-macos
-zig build -Dtarget=x86_64-windows
+zig build -Dtarget=x86_64-linux-gnu
+zig build -Dtarget=aarch64-macos-none
+zig build -Dtarget=x86_64-windows-gnu
 ```
 
-### 4. **Zero Dependencies**
+### No runtime dependency
 
-No runtime, no libc required (unless explicitly needed):
+Zig only includes what you `@import`. The resulting `.so` is the smallest
+possible footprint that still honours the C ABI.
 
-```zig
-// Minimal binary size
-pub const lib = @import("std");
-// Only includes what you use
-```
+---
 
-## Building
+## Intended Building (when scaffold is realised)
 
-### Build FFI Library
+### Build the FFI library
 
 ```bash
 cd ffi/zig
-zig build                         # Build debug
-zig build -Doptimize=ReleaseFast  # Build optimized
-zig build test                    # Run tests
+zig build                              # debug
+zig build -Doptimize=ReleaseFast       # optimised
+zig build test                         # unit tests
+zig build test-integration             # integration tests
 ```
 
-### Generate C Header from Idris2 ABI
+### Generate the C header from the Idris2 ABI
 
 ```bash
 cd src/abi
-idris2 --cg c-header Types.idr -o ../../generated/abi/{{project}}.h
+idris2 --cg c-header Types.idr -o ../../generated/abi/echidnabot.h
 ```
 
-### Cross-Compile
+### Cross-compile
 
 ```bash
 cd ffi/zig
-
-# Linux x86_64
-zig build -Dtarget=x86_64-linux
-
-# macOS ARM64
-zig build -Dtarget=aarch64-macos
-
-# Windows x86_64
-zig build -Dtarget=x86_64-windows
+zig build -Dtarget=x86_64-linux-gnu      # Linux x86_64
+zig build -Dtarget=aarch64-macos-none    # macOS ARM64
+zig build -Dtarget=x86_64-windows-gnu    # Windows x86_64
 ```
 
-## Usage
+---
+
+## Intended Usage (post-scaffold)
 
 ### From C
 
 ```c
-#include "{{project}}.h"
+#include "echidnabot.h"
 
-int main() {
-    void* handle = {{project}}_init();
-    if (!handle) return 1;
+int main(void) {
+    echidnabot_handle_t* h = echidnabot_init();
+    if (!h) return 1;
 
-    int result = {{project}}_process(handle, 42);
-    if (result != 0) {
-        const char* err = {{project}}_last_error();
-        fprintf(stderr, "Error: %s\n", err);
+    echidnabot_result_t r = echidnabot_dispatch(h, "coq", "proofs/foo.v");
+    if (r != ECHIDNABOT_OK) {
+        const char* err = echidnabot_last_error();
+        fprintf(stderr, "error: %s\n", err);
     }
 
-    {{project}}_free(handle);
+    echidnabot_free(h);
     return 0;
 }
 ```
 
-Compile with:
+Compile:
+
 ```bash
-gcc -o example example.c -l{{project}} -L./zig-out/lib
+gcc example.c -lechidnabot -L./zig-out/lib -o example
 ```
 
 ### From Idris2
 
 ```idris
-import {{PROJECT}}.ABI.Foreign
+import Echidnabot.ABI.Foreign
 
 main : IO ()
 main = do
-  Just handle <- init
-    | Nothing => putStrLn "Failed to initialize"
-
-  Right result <- process handle 42
-    | Left err => putStrLn $ "Error: " ++ errorDescription err
-
-  free handle
-  putStrLn "Success"
+  Just h <- init
+    | Nothing => putStrLn "failed to initialise"
+  Right result <- dispatch h "coq" "proofs/foo.v"
+    | Left err => putStrLn $ "error: " ++ errorDescription err
+  free h
 ```
 
 ### From Rust
 
 ```rust
-#[link(name = "{{project}}")]
+#[link(name = "echidnabot")]
 extern "C" {
-    fn {{project}}_init() -> *mut std::ffi::c_void;
-    fn {{project}}_free(handle: *mut std::ffi::c_void);
-    fn {{project}}_process(handle: *mut std::ffi::c_void, input: u32) -> i32;
-}
-
-fn main() {
-    unsafe {
-        let handle = {{project}}_init();
-        assert!(!handle.is_null());
-
-        let result = {{project}}_process(handle, 42);
-        assert_eq!(result, 0);
-
-        {{project}}_free(handle);
-    }
+    fn echidnabot_init() -> *mut std::ffi::c_void;
+    fn echidnabot_free(handle: *mut std::ffi::c_void);
+    fn echidnabot_dispatch(
+        handle: *mut std::ffi::c_void,
+        prover: *const std::os::raw::c_char,
+        path:   *const std::os::raw::c_char,
+    ) -> i32;
 }
 ```
 
 ### From Julia
 
 ```julia
-const lib{{project}} = "lib{{project}}"
+const libechidnabot = "libechidnabot"
 
 function init()
-    handle = ccall((:{{project}}_init, lib{{project}}), Ptr{Cvoid}, ())
-    handle == C_NULL && error("Failed to initialize")
-    handle
+    h = ccall((:echidnabot_init, libechidnabot), Ptr{Cvoid}, ())
+    h == C_NULL && error("init failed")
+    h
 end
 
-function process(handle, input)
-    result = ccall((:{{project}}_process, lib{{project}}), Cint, (Ptr{Cvoid}, UInt32), handle, input)
-    result
-end
-
-function cleanup(handle)
-    ccall((:{{project}}_free, lib{{project}}), Cvoid, (Ptr{Cvoid},), handle)
-end
-
-# Usage
-handle = init()
-try
-    result = process(handle, 42)
-    println("Result: $result")
-finally
-    cleanup(handle)
+function dispatch(h, prover::String, path::String)
+    ccall((:echidnabot_dispatch, libechidnabot), Cint,
+          (Ptr{Cvoid}, Cstring, Cstring), h, prover, path)
 end
 ```
+
+### From AffineScript
+
+Once the AffineScript FFI surface lands, the call shape will match the
+`extern "C"` block above via the standard
+`affine.ffi.bind_c` helper. See the
+[affinescript bindings tracker](https://github.com/hyperpolymath/affinescript/issues/446).
+
+---
 
 ## Testing
 
-### Unit Tests (Zig)
+### Zig unit tests
 
 ```bash
-cd ffi/zig
-zig build test
+cd ffi/zig && zig build test
 ```
 
-### Integration Tests
+### Integration tests
 
 ```bash
-cd ffi/zig
-zig build test-integration
+cd ffi/zig && zig build test-integration
 ```
 
-### ABI Verification (Idris2)
+### Idris2 ABI verification
 
 ```idris
--- Compile-time verification
+-- Compile-time verification (elaborator reflection)
 %runElab verifyABI
 
--- Runtime checks
+-- Runtime smoke checks
 main : IO ()
 main = do
   verifyLayoutsCorrect
@@ -344,42 +345,41 @@ main = do
   putStrLn "ABI verification passed"
 ```
 
-## Contributing
+---
 
-When modifying the ABI/FFI:
+## Contributing to ABI / FFI
 
-1. **Update ABI first** (`src/abi/*.idr`)
+When modifying the surface:
+
+1. **Update the ABI first** (`src/abi/*.idr`)
    - Modify type definitions
-   - Update proofs
-   - Ensure backward compatibility
-
-2. **Generate C header**
+   - Update layout proofs
+   - Ensure backwards compatibility (`Compatible (ABI n) (ABI n+1)`)
+2. **Regenerate the C header**
    ```bash
-   idris2 --cg c-header src/abi/Types.idr -o generated/abi/{{project}}.h
+   idris2 --cg c-header src/abi/Types.idr -o generated/abi/echidnabot.h
    ```
-
-3. **Update FFI implementation** (`ffi/zig/src/main.zig`)
-   - Implement new functions
+3. **Update the FFI implementation** (`ffi/zig/src/main.zig`)
+   - Implement / amend exported functions
    - Match ABI types exactly
-
 4. **Add tests**
-   - Unit tests in Zig
-   - Integration tests
-   - ABI verification tests
+   - Zig unit + integration tests
+   - Idris2 ABI verification
+5. **Update this document** when the surface shape changes (function
+   signatures, struct layout, ownership rules).
 
-5. **Update documentation**
-   - Function signatures
-   - Usage examples
-   - Migration guide (if breaking changes)
+---
 
 ## License
 
-{{LICENSE}}
+This document and the surrounding scaffold are MPL-2.0, matching the
+rest of echidnabot. See [`LICENSE`](LICENSE).
+
+---
 
 ## See Also
 
-- [Idris2 Documentation](https://idris2.readthedocs.io)
-- [Zig Documentation](https://ziglang.org/documentation/master/)
-- [Rhodium Standard Repositories](https://github.com/hyperpolymath/rhodium-standard-repositories)
-- [FFI Migration Guide](../ffi-migration-guide.md)
-- [ABI Migration Guide](../abi-migration-guide.md)
+- [Idris2 documentation](https://idris2.readthedocs.io)
+- [Zig documentation](https://ziglang.org/documentation/master/)
+- [Hyperpolymath standards](https://github.com/hyperpolymath/standards)
+- [Estate boundary memo (Zig=APIs+FFIs, Idris2=ABIs)](https://github.com/hyperpolymath/standards/blob/main/docs/boundary-conventions.md)

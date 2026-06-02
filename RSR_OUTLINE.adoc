@@ -1,218 +1,221 @@
-= RSR Template Repository
+// SPDX-License-Identifier: MPL-2.0
+// Copyright (c) 2025-2026 Jonathan D.A. Jewell <jonathan.jewell@open.ac.uk>
 
-image:[Palimpsest-MPL-1.0,link="https://github.com/hyperpolymath/palimpsest-license"] image:[Palimpsest,link="https://github.com/hyperpolymath/palimpsest-license"]
+= echidnabot — RSR Outline
 :toc:
 :sectnums:
 
-// Badges
-image:https://img.shields.io/badge/RSR-Infrastructure-cd7f32[RSR Infrastructure]
-image:https://img.shields.io/badge/Phase-Maintenance-brightgreen[Phase]
+image:https://img.shields.io/badge/RSR-Tier_1_Bot-cd7f32[RSR Tier-1]
+image:https://img.shields.io/badge/Phase-Beta-yellow[Phase]
 image:https://img.shields.io/badge/Guix-Primary-purple?logo=gnu[Guix]
 
-== Overview
+== About This Document
 
-**The canonical template for RSR (Rhodium Standard Repository) projects.**
+This file describes how *echidnabot* fits the
+https://github.com/hyperpolymath/rhodium-standard-repositories[Rhodium
+Standard Repository] template. For the *compliance status checklist*
+(what's green / what's red) see link:RSR_COMPLIANCE.adoc[RSR_COMPLIANCE.adoc].
 
-This repository provides the standardized structure, configuration, and tooling for all 139 repos in the hyperpolymath ecosystem. Use it to:
+The detailed compliance table tracks individual gates; this file
+explains the **shape** the project takes inside the RSR framework.
 
-* Bootstrap new projects with RSR compliance
-* Reference the standard directory structure
-* Copy configuration templates (Justfile, STATE.a2ml, etc.)
+== Classification
 
-== Quick Start
-
-[source,bash]
-----
-# Clone the template
-git clone https://github.com/hyperpolymath/RSR-template-repo my-project
-cd my-project
-
-# Remove template git history
-rm -rf .git
-git init
-
-# Customize
-sed -i 's/RSR-template-repo/my-project/g' Justfile guix.scm README.adoc
-
-# Enter development environment
-guix shell -D -f guix.scm
-
-# Validate compliance
-just validate-rsr
-----
-
-== What's Included
-
-[cols="1,3"]
+[cols="1,2"]
 |===
-|File/Directory |Purpose
+|Attribute |Value
 
-|`.editorconfig`
-|Editor configuration (indent, charset)
-
-|`.gitignore`
-|Standard ignore patterns
-
-|`.guix-channel`
-|Guix channel definition
-
-|`.well-known/`
-|RFC-compliant metadata (security.txt, ai.txt, humans.txt)
-
-|`docs/`
-|Documentation directory
-
-|`guix.scm`
-|Guix package definition
-
-|`justfile`
-|Task runner with 50+ recipes
-
-|`LICENSE.txt`
-|AGPL + Palimpsest dual license
-
-|`README.adoc`
-|This file
-
-|`RSR_COMPLIANCE.adoc`
-|Compliance tracking
-
-|`STATE.a2ml`
-|Project state checkpoint
+|Project |echidnabot
+|Role |Tier-1 Verifier in gitbot-fleet
+|Primary Language |Rust (RSR Tier 1)
+|Secondary Languages |Idris2 (ABI proofs), Zig (FFI), Guile Scheme (Guix packaging)
+|RSR Tier Target |Gold
+|Compliance Status |See link:RSR_COMPLIANCE.adoc[RSR_COMPLIANCE.adoc]
+|Phase |Beta (per `STATE.a2ml`)
+|Completion |~100% feature-complete, production-hardening in progress
+|License |MPL-2.0 (Palimpsest)
+|Maintainer |Jonathan D.A. Jewell <jonathan.jewell@open.ac.uk>
 |===
 
-== Justfile Features
-
-The template Justfile provides:
-
-* **~10 billion recipe combinations** via matrix recipes
-* **Cookbook generation**: `just cookbook` → `docs/just-cookbook.adoc`
-* **Man page generation**: `just man` → `docs/man/project.1`
-* **RSR validation**: `just validate-rsr`
-* **STATE.a2ml management**: `just state-touch`, `just state-phase`
-* **Container support**: `just container-build`, `just container-push`
-* **CI matrix**: `just ci-matrix [stage] [depth]`
-
-=== Key Recipes
-
-[source,bash]
-----
-just                # Show all recipes
-just help <recipe>  # Detailed help
-just info           # Project info
-just combinations   # Show matrix options
-
-just build          # Build (debug)
-just test           # Run tests
-just quality        # Format + lint + test
-just ci             # Full CI pipeline
-
-just validate       # RSR + STATE validation
-just docs           # Generate all docs
-just cookbook       # Generate Justfile docs
-
-just guix-shell     # Guix dev environment
-just container-build # Build container
-----
-
-== Directory Structure
+== Directory Structure (RSR-conformant)
 
 [source]
 ----
-project/
-├── .editorconfig          # Editor settings
-├── .gitignore             # Git ignore
-├── .guix-channel          # Guix channel
-├── .well-known/           # RFC metadata
+echidnabot/
+├── .editorconfig              # Editor configuration
+├── .gitignore                 # Standard ignore patterns
+├── .gitattributes             # Line-ending normalisation
+├── .guix-channel              # Guix channel definition
+├── .well-known/               # RFC-compliant metadata
+│   ├── security.txt
 │   ├── ai.txt
-│   ├── humans.txt
-│   └── security.txt
-├── config/                # Nickel configs (optional)
-├── docs/                  # Documentation
-│   ├── generated/
-│   ├── man/
-│   └── just-cookbook.adoc
-├── guix.scm               # Guix package
-├── Justfile               # Task runner
-├── LICENSE.txt            # Dual license
-├── README.adoc            # Overview
-├── RSR_COMPLIANCE.adoc    # Compliance
-├── src/                   # Source code
-├── STATE.a2ml              # State checkpoint
-└── tests/                 # Tests
+│   └── humans.txt
+├── .machine_readable/         # A2ML descriptors (canonical)
+│   ├── 6a2/                   # STATE / META / AGENTIC / ECOSYSTEM / etc.
+│   ├── bot_directives/        # Per-bot directive files
+│   ├── contractiles/          # intend / bust / adjust contractile verbs
+│   └── svc/                   # Service descriptors (k9 templates)
+├── .github/
+│   ├── workflows/             # CI (quality / codeql / scorecard / hypatia-scan / …)
+│   └── ISSUE_TEMPLATE/        # bug / feature / docs templates
+├── .claude/                   # AI-assistant operating instructions
+│   └── CLAUDE.md
+├── 0-AI-MANIFEST.a2ml         # First-read pointer for AI assistants
+├── src/                       # Rust source
+│   ├── abi/                   # Idris2 ABI definitions (Types/Layout/Foreign)
+│   ├── adapters/              # Platform adapters (GitHub/GitLab/Bitbucket)
+│   ├── api/                   # GraphQL + webhook handlers
+│   ├── dispatcher/            # ECHIDNA client
+│   ├── scheduler/             # Job queue / retry / circuit breaker
+│   ├── executor/              # Container isolation
+│   ├── modes/                 # Bot modes
+│   ├── trust/                 # Confidence / integrity / axiom tracking
+│   ├── feedback/              # Double-loop tactic-outcome recording
+│   ├── fleet/                 # gitbot-fleet shared-context wiring
+│   └── store/                 # SQLite + PostgreSQL persistence
+├── ffi/zig/                   # Zig FFI implementation (scaffold, see ABI-FFI-README.md)
+├── tests/                     # Integration / property / smoke / seam suites
+├── proofs/                    # Dogfood proofs (Coq + Lean, includes intentional failures)
+├── benches/                   # cargo-criterion benchmarks
+├── fuzz/                      # ClusterFuzzLite harnesses
+├── docs/                      # Long-form documentation (casket-ssg)
+├── wiki/                      # Wiki source (mirrored to GitHub wiki)
+├── packaging/                 # Container / Guix packaging artefacts
+├── hooks/                     # Git hooks
+├── examples/                  # Sample integrations
+├── scripts/                   # Maintenance / one-shot tooling
+├── config/                    # Default config snapshots
+├── contracts/                 # Service contracts (if applicable)
+├── contractiles/              # Contractile-verb implementations
+├── echidna/                   # Submodule pointing at upstream ECHIDNA
+├── Cargo.toml / Cargo.lock    # Rust manifest
+├── Containerfile              # OCI image (Chainguard base)
+├── guix.scm                   # Guix package definition (primary; nix deprecated 2026-06-01)
+├── Mustfile / Justfile-ish    # Task runner
+├── echidnabot.toml            # Default config
+├── echidnabot.example.toml    # Annotated example config
+├── LICENSE / LICENSE.txt      # MPL-2.0 (identical text, dual filename for tooling)
+├── PALIMPSEST.adoc            # Palimpsest license commentary
+├── README.adoc                # Canonical README
+├── README.md                  # Markdown summary (links to .adoc)
+├── EXPLAINME.adoc             # Receipts behind README claims
+├── ROADMAP.adoc               # Phases / completion
+├── ABI-FFI-README.md          # Zig FFI + Idris2 ABI boundary
+├── BRANDING.md                # Visual identity / topics
+├── MAINTAINERS.adoc           # Maintainership
+├── CODE_OF_CONDUCT.md         # Conduct
+├── CONTRIBUTING.md            # Contribution guide
+├── SECURITY.md                # Vulnerability reporting
+├── SUPPORT (.md if present)   # Support channels
+├── CHANGELOG.md               # Auto-generated from conventional commits
+├── CITATION.cff               # Academic citation metadata
+├── codemeta.json              # CodeMeta software metadata
+├── RELEASE_CHECKLIST.md       # Release procedure
+├── RSR_COMPLIANCE.adoc        # Compliance status
+└── RSR_OUTLINE.adoc           # This file
 ----
 
-== RSR Compliance
+== Language Tiers (estate policy)
 
-=== Language Tiers
+=== Tier 1 (preferred)
+Rust ✓ (primary), AffineScript, Idris2 ✓ (ABI proofs), Zig ✓ (FFI),
+Ada, Haskell.
 
-* **Tier 1** (Gold): Rust, Elixir, Zig, Ada, Haskell, ReScript
-* **Tier 2** (Silver): Nickel, Racket, Guile Scheme, Nix
-* **Infrastructure**: Guix channels, derivations
+=== Tier 2 (acceptable)
+Nickel ✓ (configs in `config/`), Guile Scheme ✓ (`guix.scm`).
+Nix is **deprecated estate-wide** as of 2026-06-01 — Guix is the sole
+primary; nix flakes have been removed and are not a Tier 2 acceptable
+language any more.
 
-=== Required Files
+=== Banned (per estate policy 2026-05-25)
+TypeScript (use AffineScript), Node.js / npm / Bun / pnpm / yarn (use
+Deno), Go (use Rust), Python (use Julia / Rust / AffineScript), Java /
+Kotlin / Swift (use Tauri / Dioxus), Jekyll (use casket-ssg),
+Dockerfile (use Containerfile).
 
-* `.editorconfig`
-* `.gitignore`
-* `justfile`
-* `README.adoc`
-* `RSR_COMPLIANCE.adoc`
-* `LICENSE.txt` (AGPL + Palimpsest)
-* `.well-known/security.txt`
-* `.well-known/ai.txt`
-* `.well-known/humans.txt`
-* `guix.scm` OR `flake.nix`
+Python is allowed *only* in `salt/` directories (none in this repo).
 
-=== Prohibited
+== Boundary Tools (Hyperpolymath estate)
 
-* Python outside `salt/` directory
-* TypeScript/JavaScript (use ReScript)
-* CUE (use Guile/Nickel)
-* `Dockerfile` (use `Containerfile`)
+Per the estate boundary convention:
 
-== STATE.a2ml
+* **Zig** — APIs + FFIs (see `ffi/zig/`)
+* **Idris2** — ABIs (see `src/abi/`)
+* **SNIFs** — Service-Neutral Interface Fragments
+* **typed-wasm** — Cross-language compile target
+* **Groove Protocol** — Top-level coordination
 
-The STATE.a2ml file tracks project state:
+== Required Files Present in echidnabot
 
-[source,scheme]
-----
-(define state
-  `((metadata
-     (project . "my-project")
-     (updated . "2025-12-10"))
-    (position
-     (phase . implementation)  ; design|implementation|testing|maintenance|archived
-     (maturity . beta))        ; experimental|alpha|beta|production|lts
-    (ecosystem
-     (part-of . ("RSR Framework"))
-     (depends-on . ()))))
-----
+[cols="2,1,2"]
+|===
+|File |Status |Notes
 
-== Badge Schema
+|`.editorconfig` |✓ |
+|`.gitignore` |✓ |
+|`.gitattributes` |✓ |Line-ending normalisation
+|`README.adoc` |✓ |Canonical
+|`README.md` |✓ |Markdown summary
+|`LICENSE` / `LICENSE.txt` |✓ |MPL-2.0 (dual filename intentional)
+|`SECURITY.md` |✓ |
+|`CODE_OF_CONDUCT.md` |✓ |
+|`CONTRIBUTING.md` |✓ |
+|`MAINTAINERS.adoc` |✓ |
+|`CHANGELOG.md` |✓ |Generated from conventional commits
+|`CITATION.cff` |✓ |
+|`codemeta.json` |✓ |
+|`Containerfile` |✓ |Chainguard base
+|`guix.scm` |✓ |Primary packaging
+|`.well-known/security.txt` |✓ |
+|`.well-known/ai.txt` |✓ |
+|`.well-known/humans.txt` |✓ |
+|`Mustfile` (Justfile-equiv) |✓ |
+|`RSR_COMPLIANCE.adoc` |✓ |Detailed status
+|`RSR_OUTLINE.adoc` |✓ |This file
+|`0-AI-MANIFEST.a2ml` |✓ |AI first-read pointer
+|`.claude/CLAUDE.md` |✓ |AI agent operating rules
+|`.machine_readable/6a2/` |✓ |A2ML descriptors
+|===
 
-Generate badges from STATE.a2ml:
+== STATE.a2ml Shape
 
-[source,bash]
-----
-just badges standard
-----
+The canonical project-state file
+(`.machine_readable/6a2/STATE.a2ml`) carries:
 
-See `docs/BADGE_SCHEMA.adoc` for the full badge taxonomy.
+* `[metadata]` — project / version / last-updated / session
+* `[project-context]` — purpose / completion-percentage
+* `[position]` — phase / maturity
+* `[external-targets]` — for CRG B-grade qualification (≥ 6 targets)
+* `[issues-fed-back]` — bugs found in echidnabot that surfaced upstream
+* `[field-signal]` — adoption / mention evidence
+* `[known-drift]` — acknowledged but not-yet-fixed issues
+  (e.g. monorepo+standalone dual-truth)
+
+Update this file in the same commit as any substantive functional
+change.
 
 == Ecosystem Integration
 
-This template is part of:
+[cols="2,3"]
+|===
+|Repository |Relationship
 
-* **STATE.a2ml Ecosystem**: Conversation checkpoints
-* **RSR Framework**: Repository standards
-* **Consent-Aware-HTTP**: .well-known compliance
-
-== License
-
-SPDX-License-Identifier: MPL-2.0-or-later
+|`hyperpolymath/echidna` |Upstream proof engine consumed via REST/GraphQL
+|`hyperpolymath/gitbot-fleet` |Fleet membership (Tier-1 Verifier)
+|`hyperpolymath/hypatia` |Estate-wide neurosymbolic CI coordinator
+|`hyperpolymath/standards` |CI workflow reusables + governance policies
+|`hyperpolymath/rhodibot` |Sibling — RSR structural compliance
+|`hyperpolymath/seambot` |Sibling — architectural seam hygiene
+|`hyperpolymath/finishingbot` |Sibling — release readiness
+|`hyperpolymath/boj-server` |Future absorption target for `echidnabot-mcp` (BoJ-only-MCP sunset)
+|===
 
 == Links
 
-* https://github.com/hyperpolymath/elegant-STATE[elegant-STATE] - STATE.a2ml tooling
-* https://github.com/hyperpolymath/conative-gating[conative-gating] - Policy enforcement
-* https://rhodium.sh[Rhodium Standard] - RSR documentation
+* https://github.com/hyperpolymath/echidnabot[echidnabot]
+* https://github.com/hyperpolymath/echidna[echidna] (upstream engine)
+* https://github.com/hyperpolymath/gitbot-fleet[gitbot-fleet]
+* https://github.com/hyperpolymath/hypatia[hypatia]
+* https://github.com/hyperpolymath/standards[standards]
+* https://github.com/hyperpolymath/rhodium-standard-repositories[RSR]
+* https://github.com/hyperpolymath/palimpsest-license[Palimpsest license]
