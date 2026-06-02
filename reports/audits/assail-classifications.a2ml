@@ -1,0 +1,54 @@
+# SPDX-License-Identifier: MPL-2.0
+# Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+#
+# Classification registry for panic-attack assail findings that are confirmed
+# legitimate patterns and should not be treated as actionable weak-points.
+#
+# Mirrors the echidna sibling registry layout. See:
+#   - hyperpolymath/echidna reports/audits/assail-classifications.a2ml
+#   - hyperpolymath/panic-attack#32 (estate sweep tracker)
+
+[metadata]
+name = "echidnabot-assail-classifications"
+project = "echidnabot"
+version = "1.0.0"
+schema_version = "1.0.0"
+
+(assail-classifications
+
+  ; ─── proofs/coq/admitted_stub.v — dogfood fixture ────────────────────────
+  (classification
+    (file "proofs/coq/admitted_stub.v")
+    (category "ProofDrift")
+    (audit "inline header comment")
+    (rationale "DELIBERATE Admitted. token — fixture for echidnabot's axiom-scanner self-test (src/trust/axiom_tracker). Removing this file disables that test path. Inline header documents the design."))
+
+  ; ─── proofs/lean/sorry_stub.lean — dogfood fixture ───────────────────────
+  (classification
+    (file "proofs/lean/sorry_stub.lean")
+    (category "ProofDrift")
+    (audit "inline header comment")
+    (rationale "DELIBERATE sorry — fixture for echidnabot's axiom-scanner self-test under Lean4 mode. Removing this file disables that test path. Inline header documents the design."))
+
+  ; ─── tests/* — integration / lifecycle / seam tests ──────────────────────
+  ; Rust test code is allowed to panic via unwrap/expect; setup/assert
+  ; sites use them deliberately so the test runner reports the failure.
+  (classification
+    (file "tests/seam_test.rs")
+    (category "PanicPath")
+    (audit "Rust convention: tests panic on assert/unwrap")
+    (rationale "26 unwrap/expect calls in integration tests — panicking is the standard failure-reporting mechanism for Rust integration tests. Not a production panic path."))
+
+  (classification
+    (file "tests/integration_tests.rs")
+    (category "PanicPath")
+    (audit "Rust convention: tests panic on assert/unwrap")
+    (rationale "6 unwrap/expect calls in integration tests — same rationale as seam_test.rs."))
+
+  (classification
+    (file "tests/lifecycle.rs")
+    (category "PanicPath")
+    (audit "Rust convention: tests panic on assert/unwrap")
+    (rationale "17 unwrap/expect calls in lifecycle tests — same rationale as seam_test.rs."))
+
+)
