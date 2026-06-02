@@ -1,29 +1,138 @@
 # SPDX-License-Identifier: PLMP-1.0-or-later
-# Dustfile template - recovery and rollback semantics
+# Dustfile — fine-grained recovery for echidnabot
+#
+# Cleanup of small leftover state: stale branches, orphan caches,
+# /tmp leftovers, dropped DB connections, half-completed migrations.
+# Run with: just dust-check (informational) or just dust-<name> (action)
+# Error-code namespace: D###
 
 version: 1
 
-recovery:
-  logs:
-    - name: decision-log
-      path: logs/decisions.json
-      reversible: true
-      handler: "log-replay --reverse logs/decisions.json"
+dust-cadence: weekly (cheap) ; before-release (thorough)
 
-  policy:
-    - name: policy-rollback
-      path: policy/policy.ncl
-      rollback: "git checkout HEAD~1 -- policy/policy.ncl"
-      notes: "Rollback policy to the previous known-good revision."
+# ── Branch-Dust ────────────────────────────────────────────────────────
 
-  gateway:
-    - name: bad-deployment
-      event: "deploy.failure"
-      undo: "kubectl rollout undo deployment/gateway"
-      notes: "Undo a failed deployment while preserving audit logs."
+branches:
+  - name: D001-stale-local-branches
+    description: "Local branches whose remote-tracking ref is gone."
+    severity: low
+    probe: "git for-each-ref refs/heads --format '%(refname:short) %(upstream:track)' | grep -q '\\[gone\\]'"
+    dust: "git fetch --prune; for b in $(git for-each-ref refs/heads --format='%(refname:short) %(upstream:track)' | awk '/gone/ {print $1}'); do gh pr list --repo hyperpolymath/echidnabot --head \"$b\" --state merged --json number --jq '.[0].number' | grep -q '^[0-9]' && git branch -D \"$b\"; done"
+    reversible: yes
 
-  dust-events:
-    - name: decision-log-to-dust
-      source: logs/decisions.json
-      transform: "dustify --input logs/decisions.json --output logs/dust-events.json"
-      notes: "Map gateway decision logs into reversible dust events."
+  - name: D002-stale-remote-branches
+    description: "Remote branches whose PR was squash-merged."
+    severity: low
+    probe: "gh pr list --repo hyperpolymath/echidnabot --state all --limit 50 --json mergedAt | jq '[.[] | select(.mergedAt != null)] | length' | grep -qE '^[1-9]'"
+    dust: "per merged PR: gh api -X DELETE repos/hyperpolymath/echidnabot/git/refs/heads/<branch>"
+
+# ── Worktree-Dust ──────────────────────────────────────────────────────
+
+worktrees:
+  - name: D010-dangling-git-worktrees
+    description: "Worktrees pointing at nonexistent paths."
+    severity: low
+    probe: "git worktree list 2>&1 | grep -q '\\[prunable\\]'"
+    dust: "git worktree prune -v"
+    reversible: yes
+
+  - name: D011-tmp-agent-worktrees
+    description: "/tmp/echidnabot-* leftover from prior agent runs."
+    severity: low
+    probe: "ls -d /tmp/echidnabot-* 2>/dev/null | wc -l | grep -qE '^[1-9]'"
+    dust: "for d in /tmp/echidnabot-*; do git -C /home/hyperpolymath/developer/repos/echidnabot worktree remove --force \"$d\" 2>/dev/null || rm -rf \"$d\"; done"
+    exclude: "active session work; the open #46 rsa branch worktree at /tmp/gitbot-tmp"
+
+# ── Cache-Dust ─────────────────────────────────────────────────────────
+
+caches:
+  - name: D020-cargo-target-bloat
+    description: "target/ directory exceeds 3GB."
+    severity: low
+    probe: "test -d target && du -sh target | awk '{print $1}' | grep -qE '^[3-9]G|^[1-9][0-9]+G$'"
+    dust: "cargo clean"
+    reversible: yes
+
+  - name: D021-podman-image-orphans
+    description: "Dangling podman images."
+    severity: low
+    probe: "podman images --filter dangling=true --format '{{.ID}}' | wc -l | grep -qE '^[1-9]'"
+    dust: "podman image prune -f"
+    reversible: yes
+
+# ── Process-Dust ───────────────────────────────────────────────────────
+
+processes:
+  - name: D030-orphan-pid-files
+    description: "/tmp/*.pid pointing at dead PIDs."
+    severity: low
+    probe: "ls /tmp/echidnabot-*.pid 2>/dev/null | while read f; do kill -0 $(cat \"$f\") 2>/dev/null || echo \"$f\"; done | head -1"
+    dust: "for f in /tmp/echidnabot-*.pid; do kill -0 $(cat \"$f\") 2>/dev/null || rm -f \"$f\" \"${f%.pid}.status\"; done"
+
+# ── DB-Dust ────────────────────────────────────────────────────────────
+
+database:
+  - name: D040-stale-migrations
+    description: "migrations/ contains files newer than the DB's last-applied (sqlx)."
+    severity: medium
+    probe: "test -d migrations && ls migrations/*.sql 2>/dev/null | wc -l | grep -qE '^[1-9]'"
+    dust: "sqlx migrate run (apply pending) ; OR sqlx migrate revert (rollback last)"
+    reversible: "yes (sqlx migrate revert)"
+
+  - name: D041-stale-sqlite-shm-wal
+    description: "Stale -shm / -wal files alongside .db (sqlite ungraceful shutdown)."
+    severity: low
+    probe: "find . -name '*.db-shm' -o -name '*.db-wal' 2>/dev/null | head -1"
+    dust: "rm -f *.db-shm *.db-wal (only after confirming no active sqlite process)"
+    reversible: harmless
+
+# ── Source-Dust ────────────────────────────────────────────────────────
+
+source:
+  - name: D050-unused-imports
+    description: "Rust unused imports detected by clippy."
+    severity: low
+    probe: "cargo clippy --workspace 2>&1 | grep -q 'unused import'"
+    dust: "cargo fix --allow-dirty --allow-staged"
+    reversible: yes
+
+  - name: D051-todo-without-issue
+    description: "TODO/FIXME comments without a tracking-issue reference."
+    severity: low
+    probe: "grep -rnE 'TODO|FIXME|XXX' src/ 2>/dev/null | grep -vE '#[0-9]+' | head -1"
+    dust: "Per-comment: open tracking issue + add // TODO(#N): prefix, or close out the TODO."
+    reversible: yes
+
+  - name: D052-dead-code-warnings
+    description: "Rust dead_code warnings."
+    severity: low
+    probe: "cargo build --workspace 2>&1 | grep -q 'warning: .* is never used'"
+    dust: "Per-warning: keep if forward-prep (annotate #[allow(dead_code)] with reason), else remove."
+
+# ── Doc-Dust ───────────────────────────────────────────────────────────
+
+docs:
+  - name: D060-stale-changelog-unreleased
+    description: "CHANGELOG.md [Unreleased] section has a dated marker > 30 days old."
+    severity: low
+    probe: "grep -E '^## \\[Unreleased\\] - ' CHANGELOG.md 2>/dev/null | head -1"
+    dust: "Either cut a release (move Unreleased → [vX.Y.Z] - <date>) or remove the date from [Unreleased]."
+
+# ── Recovery primitives ────────────────────────────────────────────────
+
+primitives:
+  - name: source-rollback
+    description: "Revert all unstaged source changes."
+    command: "git checkout HEAD -- ."
+    reversible: yes
+
+  - name: branch-cleanup
+    description: "Prune merged remote-tracking refs."
+    command: "git fetch --prune"
+    reversible: yes
+
+dust-philosophy:
+  - "Idempotent: running dust on a clean repo is a no-op."
+  - "Narrow blast radius: one action per recipe."
+  - "Reversibility-first: every dust action undoable from git or by re-running a non-dust recipe."
+  - "Exclusion list is sacred: active worktrees + production artefacts NEVER swept."

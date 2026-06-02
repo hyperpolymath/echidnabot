@@ -1,35 +1,111 @@
 # SPDX-License-Identifier: PLMP-1.0-or-later
-# Mustfile - declarative state contract (template)
-# See: https://github.com/hyperpolymath/mustfile
+# Mustfile — declarative state contract for echidnabot
+# https://github.com/hyperpolymath/echidnabot
+#
+# Physical-state invariants that MUST hold at all times. Run with:
+#   just must-check
+# Error-code namespace: M###
 
 version: 1
 
 metadata:
-  name: project-state-contract
-  spec: v0.0.1
-  description: "Invariant checks for config, policy, gateway, logs, and schema."
+  name: echidnabot-state-contract
+  spec: v0.1.0
+  description: "Invariants for echidnabot: Rust binary, GitHub-App config, DB schema, webhook signatures, dispatch wire."
 
 parameters:
-  gateway_port: "8080"
-  schema_version: "v0.0.1"
+  webhook_port: "8080"
+  db_url_env: "DATABASE_URL"
+  echidna_api_env: "ECHIDNA_API_URL"
 
 checks:
-  - name: config-valid
-    description: "config/service.yaml must be valid."
-    run: "yq -e '.' config/service.yaml >/dev/null"
 
-  - name: policy-compiles
-    description: "policy/policy.ncl must compile."
-    run: "nickel check policy/policy.ncl"
+  - name: M001-license-present
+    description: "LICENSE file must exist."
+    severity: critical
+    run: "test -f LICENSE || test -f LICENSE.txt"
+    recovery: "git checkout HEAD -- LICENSE LICENSE.txt"
 
-  - name: gateway-exposes-port
-    description: "Service must expose the configured port."
-    run: "bash -uc 'ss -lnt | rg \":${GATEWAY_PORT:-8080}\"'"
+  - name: M002-readme-present
+    description: "README must exist (adoc canonical; md as renderer-friendly pointer)."
+    severity: critical
+    run: "test -f README.adoc"
+    recovery: "git checkout HEAD -- README.adoc"
 
-  - name: logs-are-json
-    description: "Logs must be JSON."
-    run: "bash -uc 'rg --files -g \"*.json\" logs | xargs -r jq -e .'"
+  - name: M003-cargo-toml-present
+    description: "Cargo.toml at repo root."
+    severity: critical
+    run: "test -f Cargo.toml"
+    recovery: "Manual restore from git history."
 
-  - name: schema-version-matches
-    description: "Schema must match version spec."
-    run: "bash -uc 'rg -n \"${SCHEMA_VERSION:-v0.0.1}\" schema'"
+  - name: M004-containerfile-present
+    description: "Containerfile present (Podman per RSR-H15; Dockerfile forbidden)."
+    severity: critical
+    run: "test -f Containerfile"
+    recovery: "git checkout HEAD -- Containerfile"
+
+  - name: M005-no-dockerfile
+    description: "No Dockerfile (RSR-H15)."
+    severity: critical
+    run: "test ! -f Dockerfile"
+    recovery: "rm -f Dockerfile (should never have been committed)"
+
+  - name: M006-no-makefile
+    description: "No Makefile (RSR-H14: Justfile primary)."
+    severity: critical
+    run: "test ! -f Makefile"
+    recovery: "rm -f Makefile"
+
+  - name: M007-no-flake-nix
+    description: "No flake.nix / flake.lock (nix deprecated estate-wide 2026-06-01)."
+    severity: critical
+    run: "test ! -f flake.nix && test ! -f flake.lock"
+    recovery: "git rm flake.nix flake.lock; commit"
+
+  - name: M008-guix-scm-present
+    description: "guix.scm or .guix-channel exists (guix is the sole reproducible-dev vehicle)."
+    severity: warning
+    run: "test -f guix.scm || test -f .guix-channel"
+    recovery: "Add guix.scm or .guix-channel; owner input on channel URL if missing."
+
+  - name: M009-no-secrets-committed
+    description: "No .env / credentials / private-key files."
+    severity: critical
+    run: "test ! -f .env && test ! -f credentials.json && test ! -f .env.local && test ! -f .secrets"
+    recovery: "git-filter-repo to remove + rotate the secret immediately."
+
+  - name: M010-spdx-headers-on-rust
+    description: "All src/ .rs files carry SPDX-License-Identifier."
+    severity: warning
+    run: "find src -name '*.rs' 2>/dev/null | head -50 | xargs -r grep -L 'SPDX-License-Identifier' | wc -l | grep -q '^0$'"
+    recovery: "Manual per-file addition (per [[feedback_no_automated_licence_edits]] — never sweep)."
+
+  - name: M011-cargo-lock-tracked
+    description: "Cargo.lock committed (echidnabot ships a binary)."
+    severity: high
+    run: "test -f Cargo.lock && git ls-files --error-unmatch Cargo.lock > /dev/null"
+    recovery: "git add Cargo.lock; commit"
+
+  - name: M012-gpg-signed-head
+    description: "HEAD commit is GPG-signed."
+    severity: critical
+    run: "git log -1 --pretty='%G?' | grep -qE '[GN]'"
+    recovery: "git commit --amend -S; git config commit.gpgsign true"
+
+  - name: M013-shared-context-dep-shape
+    description: "Cargo.toml declares the gitbot-shared-context path dep (echidnabot lives in gitbot-fleet/bots/)."
+    severity: warning
+    run: "grep -q 'gitbot-shared-context.*path' Cargo.toml"
+    recovery: "Restore the path dep line (matches gitbot-fleet/shared-context relative location)."
+
+  - name: M014-config-example-present
+    description: "echidnabot.example.toml documents required config keys."
+    severity: warning
+    run: "test -f echidnabot.example.toml"
+    recovery: "Restore from git history; sync with src/config.rs ConfigSchema."
+
+  - name: M015-no-tabs-in-cargo-toml
+    description: "Cargo.toml uses spaces (TOML standard)."
+    severity: low
+    run: "! grep -P '\\t' Cargo.toml"
+    recovery: "sed -i 's/\\t/    /g' Cargo.toml"
