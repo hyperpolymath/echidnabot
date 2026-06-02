@@ -1,0 +1,124 @@
+# SPDX-License-Identifier: PLMP-1.0-or-later
+# Adjustfile — adaptive-maintenance contract for echidnabot
+#
+# Migration recipes for when upstream deps, toolchains, schemas, or
+# GitHub-side APIs shift. Each adjustment has a probe to detect drift
+# and either an `adjust` recipe to apply, or a `defer-if` escape hatch.
+# Run with: just adjust-check
+# Error-code namespace: A###
+
+version: 1
+
+metadata:
+  name: echidnabot-adjust-contract
+  spec: v0.1.0
+  description: "Adaptive maintenance for Rust deps, sqlx, octocrab, axum, tracing-OTel, GitHub Apps protocol."
+
+# ── Toolchain-Adjust ───────────────────────────────────────────────────
+
+toolchain:
+
+  - name: A001-rust-toolchain-drift
+    description: "rust-toolchain.toml pin behind current stable."
+    severity: low
+    probe: "rustc --version | grep -q $(cat rust-toolchain.toml 2>/dev/null | grep channel | cut -d'\"' -f2)"
+    adjust: "Bump rust-toolchain.toml to current stable; cargo update --workspace."
+    defer-if: "any pinned-feature crate breaks on bump."
+
+  - name: A002-cargo-edition-drift
+    description: "Cargo.toml edition < current default (2024)."
+    severity: low
+    probe: "grep -q '^edition = \"2024\"' Cargo.toml"
+    adjust: "Bump edition to 2024; address `let` chain / new-keyword breakage in src/."
+    defer-if: "downstream consumers pinned to older edition; flag in CHANGELOG."
+
+# ── Dep-Adjust ─────────────────────────────────────────────────────────
+
+deps:
+
+  - name: A010-cargo-deps-major-bump-available
+    description: "A tracked Cargo dep has a major bump available."
+    severity: low
+    probe: "cargo outdated --workspace --depth 1 2>/dev/null | grep -E '^\\w+\\s+\\S+\\s+\\S+\\s+\\d' | head -5"
+    adjust: "Review upstream CHANGELOG; bump via cargo update -p <crate> --precise <new>; run cargo test."
+    defer-if: "breaking-change requires call-site rewrites (nom 7→8 style)."
+
+  - name: A011-sqlx-major-bump
+    description: "sqlx has a major bump (e.g. 0.8 → 0.9)."
+    severity: high
+    probe: "cargo tree -p sqlx --depth 0 | head -1"
+    adjust: "Run sqlx migrate diff against new schema; update query! macros if changed."
+    defer-if: "migrations folder requires regeneration."
+
+  - name: A012-octocrab-major-bump
+    description: "octocrab has a major bump."
+    severity: high
+    probe: "cargo tree -p octocrab --depth 0 | head -1"
+    adjust: "Review GitHub API surface changes; update src/adapters/github.rs handlers."
+    defer-if: "echidna server contract on the bot side hasn't been updated to match (cross-repo seam)."
+
+  - name: A013-axum-major-bump
+    description: "axum has a major bump (e.g. 0.8 → 0.9)."
+    severity: high
+    probe: "cargo tree -p axum --depth 0 | head -1"
+    adjust: "Update Router builder + extractor signatures per axum CHANGELOG."
+    defer-if: "tower middleware compat lags."
+
+  - name: A014-tracing-otel-bump
+    description: "opentelemetry / tracing-opentelemetry have a bump."
+    severity: low
+    probe: "cargo tree -p opentelemetry --depth 0 | head -1"
+    adjust: "Bump the otel + tracing-opentelemetry pair together (they must match)."
+
+  - name: A015-dependabot-pr-backlog
+    description: "Open dependabot PRs accumulating."
+    severity: low
+    probe: "gh pr list --repo hyperpolymath/echidnabot --author 'app/dependabot' --state open --limit 50 --json number | jq 'length' | grep -q '^0$'"
+    adjust: "Triage; auto-merge safe patches; defer or close API-breaks."
+
+# ── Schema-Adjust ──────────────────────────────────────────────────────
+
+schemas:
+
+  - name: A020-sqlx-migration-pending
+    description: "migrations/ has a SQL file newer than the DB's last-applied."
+    severity: medium
+    probe: "test -d migrations && ls migrations/*.sql 2>/dev/null | wc -l | grep -qE '^[1-9]'"
+    adjust: "sqlx migrate run (forward) ; verify against echidnabot.example.toml schema docs."
+    defer-if: "rollback path not tested for that migration."
+
+  - name: A021-github-webhook-payload-drift
+    description: "GitHub webhook payload added a new field echidnabot doesn't decode."
+    severity: medium
+    probe: "Manual — review github webhook docs CHANGELOG; check serde Deserialize warnings in tests."
+    adjust: "Add field to CodebergPushPayload / GitHubPushPayload struct; bump CHANGELOG."
+
+# ── Workflow-Adjust ────────────────────────────────────────────────────
+
+workflows:
+
+  - name: A040-standards-reusable-sha-stale
+    description: "A standards-reusable workflow caller is behind current main."
+    severity: low
+    probe: "grep -rE 'uses: hyperpolymath/standards/.+@[0-9a-f]{40}' .github/workflows/ | head -3"
+    adjust: "Bump SHA pin; verify via gh api repos/hyperpolymath/standards/commits/<sha>."
+    defer-if: "recent reusable change introduces breaking input shape."
+
+  - name: A041-action-sha-pin-fake
+    description: "A 3rd-party action SHA pin is fake (does not exist upstream)."
+    severity: critical
+    probe: "test -x scripts/verify-action-shas.sh && bash scripts/verify-action-shas.sh 2>&1 | grep -q 'FAKE'"
+    adjust: "Replace with current real SHA via gh api repos/<owner>/<action>/commits/<branch>."
+    defer-if: "never — fake SHA is a supply-chain hazard."
+
+  - name: A042-governance-floating-ref
+    description: "A workflow file uses @main floating ref (not SHA-pinned)."
+    severity: medium
+    probe: "grep -rE 'uses: hyperpolymath/.+@main' .github/workflows/ | head -1"
+    adjust: "SHA-pin via gh api repos/hyperpolymath/<reusable>/commits/main."
+
+adjust-philosophy:
+  - "Always check before adjust (every recipe has both)."
+  - "Never adjust without an explicit defer-if escape hatch."
+  - "Adjustments cascade: bump dep → cargo test → check container → check CI."
+  - "Prefer the narrowest change that resolves the drift."
