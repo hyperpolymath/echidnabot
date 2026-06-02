@@ -19,8 +19,7 @@ use echidnabot::modes::{self, BotMode, ModeSelector};
 use echidnabot::result_formatter;
 use echidnabot::scheduler::{JobScheduler, ProofJob};
 use echidnabot::shutdown::{
-    resolve_shutdown_timeout, stub_tracer_shutdown_hook, wait_for_termination,
-    ShutdownCoordinator, ShutdownSignal,
+    resolve_shutdown_timeout, wait_for_termination, ShutdownCoordinator, ShutdownSignal,
 };
 use echidnabot::store::{SqliteStore, Store};
 use echidnabot::feedback::corpus_delta::{CorpusDelta, DeltaRow, DeltaSource};
@@ -157,7 +156,7 @@ async fn main() -> Result<()> {
         // Log via plain eprintln since the subscriber isn't installed yet.
         eprintln!("Initialising OpenTelemetry OTLP exporter → {endpoint}");
     }
-    let _tracer_guard = echidnabot::observability::init_tracing(otlp_endpoint, false)
+    let mut tracer_guard = echidnabot::observability::init_tracing(otlp_endpoint, false)
         .map_err(|e| echidnabot::Error::Config(format!("tracing init failed: {e}")))?;
 
     let result = match cli.command {
@@ -166,7 +165,13 @@ async fn main() -> Result<()> {
             let host = host.unwrap_or_else(|| config.server.host.clone());
             let port = port.unwrap_or(config.server.port);
             tracing::info!("Starting echidnabot server on {}:{}", host, port);
-            serve(&config, &host, port).await
+            // Hand the OTLP flush over to the shutdown coordinator so that
+            // signal-driven graceful shutdown flushes spans inside its
+            // drain phase (closes echidnabot#71). When no OTLP endpoint
+            // was configured, the hook is `None` and the coordinator
+            // skips registration.
+            let tracer_hook = tracer_guard.into_coordinator_hook();
+            serve(&config, &host, port, tracer_hook).await
         }
         Commands::Register {
             repo,
@@ -212,15 +217,33 @@ async fn main() -> Result<()> {
     };
 
     // Flush any in-flight OTel spans before the process exits.
-    // The tracer guard's Drop impl would handle this anyway, but an
-    // explicit shutdown gives us a chance to surface errors and is the
-    // hook the graceful-shutdown agent will reuse from its signal handler.
-    _tracer_guard.shutdown();
+    //
+    // For `serve`, the OTLP provider was already moved into the shutdown
+    // coordinator via `into_coordinator_hook()`, so this call is a no-op
+    // (provider is `None`). For other CLI subcommands which do not run a
+    // coordinator, this is the only flush — the explicit `shutdown()`
+    // gives us a chance to surface errors that `Drop` would silently log.
+    tracer_guard.shutdown();
 
     result
 }
 
-async fn serve(config: &Config, host: &str, port: u16) -> Result<()> {
+/// OTLP-flush coordinator hook type, as produced by
+/// `TracerShutdown::into_coordinator_hook()`. Used by `serve` to wire
+/// the OpenTelemetry flush into the graceful-shutdown drain phase.
+type TracerFlushHook = Box<
+    dyn FnOnce()
+            -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send + 'static>>
+        + Send
+        + 'static,
+>;
+
+async fn serve(
+    config: &Config,
+    host: &str,
+    port: u16,
+    tracer_hook: Option<TracerFlushHook>,
+) -> Result<()> {
     use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
     use axum::{Extension, routing::get, routing::post, Router};
 
@@ -340,12 +363,12 @@ async fn serve(config: &Config, host: &str, port: u16) -> Result<()> {
         store_for_hook.close().await;
         tracing::info!("DB pool closed");
     });
-    // OpenTelemetry agent will replace this stub with the real
-    // TracerShutdown handle once their PR lands. Until then the hook is
-    // a no-op log line — registering it now keeps the call-site stable.
-    coordinator.register("tracer-flush", || async move {
-        stub_tracer_shutdown_hook().await;
-    });
+    // Wire the real OTLP flush into the drain phase. When no endpoint
+    // was configured at init time, `tracer_hook` is `None` and we skip
+    // registration — no point burning a hook slot on a no-op.
+    if let Some(hook) = tracer_hook {
+        coordinator.register("tracer-flush", hook);
+    }
 
     tokio::spawn(run_scheduler_loop(
         scheduler.clone(),

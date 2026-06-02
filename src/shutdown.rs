@@ -26,13 +26,14 @@
 //! coordinator owns the order: SCHEDULER drain → axum drain → hooks in
 //! registration order → done.
 //!
-//! ## Coordination with other in-flight agents
+//! ## Coordination with other in-flight subsystems
 //!
-//! * **OpenTelemetry agent** — will register a tracer-shutdown hook here
-//!   when its PR lands. Until then we use the stub
-//!   [`stub_tracer_shutdown_hook`] which is a no-op.
-//! * **JSON-logging agent** — independent; will register its own
-//!   buffer-flush hook here if it needs one (most JSON layers in
+//! * **OpenTelemetry** — `main.rs` extracts an OTLP flush hook from
+//!   [`crate::observability::TracerShutdown::into_coordinator_hook`] and
+//!   registers it on the coordinator. When no OTLP endpoint is
+//!   configured the hook is `None` and registration is skipped.
+//! * **JSON-logging** — independent; will register its own buffer-flush
+//!   hook here if it needs one (most JSON layers in
 //!   `tracing-subscriber` are line-buffered and need no explicit flush).
 //!
 //! ## Why poll the scheduler instead of using a barrier?
@@ -300,14 +301,6 @@ pub async fn wait_for_termination() {
         let _ = tokio::signal::ctrl_c().await;
         tracing::info!("Ctrl-C received");
     }
-}
-
-/// Stub OpenTelemetry tracer-shutdown hook used until the
-/// observability agent's PR lands. Replace the body when the real
-/// `TracerShutdown` handle is available — the call-site signature in
-/// `main.rs` does not change.
-pub async fn stub_tracer_shutdown_hook() {
-    tracing::debug!("Tracer shutdown stub (no OTLP provider configured)");
 }
 
 #[cfg(test)]
