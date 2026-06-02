@@ -29,7 +29,6 @@ use std::sync::Arc;
 use std::time::Instant;
 use tokio::fs;
 use tokio::time::{sleep, Duration};
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[derive(Parser)]
 #[command(name = "echidnabot")]
@@ -124,12 +123,11 @@ enum Commands {
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    // Initialize tracing
-    let filter = if cli.verbose { "debug" } else { "info" };
-    tracing_subscriber::registry()
-        .with(tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| filter.into()))
-        .with(tracing_subscriber::fmt::layer())
-        .init();
+    // Initialize tracing via the shared observability module.
+    // Output format is selected by `ECHIDNABOT_LOG_FORMAT` (text|json);
+    // log level by `RUST_LOG` with a fallback driven by `--verbose`.
+    let fallback_filter = if cli.verbose { "debug" } else { "info" };
+    echidnabot::observability::init_tracing(fallback_filter);
 
     // Load config
     let config = Config::load(&cli.config)?;

@@ -20,6 +20,7 @@ this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- feat(observability): structured JSON logging via `tracing-subscriber` — new `src/observability.rs` module + `ECHIDNABOT_LOG_FORMAT=text|json` env var (default `text`); shared init point for CLI, server, and future OpenTelemetry layer
 - feat(trust+executor): Tier-3 prover coverage (idris2/fstar/ATPs/protocol-checkers)
 - feat(T3): wire bot modes into webhook response pipeline
 - feat(feedback+graphql): double-loop write path, tactic GraphQL API, ProverKind fixes
