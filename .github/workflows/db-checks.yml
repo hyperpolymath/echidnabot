@@ -32,6 +32,7 @@ jobs:
   migrations:
     name: Migrations + schema drift
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     if: hashFiles('Cargo.toml') != ''
 
     steps:

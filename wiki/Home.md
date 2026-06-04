@@ -1,3 +1,7 @@
+<!--
+SPDX-License-Identifier: MPL-2.0
+Copyright (c) Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+-->
 # echidnabot Wiki
 
 Welcome to the **echidnabot** wiki — your comprehensive guide to proof-aware CI.
@@ -74,7 +78,7 @@ Our principles:
 - **Formal correctness** — Proofs over tests
 - **Sustainability** — Carbon-aware computing
 - **Independence** — No Big Tech dependencies
-- **Openness** — AGPL/PMPL-1.0 licensing
+- **Openness** — AGPL/MPL-2.0 licensing
 
 ---
 

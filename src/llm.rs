@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MPL-2.0
+// Copyright (c) Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 //! BoJ-mediated LLM client for Consultant-mode Q&A.
 //!
 //! Per the Bit 6(b) decision (locked 2026-04-25 to option (a)): route

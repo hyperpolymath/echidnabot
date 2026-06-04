@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MPL-2.0
+// Copyright (c) Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 //! Fleet integration for gitbot-fleet coordination
 //!
 //! This module provides the bridge between echidnabot and the gitbot-fleet

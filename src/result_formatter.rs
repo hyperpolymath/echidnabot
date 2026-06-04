@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MPL-2.0
+// Copyright (c) Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 //! Result formatting bridge between dispatcher and bot modes
 //!
 //! This module converts ECHIDNA verification results into mode-specific

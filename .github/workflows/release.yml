@@ -22,6 +22,7 @@ jobs:
   build-binaries:
     name: Build ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     permissions:
       contents: read
     strategy:
@@ -104,6 +105,7 @@ jobs:
   build-deb:
     name: Build .deb package
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
     needs: build-binaries
@@ -125,6 +127,7 @@ jobs:
   build-rpm:
     name: Build .rpm package
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
     needs: build-binaries
@@ -152,6 +155,7 @@ jobs:
   release:
     name: Create Release
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: [build-binaries, build-deb, build-rpm]
     permissions:
       contents: write
