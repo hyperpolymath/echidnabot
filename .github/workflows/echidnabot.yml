@@ -1,24 +1,22 @@
 # SPDX-License-Identifier: MPL-2.0
 name: echidnabot Proof Verification
-
 permissions:
   contents: read
   checks: write
   pull-requests: write
-
 on:
   push:
     branches: [main]
     paths:
       - 'proofs/**'
       - 'specs/**'
-      - '**/*.v'      # Coq
-      - '**/*.lean'   # Lean
-      - '**/*.agda'   # Agda
+      - '**/*.v' # Coq
+      - '**/*.lean' # Lean
+      - '**/*.agda' # Agda
       - '**/*.lagda*' # Literate Agda
-      - '**/*.smt2'   # SMT-LIB (Z3, CVC5)
-      - '**/*.mm'     # Metamath
-      - '**/*.thy'    # Isabelle
+      - '**/*.smt2' # SMT-LIB (Z3, CVC5)
+      - '**/*.mm' # Metamath
+      - '**/*.thy' # Isabelle
   pull_request:
     paths:
       - 'proofs/**'
@@ -45,11 +43,9 @@ on:
           - isabelle
           - z3
           - metamath
-
 env:
   ECHIDNABOT_VERSION: "0.1.0"
   ECHIDNA_ENDPOINT: ${{ secrets.ECHIDNA_ENDPOINT || 'https://echidna.hyperpolymath.dev/graphql' }}
-
 jobs:
   detect-proofs:
     name: Detect proof files
@@ -65,7 +61,6 @@ jobs:
       any_proofs: ${{ steps.detect.outputs.any_proofs }}
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-
       - name: Detect proof file types
         id: detect
         run: |
@@ -87,7 +82,6 @@ jobs:
           echo "any_proofs=$any" >> $GITHUB_OUTPUT
 
           echo "::notice::Detected: Coq=$has_coq, Lean=$has_lean, Agda=$has_agda, Isabelle=$has_isabelle, Z3=$has_z3, Metamath=$has_metamath"
-
   verify-coq:
     name: Verify Coq proofs
     needs: detect-proofs
@@ -96,12 +90,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-
       - name: Install Coq
         run: |
           sudo apt-get update
           sudo apt-get install -y coq
-
       - name: Verify Coq files
         run: |
           echo "::group::Coq Verification"
@@ -110,7 +102,6 @@ jobs:
             coqc "$file" 2>&1 || echo "::warning file=$file::Proof verification failed"
           done
           echo "::endgroup::"
-
   verify-lean:
     name: Verify Lean proofs
     needs: detect-proofs
@@ -119,12 +110,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-
       - name: Install elan (Lean version manager)
         run: |
           curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y
           echo "$HOME/.elan/bin" >> $GITHUB_PATH
-
       - name: Verify Lean files
         run: |
           source "$HOME/.elan/env"
@@ -138,7 +127,6 @@ jobs:
             done
           fi
           echo "::endgroup::"
-
   verify-z3:
     name: Verify Z3/SMT proofs
     needs: detect-proofs
@@ -147,12 +135,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-
       - name: Install Z3
         run: |
           sudo apt-get update
           sudo apt-get install -y z3
-
       - name: Verify SMT files
         run: |
           echo "::group::Z3 Verification"
@@ -161,7 +147,6 @@ jobs:
             z3 "$file" 2>&1 || echo "::warning file=$file::SMT verification failed"
           done
           echo "::endgroup::"
-
   verify-agda:
     name: Verify Agda proofs
     needs: detect-proofs
@@ -170,12 +155,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-
       - name: Install Agda
         run: |
           sudo apt-get update
           sudo apt-get install -y agda
-
       - name: Verify Agda files
         run: |
           echo "::group::Agda Verification"
@@ -184,7 +167,6 @@ jobs:
             agda "$file" 2>&1 || echo "::warning file=$file::Proof verification failed"
           done
           echo "::endgroup::"
-
   summary:
     name: Verification Summary
     needs: [detect-proofs, verify-coq, verify-lean, verify-z3, verify-agda]
