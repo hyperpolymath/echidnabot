@@ -1,12 +1,10 @@
 # SPDX-License-Identifier: MPL-2.0
 # SPDX-License-Identifier: MPL-2.0
 name: Echidna Smart Contract Fuzzing
-
 permissions:
   contents: read
   checks: write
   pull-requests: write
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # RATE LIMITING: Only one fuzzing run per PR/branch at a time
 # New pushes cancel in-progress runs to save resources
@@ -14,7 +12,6 @@ permissions:
 concurrency:
   group: echidna-fuzz-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
-
 on:
   push:
     branches: [main]
@@ -60,7 +57,6 @@ on:
         required: false
         default: '0'
         type: string
-
 env:
   SOLC_VERSION: "0.8.19"
   ECHIDNA_VERSION: "2.2.3"
@@ -70,7 +66,6 @@ env:
   TEST_TIMEOUT: 600
   # No-flaky mode: Number of verification passes required
   VERIFICATION_PASSES: 3
-
 jobs:
   # ═══════════════════════════════════════════════════════════════════════════
   # RATE LIMIT CHECK: Prevent abuse and resource exhaustion
@@ -103,7 +98,6 @@ jobs:
           # In production, this would query GitHub API for recent workflow runs
           echo "allowed=true" >> $GITHUB_OUTPUT
           echo "reason=within_limits" >> $GITHUB_OUTPUT
-
   detect-contracts:
     name: Detect Solidity contracts
     needs: rate-limit-check
@@ -117,7 +111,6 @@ jobs:
       contract_count: ${{ steps.detect.outputs.contract_count }}
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-
       - name: Detect contract files
         id: detect
         run: |
@@ -142,7 +135,6 @@ jobs:
           echo "contract_count=$test_count" >> $GITHUB_OUTPUT
 
           echo "::notice::Found $contract_count Solidity files, Echidna tests: $echidna_tests (limited to ${{ env.MAX_PARALLEL_CONTRACTS }} max)"
-
   # ═══════════════════════════════════════════════════════════════════════════
   # PROPERTY TESTING with safeguards
   # ═══════════════════════════════════════════════════════════════════════════
@@ -154,12 +146,11 @@ jobs:
     timeout-minutes: 30
     strategy:
       fail-fast: false
-      max-parallel: 2  # Rate limit: max 2 concurrent test jobs
+      max-parallel: 2 # Rate limit: max 2 concurrent test jobs
       matrix:
         contract: ${{ fromJson(format('["{0}"]', needs.detect-contracts.outputs.contracts)) }}
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-
       - name: Restore Echidna corpus cache
         uses: actions/cache@8b402f58fbc84540c8b491a91e594a4576fec3d7 # v5.0.2
         with:
@@ -167,21 +158,18 @@ jobs:
           key: echidna-corpus-${{ matrix.contract }}-${{ hashFiles(format('contracts/{0}.sol', matrix.contract)) }}
           restore-keys: |
             echidna-corpus-${{ matrix.contract }}-
-
       - name: Install solc
         run: |
           wget -q "https://github.com/ethereum/solidity/releases/download/v${{ env.SOLC_VERSION }}/solc-static-linux"
           chmod +x solc-static-linux
           sudo mv solc-static-linux /usr/local/bin/solc
           solc --version
-
       - name: Install Echidna
         run: |
           wget -q "https://github.com/crytic/echidna/releases/download/v${{ env.ECHIDNA_VERSION }}/echidna-${{ env.ECHIDNA_VERSION }}-x86_64-linux.tar.gz"
           tar -xzf "echidna-${{ env.ECHIDNA_VERSION }}-x86_64-linux.tar.gz"
           sudo mv echidna /usr/local/bin/
           echidna --version
-
       - name: Run Echidna property tests
         id: echidna
         run: |
@@ -282,14 +270,12 @@ jobs:
               exit $ECHIDNA_EXIT
             fi
           fi
-
       - name: Save corpus cache
         if: always()
         uses: actions/cache/save@8b402f58fbc84540c8b491a91e594a4576fec3d7 # v5.0.2
         with:
           path: echidna-corpus
           key: echidna-corpus-${{ matrix.contract }}-${{ hashFiles(format('contracts/{0}.sol', matrix.contract)) }}
-
       - name: Upload Echidna results
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
@@ -297,7 +283,6 @@ jobs:
           name: echidna-property-results-${{ matrix.contract }}
           path: echidna-results/
           retention-days: 30
-
   # ═══════════════════════════════════════════════════════════════════════════
   # ASSERTION TESTING with safeguards
   # ═══════════════════════════════════════════════════════════════════════════
@@ -314,7 +299,6 @@ jobs:
         contract: ${{ fromJson(format('["{0}"]', needs.detect-contracts.outputs.contracts)) }}
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-
       - name: Restore Echidna corpus cache
         uses: actions/cache@8b402f58fbc84540c8b491a91e594a4576fec3d7 # v5.0.2
         with:
@@ -322,19 +306,16 @@ jobs:
           key: echidna-corpus-assertion-${{ matrix.contract }}-${{ hashFiles(format('contracts/{0}.sol', matrix.contract)) }}
           restore-keys: |
             echidna-corpus-assertion-${{ matrix.contract }}-
-
       - name: Install solc
         run: |
           wget -q "https://github.com/ethereum/solidity/releases/download/v${{ env.SOLC_VERSION }}/solc-static-linux"
           chmod +x solc-static-linux
           sudo mv solc-static-linux /usr/local/bin/solc
-
       - name: Install Echidna
         run: |
           wget -q "https://github.com/crytic/echidna/releases/download/v${{ env.ECHIDNA_VERSION }}/echidna-${{ env.ECHIDNA_VERSION }}-x86_64-linux.tar.gz"
           tar -xzf "echidna-${{ env.ECHIDNA_VERSION }}-x86_64-linux.tar.gz"
           sudo mv echidna /usr/local/bin/
-
       - name: Run Echidna assertion tests
         id: echidna
         run: |
@@ -371,7 +352,6 @@ jobs:
           else
             echo "::warning::Echidna found assertion violations"
           fi
-
       - name: Upload Echidna results
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
@@ -379,7 +359,6 @@ jobs:
           name: echidna-assertion-results-${{ matrix.contract }}
           path: echidna-results/
           retention-days: 30
-
   summary:
     name: Fuzzing Summary
     needs: [detect-contracts, echidna-property-test, echidna-assertion-test]

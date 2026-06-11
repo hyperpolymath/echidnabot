@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: MPL-2.0 -->
+<!-- Owner: Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk> -->
 # Proof Debt
 
 Tracks soundness-relevant escape hatches in `echidnabot` that the trusted-base reducer flags as undocumented. Each is retained pending dedicated cleanup; new occurrences should land with an inline `// TRUSTED:` annotation or an entry below.

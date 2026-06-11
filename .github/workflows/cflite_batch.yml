@@ -2,14 +2,13 @@
 name: ClusterFuzzLite batch fuzzing
 on:
   schedule:
-    - cron: '0 3 * * 0'  # Weekly on Sunday at 3am UTC
+    - cron: '0 3 * * 0' # Weekly on Sunday at 3am UTC
   workflow_dispatch:
-
 permissions: read-all
-
 jobs:
   BatchFuzzing:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -21,7 +20,6 @@ jobs:
         with:
           language: rust
           sanitizer: ${{ matrix.sanitizer }}
-
       - name: Run Fuzzers (${{ matrix.sanitizer }})
         id: run
         uses: google/clusterfuzzlite/actions/run_fuzzers@884713a6c30a92e5e8544c39945cd7cb630abcd1 # v1

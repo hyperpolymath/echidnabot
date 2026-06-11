@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MPL-2.0
+// Owner: Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 //! Platform adapters for GitHub, GitLab, Bitbucket, Codeberg/Forgejo
 
 use serde::{Deserialize, Serialize};

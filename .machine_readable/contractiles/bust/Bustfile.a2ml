@@ -1,28 +1,52 @@
 # SPDX-License-Identifier: MPL-2.0
-# Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+# Bustfile — failure mode contractile for echidnabot
+# Author: Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 #
-# Bustfile.a2ml — Invalidation semantics for echidnabot proofs
-# Defines when and how echidnabot retracts a proof claim (e.g., axioms become unsafe).
+# Paired runner: bust.ncl
+# Verb:          bust
+# Semantics:     Every declared failure mode must have a working recovery path
+#                that has been exercised. Status moves:
+#                  declared → drilled (probe run) → verified (recovery confirmed)
+#                  or → failing (recovery broken)
+#
+# CLI:
+#   contractile bust check  → list failure modes + recovery status
+#   contractile bust drill  → inject failures, verify recovery paths
+#
+# This repository: echidnabot is the canonical template for RSR compliance.
+# Failure modes here relate to template distribution and substitution.
 
-[metadata]
-version = "0.1.0"
-last-updated = "2026-04-25"
-verb = "bust"
+@abstract:
+Bustfile for echidnabot. Lists failure modes specific to the template
+repository itself, particularly around template distribution, substitution,
+and synchronization across the hyperpolymath estate.
+@end
 
-[invalidation-rules]
-axiom-downgrade = "If axiom used in proof is reclassified Reject-level, mark proof as unverified immediately"
-solver-untrust = "If prover binary fails integrity check (SHAKE3-512), all proofs by that solver marked suspect"
-specification-change = "If goal is modified post-verification, retract proof claim; require re-solve"
-assumption-violation = "If proof assumes axiom that is later proven false, automatically bust the proof"
+## Failure Modes
 
-[compensations]
-on-bust = [
-  "Log invalidation to audit trail with reason + timestamp",
-  "Attempt re-solve with alternative prover or strategy",
-  "If re-solve fails, mark as 'Unproven (was busted)' in repo",
-  "Notify maintainer of bust + rationale"
-]
+### template-substitution-failure
+- class: template_processing
+- description: Template substitution fails when initializing a new repo from this template
+- injection_probe: "cp -r echidnabot test-repo && cd test-repo && sed -i 's/echidnabot/TEST/g' .machine_readable/contractiles/Intentfile.a2ml && grep -q 'TEST' .machine_readable/contractiles/Intentfile.a2ml"
+- recovery_probe: "git -C test-repo diff --quiet .machine_readable/contractiles/Intentfile.a2ml"
+- expected_recovery_time_seconds: 10
+- status: declared
+- notes: Verify that substitution scripts handle all placeholder replacements correctly
 
-[failure-mode]
-acceptable = "Proof is retracted; no state corruption occurs"
-never = "Silently keep false proof claim; cause data integrity violation"
+### sync-drift-between-repos
+- class: synchronization
+- description: Drift occurs between echidnabot and other repos after template updates
+- injection_probe: "echo 'template_updated' > /tmp/test_drift_marker"
+- recovery_probe: "test -f /tmp/test_drift_marker && rm /tmp/test_drift_marker"
+- expected_recovery_time_seconds: 60
+- status: declared
+- notes: The estate-wide sync scripts (see scripts/) should prevent this; verify with scripts/verify-sync.sh
+
+### contractile-parse-error
+- class: contractile_format
+- description: A contractile file fails to parse due to syntax errors
+- injection_probe: "echo 'invalid syntax' >> echidnabot/.machine_readable/contractiles/Intentfile.a2ml"
+- recovery_probe: "git checkout echidnabot/.machine_readable/contractiles/Intentfile.a2ml"
+- expected_recovery_time_seconds: 5
+- status: declared
+- notes: All .a2ml files should be valid A2ML; use a2ml-validate runner

@@ -22,7 +22,6 @@ on:
   push:
     branches: [main, master]
   workflow_dispatch:
-
 # Estate guardrail: cancel superseded runs so re-pushes / rebased PR
 # updates do not pile up queued runs against the shared account-wide
 # Actions concurrency pool. Safe here — read-only scan, no mutation.

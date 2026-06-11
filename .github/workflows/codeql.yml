@@ -7,7 +7,6 @@
 # call the reusable once per language. echidnabot is JS/TS today, so
 # the default suffices.
 name: CodeQL Security Analysis
-
 on:
   push:
     branches: [main, master]
@@ -22,10 +21,8 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
 permissions:
   contents: read
-
 jobs:
   analyze:
     permissions:
