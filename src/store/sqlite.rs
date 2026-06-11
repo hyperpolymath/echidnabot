@@ -32,6 +32,27 @@ impl SqliteStore {
         Ok(store)
     }
 
+    /// Gracefully close the underlying connection pool.
+    ///
+    /// Called during shutdown to drain outstanding queries and release
+    /// SQLite file handles cleanly. After `close()`, all `Store`
+    /// operations on this instance return an error. Safe to call once;
+    /// subsequent calls are no-ops because `Pool::close()` is idempotent.
+    ///
+    /// See `crate::shutdown::ShutdownCoordinator` for the orchestrated
+    /// call site (DB close runs after the scheduler drains, so no
+    /// in-flight job tries to write after the pool is closed).
+    pub async fn close(&self) {
+        self.pool.close().await;
+    }
+
+    /// Borrow the underlying pool. Exposed for shutdown coordination
+    /// (e.g. wiring `pool.close()` into the shutdown sequence without
+    /// taking ownership of the `SqliteStore`).
+    pub fn pool(&self) -> &Pool<Sqlite> {
+        &self.pool
+    }
+
     /// Run database migrations
     async fn run_migrations(&self) -> Result<()> {
         sqlx::query(

@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: MPL-2.0
+# SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell (hyperpolymath)
+#
+# .trusted-base-ignore — path-fragment exemptions for the estate
+# Trusted-Base Reduction Policy enforcer
+# (hyperpolymath/standards/scripts/check-trusted-base.sh).
+#
+# Each non-comment, non-blank line is a substring matched against the
+# file path of every detected escape hatch. Use sparingly — per-site
+# `TRUSTED:` / `AXIOM:` leading comments and entries in `docs/proof-debt.md`
+# remain the preferred mechanisms. This file is for whole-path
+# exemptions that carry a stated rationale.
+
+# ─── Dogfood fixtures for echidnabot's own axiom scanner ──────────────
+# These two files exist precisely to be detected by the trust pipeline
+# (src/trust/axiom_tracker) — they exercise the proofs/** path trigger
+# in .github/workflows/echidnabot.yml. Documenting each with an inline
+# TRUSTED: comment would defeat the dogfood purpose (the scanner is
+# meant to surface them as findings, not to be told to ignore them
+# inline). The companion `trivial_ok.{v,lean}` files in the same dirs
+# carry zero markers and need no exemption.
+proofs/coq/admitted_stub.v
+proofs/lean/sorry_stub.lean

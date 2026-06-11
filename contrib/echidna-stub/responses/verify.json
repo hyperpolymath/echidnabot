@@ -1,0 +1,10 @@
+{
+  "job_id": "stub-00000000-0000-0000-0000-000000000000",
+  "status": "succeeded",
+  "prover": "coq",
+  "verified_files": ["stub.v"],
+  "failed_files": [],
+  "duration_ms": 12,
+  "message": "stubbed response — echidna-server profile=dev",
+  "prover_output": "stub OK"
+}

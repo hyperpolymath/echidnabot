@@ -11,9 +11,14 @@
 //! - **Regulator**: Blocks PR merges when proofs fail
 
 pub mod directives;
+pub mod manifest;
 pub use directives::{
     fetch_directive_via_adapter, parse_a2ml_directive, resolve_mode,
     resolve_mode_with_daemon_default,
+};
+pub use manifest::{
+    AxiomSeverity, AxiomsSection, BlockedOnSection, BotSection, MergeBlockSection,
+    ProofsSection, ProverConfig, ProversSection, RepoManifest,
 };
 
 use serde::{Deserialize, Serialize};

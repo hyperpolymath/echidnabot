@@ -213,6 +213,16 @@ impl CorpusDelta {
     /// On success, also append a `ProofStateEntry` to the corpus-feed file
     /// (`proof_states_echidnabot_YYYY-MM-DD.jsonl`) that `merge_corpus.jl`
     /// picks up during corpus-refresh.
+    #[tracing::instrument(
+        name = "feedback.publish",
+        skip(self, row),
+        fields(
+            prover = %row.prover,
+            tactic = %row.chosen_tactic,
+            succeeded = row.succeeded,
+            source = ?row.source,
+        )
+    )]
     pub async fn record(&self, row: &DeltaRow) -> Result<PathBuf> {
         fs::create_dir_all(&self.training_data_dir)
             .await

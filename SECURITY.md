@@ -67,5 +67,8 @@ This project uses:
 
 ## References
 
-- [security.txt](/.well-known/security.txt)
-- [ARCHITECTURE.adoc](docs/ARCHITECTURE.adoc) - Security considerations section
+- [security.txt](.well-known/security.txt)
+- [Architecture (wiki)](wiki/Architecture.md) — Security model section
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+- [MAINTAINERS.adoc](MAINTAINERS.adoc) — disclosure contacts
+- [hyperpolymath/standards](https://github.com/hyperpolymath/standards) — estate-wide security policy

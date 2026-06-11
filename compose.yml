@@ -1,0 +1,133 @@
+# SPDX-License-Identifier: MPL-2.0
+// Owner: Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+# SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell (hyperpolymath)
+#
+# Compose stack for echidnabot (issue #60).
+#
+# Brings up a reproducible local stack:
+#   * postgres  — persistence layer (echidnabot's sqlx-postgres path)
+#   * echidnabot — bot service, built from ./Containerfile
+#   * echidna-server — OPTIONAL canned-JSON stub of the ECHIDNA REST API,
+#                      enabled only under `--profile dev` so production
+#                      stacks don't accidentally route real traffic to it.
+#
+# Tooling: works with `docker compose` v2 and `podman-compose`. Per estate
+# policy this file is named `compose.yml` (the Compose-v2 canonical name),
+# NOT the deprecated `docker-compose.yml`, and omits the deprecated
+# top-level `version:` key.
+#
+# Quickstart:
+#   cp .env.example .env && $EDITOR .env
+#   docker compose up -d                       # core stack (postgres + bot)
+#   docker compose --profile dev up -d         # + echidna-server stub
+#
+# Volumes are NAMED (pgdata) so the DB survives `compose down`. Use
+# `compose down -v` to wipe.
+
+name: echidnabot
+
+services:
+  postgres:
+    image: docker.io/library/postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: "${POSTGRES_USER:-echidnabot}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-changeme}"
+      POSTGRES_DB: "${POSTGRES_DB:-echidnabot}"
+      # Quiet libpq/scram negotiation noise on first boot.
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Initial schema — picked up by postgres entrypoint on FIRST-BOOT
+      # only (when /var/lib/postgresql/data/pgdata is empty). Subsequent
+      # migrations should go through sqlx-migrate at app startup.
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+    # NOTE: port intentionally NOT published to the host. Reach Postgres
+    # from outside the stack via `docker compose exec postgres psql ...`
+    # or temporarily publish by uncommenting:
+    # ports:
+    #   - "127.0.0.1:5432:5432"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "${POSTGRES_USER:-echidnabot}" -d "${POSTGRES_DB:-echidnabot}"
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - echidnabot-net
+
+  echidnabot:
+    build:
+      context: .
+      dockerfile: Containerfile
+    image: ghcr.io/hyperpolymath/echidnabot:local
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # env_file requires `.env` to exist — copy from `.env.example`:
+    #   cp .env.example .env
+    # On Compose v2.24+ this can be made optional via the long-form
+    # `{path: .env, required: false}`, but that long-form is not yet
+    # supported by podman-compose 1.0.6, so we use the simple string
+    # form here for maximum cross-tool portability.
+    env_file:
+      - .env
+    environment:
+      # Canonical defaults in case .env omits them. Real deployments
+      # should rely on .env; values here are last-resort fallbacks.
+      DATABASE_URL: "${DATABASE_URL:-postgres://echidnabot:changeme@postgres:5432/echidnabot}"
+      RUST_LOG: "${RUST_LOG:-info}"
+    command: ["serve"]
+    ports:
+      - "${ECHIDNABOT_HOST_PORT:-8080}:8080"
+    healthcheck:
+      # echidnabot exposes `GET /health` per src/main.rs route table.
+      # The runtime image (wolfi-base) has no curl; use a Bash /dev/tcp
+      # probe instead — confirms the TCP listener is up which is
+      # sufficient for a process-liveness gate.
+      test:
+        - CMD-SHELL
+        - "exec 3<>/dev/tcp/127.0.0.1/8080 && echo -e 'GET /health HTTP/1.0\\r\\n\\r\\n' >&3 && head -n1 <&3 | grep -q '200\\|404'"
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    networks:
+      - echidnabot-net
+
+  # ─── Optional dev-only ECHIDNA REST stub ──────────────────────────────
+  # Enable with: `docker compose --profile dev up -d`.
+  # Returns canned 200/JSON on the handful of endpoints echidnabot's
+  # dispatcher hits, enough for an end-to-end smoke without standing up
+  # a real prover orchestrator. Production stacks omit the --profile.
+  echidna-server:
+    image: docker.io/library/caddy:2-alpine
+    restart: unless-stopped
+    profiles: ["dev"]
+    volumes:
+      - ./contrib/echidna-stub/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./contrib/echidna-stub/responses:/srv/responses:ro
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - --quiet
+        - --spider
+        - http://127.0.0.1:9100/health
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - echidnabot-net
+
+volumes:
+  pgdata:
+    driver: local
+
+networks:
+  echidnabot-net:
+    driver: bridge

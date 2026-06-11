@@ -1,6 +1,6 @@
 <!--
 SPDX-License-Identifier: MPL-2.0
-Copyright (c) Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 -->
 # Changelog
 
@@ -19,6 +19,21 @@ this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- feat(observability): OpenTelemetry distributed tracing via OTLP — spans propagate from webhook receipt → dispatcher → executor → echidna call → feedback; configurable endpoint via `[observability] otlp_endpoint` or the standard `OTEL_EXPORTER_OTLP_ENDPOINT` env var
+- feat(observability): structured JSON logging via `tracing-subscriber` — new `src/observability.rs` module + `ECHIDNABOT_LOG_FORMAT=text|json` env var (default `text`); shared init point for CLI, server, and future OpenTelemetry layer
+- feat(lifecycle): graceful shutdown — drain in-flight + close DB + flush observability
+  ([ROADMAP "Graceful shutdown (finish in-progress jobs)" item])
+  - On `SIGTERM` / `SIGINT`: webhooks stop accepting, scheduler stops
+    dispatching, in-flight jobs drain (default 30s deadline), SQLite
+    pool closes cleanly, OpenTelemetry tracer flush hook fires (stub
+    until the observability agent's PR lands).
+  - New module `echidnabot::shutdown` exposes `ShutdownCoordinator`,
+    `ShutdownSignal`, `ShutdownTrigger`, `wait_for_termination`,
+    `resolve_shutdown_timeout`.
+  - New config block `[lifecycle] shutdown_timeout_secs = 30` and env
+    override `ECHIDNABOT_SHUTDOWN_TIMEOUT_SECS` (env wins).
+  - New `SqliteStore::close()` for explicit pool drain (idempotent).
+- feat(deployment): Docker Compose + PostgreSQL stack with optional ECHIDNA REST stub under `--profile dev`; initial Postgres migration; `docs/deployment.adoc` quickstart (closes #60)
 - feat(trust+executor): Tier-3 prover coverage (idris2/fstar/ATPs/protocol-checkers)
 - feat(T3): wire bot modes into webhook response pipeline
 - feat(feedback+graphql): double-loop write path, tactic GraphQL API, ProverKind fixes
@@ -42,6 +57,8 @@ this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - fix(serve): honour [server] section in echidnabot.toml
 - fix(proofs): drop Coq .aux artefacts + gitignore build outputs
 - fix(cargo): update gitbot-shared-context path after gitbot-fleet relocation
+- fix(openssf-compliance): provide top-level STATE.a2ml pointer for literal-path check (#66)
+- ci(cflite_pr): mark continue-on-error pending sibling-crate vendoring (#66; follow-up #67)
 
 ### Changed
 
@@ -50,6 +67,7 @@ this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+- docs(proof-debt): placeholder doc to satisfy governance/trusted-base (#66; follow-up #68 for real rationale)
 - docs(flake): annotate KEEP+DEP rationale per standards#102 rule 3 (#16)
 - docs(flake): annotate KEEP+DEP rationale per standards#102 rule 3 (#15)
 - docs(flake): annotate KEEP+DEP rationale per standards#102 rule 3 (#13)
@@ -63,6 +81,7 @@ this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### CI
 
+- ci(stress-test): SHA-pin dtolnay/rust-toolchain (#66)
 - ci(rust): convert rust-ci.yml to thin wrapper (standards#174) (#19)
 - ci: redistribute concurrency-cancel guard to read-only check workflows (#12)
 - ci: bump actions/upload-artifact SHA to current v4 (#5)

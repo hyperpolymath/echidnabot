@@ -10,10 +10,17 @@
 use echidnabot::adapters::Platform;
 use echidnabot::dispatcher::ProverKind;
 use echidnabot::scheduler::{JobResult, JobScheduler, JobStatus, ProofJob};
+use echidnabot::shutdown::{
+    resolve_shutdown_timeout, ShutdownCoordinator, DEFAULT_SHUTDOWN_TIMEOUT_SECS,
+    ENV_SHUTDOWN_TIMEOUT,
+};
 use echidnabot::store::{
     models::{ProofJobRecord, Repository},
     SqliteStore, Store,
 };
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::time::Duration;
 use uuid::Uuid;
 
 fn make_job_result(success: bool) -> JobResult {
@@ -265,4 +272,155 @@ async fn lifecycle_store_health_check() {
     let store = SqliteStore::new("sqlite::memory:").await.unwrap();
     let healthy = store.health_check().await.unwrap();
     assert!(healthy, "in-memory SQLite must be healthy");
+}
+
+#[tokio::test]
+async fn lifecycle_store_close_is_idempotent() {
+    let store = SqliteStore::new("sqlite::memory:").await.unwrap();
+    // First close: cleanly drains the pool.
+    store.close().await;
+    // Second close: must be a no-op, never panic. Idempotency lets the
+    // shutdown coordinator and a manual close in tests coexist.
+    store.close().await;
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Graceful-shutdown lifecycle
+// ──────────────────────────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn lifecycle_shutdown_default_timeout_is_30s() {
+    assert_eq!(DEFAULT_SHUTDOWN_TIMEOUT_SECS, 30);
+    let t = resolve_shutdown_timeout(DEFAULT_SHUTDOWN_TIMEOUT_SECS);
+    assert_eq!(t, Duration::from_secs(30));
+}
+
+#[tokio::test]
+async fn lifecycle_shutdown_env_var_overrides_config() {
+    // Use a unique value (47) that nothing else in the test set uses,
+    // so we can confirm the env source rather than coincidental default.
+    std::env::set_var(ENV_SHUTDOWN_TIMEOUT, "47");
+    let t = resolve_shutdown_timeout(30);
+    assert_eq!(t, Duration::from_secs(47));
+    std::env::remove_var(ENV_SHUTDOWN_TIMEOUT);
+}
+
+#[tokio::test]
+async fn lifecycle_shutdown_drains_empty_scheduler_immediately() {
+    // A scheduler with zero in-flight jobs must return Ok from
+    // drain_scheduler without sleeping for the full timeout.
+    let coord = ShutdownCoordinator::new(Duration::from_secs(30));
+    let sched = Arc::new(JobScheduler::new(2, 10));
+    let started = std::time::Instant::now();
+    coord.drain_scheduler(&sched).await.expect("empty scheduler must drain instantly");
+    assert!(
+        started.elapsed() < Duration::from_millis(50),
+        "empty drain must not block (took {:?})",
+        started.elapsed()
+    );
+}
+
+#[tokio::test]
+async fn lifecycle_shutdown_hooks_run_in_order_with_db_close() {
+    // Full shutdown sequence: register a DB-close hook + a marker hook,
+    // verify both run in registration order and the store's pool is
+    // actually closed afterwards.
+    let store = Arc::new(SqliteStore::new("sqlite::memory:").await.unwrap());
+    let order = Arc::new(std::sync::Mutex::new(Vec::<&'static str>::new()));
+
+    let mut coord = ShutdownCoordinator::new(Duration::from_secs(5));
+
+    let store_hook = store.clone();
+    let order_clone = order.clone();
+    coord.register("db-pool-close", move || async move {
+        store_hook.close().await;
+        order_clone.lock().unwrap().push("db");
+    });
+
+    let order_clone = order.clone();
+    coord.register("tracer-flush", move || async move {
+        order_clone.lock().unwrap().push("tracer");
+    });
+
+    let remaining = coord.run(None).await;
+    assert_eq!(remaining, 0, "no scheduler → no in-flight jobs");
+    let final_order = order.lock().unwrap().clone();
+    assert_eq!(
+        final_order,
+        vec!["db", "tracer"],
+        "hooks must run in registration order"
+    );
+
+    // After close(), the pool is drained — subsequent queries should fail.
+    // (We don't assert the exact error variant; just that the store no
+    // longer accepts work.)
+    let res = store.health_check().await;
+    assert!(
+        res.is_err() || matches!(res, Ok(false)),
+        "store must reject queries after pool close"
+    );
+}
+
+#[tokio::test]
+async fn lifecycle_shutdown_timeout_fires_with_warning_when_drain_exceeds_deadline() {
+    // Inflate the scheduler's running counter without ever completing
+    // the job — simulates a long-running proof that won't finish before
+    // the deadline. We need a scheduler with a started job to bump
+    // active_count; do that via the normal enqueue+try_start_next flow.
+    let sched = Arc::new(JobScheduler::new(2, 10));
+    let job = ProofJob::new(
+        Uuid::new_v4(),
+        "deadlock_sha".to_string(),
+        ProverKind::new("coq"),
+        vec!["slow.v".to_string()],
+    );
+    sched.enqueue(job).await.unwrap().expect("enqueue must succeed");
+    sched.try_start_next().await.expect("must start the job");
+    assert_eq!(sched.running_count(), 1, "test pre-condition: 1 job running");
+
+    // Drain with a very short timeout — should return Err(remaining).
+    let coord = ShutdownCoordinator::new(Duration::from_millis(100));
+    let started = std::time::Instant::now();
+    let result = coord.drain_scheduler(&sched).await;
+    let elapsed = started.elapsed();
+
+    assert!(result.is_err(), "drain must time out when jobs never complete");
+    assert_eq!(result.unwrap_err(), 1, "must report 1 in-flight job remaining");
+    assert!(
+        elapsed >= Duration::from_millis(100) && elapsed < Duration::from_millis(500),
+        "drain must respect the deadline (~100ms), took {:?}",
+        elapsed
+    );
+}
+
+#[tokio::test]
+async fn lifecycle_shutdown_signal_wakes_all_subscribers() {
+    // Each subsystem (scheduler loop, axum graceful_shutdown, ad-hoc
+    // workers) holds its own ShutdownSignal. When trigger() fires, all
+    // of them must wake — verifies the Notify-based fan-out works.
+    let coord = ShutdownCoordinator::new(Duration::from_secs(1));
+    let trigger = coord.trigger_handle();
+
+    let mut handles = Vec::new();
+    let woke = Arc::new(AtomicUsize::new(0));
+    for _ in 0..5 {
+        let sig = coord.signal();
+        let woke = woke.clone();
+        handles.push(tokio::spawn(async move {
+            sig.triggered().await;
+            woke.fetch_add(1, Ordering::SeqCst);
+        }));
+    }
+    // Give subscribers a moment to park on the Notify.
+    tokio::time::sleep(Duration::from_millis(20)).await;
+
+    trigger.trigger();
+
+    for h in handles {
+        tokio::time::timeout(Duration::from_millis(500), h)
+            .await
+            .expect("subscriber must wake within 500ms")
+            .unwrap();
+    }
+    assert_eq!(woke.load(Ordering::SeqCst), 5, "all 5 subscribers must wake");
 }

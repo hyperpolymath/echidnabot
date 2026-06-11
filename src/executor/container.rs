@@ -213,6 +213,15 @@ impl PodmanExecutor {
     ///
     /// # Returns
     /// `ExecutionResult` with stdout/stderr and exit status
+    #[tracing::instrument(
+        name = "executor.run",
+        skip(self, proof_content, _additional_files),
+        fields(
+            prover = %prover,
+            backend = ?self.backend,
+            proof_bytes = proof_content.len(),
+        )
+    )]
     pub async fn execute_proof(
         &self,
         prover: ProverKind,

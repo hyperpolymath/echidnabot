@@ -43,6 +43,15 @@ impl EchidnaClient {
     }
 
     /// Verify a proof using ECHIDNA Core
+    #[tracing::instrument(
+        name = "echidna.verify",
+        skip(self, content),
+        fields(
+            prover = %prover,
+            content_bytes = content.len(),
+            api_mode = ?self.mode,
+        )
+    )]
     pub async fn verify_proof(&self, prover: &ProverKind, content: &str) -> Result<ProofResult> {
         match self.mode {
             EchidnaApiMode::Graphql => self.verify_proof_graphql(prover, content).await,
@@ -58,6 +67,16 @@ impl EchidnaClient {
     }
 
     /// Request tactic suggestions from ECHIDNA's Julia ML component
+    #[tracing::instrument(
+        name = "echidna.suggest",
+        skip(self, context, goal_state),
+        fields(
+            prover = %prover,
+            context_bytes = context.len(),
+            goal_state_bytes = goal_state.len(),
+            api_mode = ?self.mode,
+        )
+    )]
     pub async fn suggest_tactics(
         &self,
         prover: &ProverKind,
@@ -97,6 +116,11 @@ impl EchidnaClient {
     }
 
     /// Check prover availability
+    #[tracing::instrument(
+        name = "echidna.status",
+        skip(self),
+        fields(prover = %prover, api_mode = ?self.mode)
+    )]
     pub async fn prover_status(&self, prover: &ProverKind) -> Result<ProverStatus> {
         match self.mode {
             EchidnaApiMode::Graphql => self.prover_status_graphql(prover).await,

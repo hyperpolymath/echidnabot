@@ -34,6 +34,12 @@ pub struct Config {
     #[serde(default)]
     pub gitlab: Option<GitLabConfig>,
 
+    /// Codeberg / Forgejo / Gitea integration (issue #62 scaffold —
+    /// adapter is functional but light on features, see
+    /// `src/adapters/codeberg.rs`).
+    #[serde(default)]
+    pub codeberg: Option<CodebergConfig>,
+
     /// Scheduler configuration
     #[serde(default)]
     pub scheduler: SchedulerConfig,
@@ -59,6 +65,107 @@ pub struct Config {
     /// TOML: `[bot]\nmode = "advisor"` (or verifier / consultant / regulator)
     #[serde(default)]
     pub bot: BotConfig,
+
+    /// Lifecycle / graceful-shutdown settings.
+    ///
+    /// TOML: `[lifecycle]\nshutdown_timeout_secs = 30`
+    /// Env override: `ECHIDNABOT_SHUTDOWN_TIMEOUT_SECS` (env wins).
+    #[serde(default)]
+    pub lifecycle: LifecycleConfig,
+
+    /// OpenTelemetry observability settings. Honours the standard
+    /// `OTEL_EXPORTER_OTLP_ENDPOINT` env var (env wins over TOML).
+    #[serde(default)]
+    pub observability: ObservabilityConfig,
+}
+
+/// Lifecycle settings — how long to wait for in-flight work to drain
+/// during a graceful shutdown before forcing teardown.
+///
+/// ```toml
+/// [lifecycle]
+/// shutdown_timeout_secs = 30
+/// ```
+#[derive(Debug, Deserialize, Clone)]
+pub struct LifecycleConfig {
+    /// Deadline (seconds) for the in-flight-job drain phase of shutdown.
+    /// After this elapses the coordinator proceeds to subsystem teardown
+    /// (DB close, tracer flush) even if jobs are still running — they
+    /// will be aborted as the runtime stops.
+    ///
+    /// Default 30s — generous enough for most provers to finish a
+    /// single verification round, short enough that systemd/k8s won't
+    /// escalate to SIGKILL first (systemd's default `TimeoutStopSec` is
+    /// 90s, k8s's default `terminationGracePeriodSeconds` is 30s).
+    ///
+    /// Overridden by env var `ECHIDNABOT_SHUTDOWN_TIMEOUT_SECS`.
+    #[serde(default = "default_shutdown_timeout_secs")]
+    pub shutdown_timeout_secs: u64,
+}
+
+impl Default for LifecycleConfig {
+    fn default() -> Self {
+        Self {
+            shutdown_timeout_secs: default_shutdown_timeout_secs(),
+        }
+    }
+}
+
+/// OpenTelemetry / OTLP exporter configuration.
+///
+/// ```toml
+/// [observability]
+/// otlp_endpoint = "http://localhost:4317"
+/// service_name  = "echidnabot"
+/// ```
+///
+/// `otlp_endpoint` is also picked up from `OTEL_EXPORTER_OTLP_ENDPOINT`
+/// (the standard env var); env takes precedence over the TOML value.
+/// When neither is set, span data is not exported — only the local
+/// fmt subscriber emits logs.
+#[derive(Debug, Deserialize, Clone)]
+pub struct ObservabilityConfig {
+    /// OTLP/gRPC collector endpoint (e.g. `http://localhost:4317`).
+    /// `None` disables span export; fmt-layer logs remain active.
+    #[serde(default)]
+    pub otlp_endpoint: Option<String>,
+
+    /// `service.name` resource attribute on exported spans. Defaults
+    /// to `echidnabot` so dashboards group correctly out of the box.
+    #[serde(default = "default_service_name")]
+    pub service_name: String,
+}
+
+impl Default for ObservabilityConfig {
+    fn default() -> Self {
+        Self {
+            otlp_endpoint: None,
+            service_name: default_service_name(),
+        }
+    }
+}
+
+fn default_shutdown_timeout_secs() -> u64 {
+    crate::shutdown::DEFAULT_SHUTDOWN_TIMEOUT_SECS
+}
+
+fn default_service_name() -> String {
+    "echidnabot".to_string()
+}
+
+impl ObservabilityConfig {
+    /// Resolve the effective OTLP endpoint, applying env-var override.
+    ///
+    /// Precedence (highest first):
+    ///   1. `OTEL_EXPORTER_OTLP_ENDPOINT` env var (standard OTel env)
+    ///   2. `[observability].otlp_endpoint` from TOML
+    ///   3. `None` (no export)
+    pub fn resolved_endpoint(&self) -> Option<String> {
+        std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .or_else(|| self.otlp_endpoint.clone())
+    }
 }
 
 /// Daemon-wide bot operating mode settings.
@@ -307,6 +414,40 @@ pub struct GitLabConfig {
     pub token: String,
 
     /// Webhook secret
+    pub webhook_secret: Option<String>,
+}
+
+/// Codeberg / Forgejo / Gitea connection settings.
+///
+/// `url` defaults to `https://codeberg.org` in the adapter when this
+/// section is absent. Point it at any self-hosted Forgejo or Gitea
+/// instance to reuse the same adapter:
+///
+/// ```toml
+/// [codeberg]
+/// url = "https://forgejo.example.org"
+/// token = "..."
+/// webhook_secret = "..."
+/// ```
+///
+/// `token` is optional — read-only endpoints (file fetch, default
+/// branch) work without it on public repos. Mutating endpoints
+/// (statuses, comments, issues) require a token; the adapter
+/// returns `Error::Config("CODEBERG_TOKEN not set")` when missing.
+/// The `CODEBERG_TOKEN` env var also works as a fallback.
+#[derive(Debug, Deserialize, Clone)]
+pub struct CodebergConfig {
+    /// Codeberg / Forgejo / Gitea instance URL.
+    pub url: String,
+
+    /// Personal access token (PAT). Forgejo also supports app tokens
+    /// but the adapter does not yet distinguish — see TODO in
+    /// `src/adapters/codeberg.rs`.
+    pub token: Option<String>,
+
+    /// Webhook secret for `X-Gitea-Signature` HMAC-SHA256 verification.
+    /// Header name is `X-Gitea-Signature` on both Forgejo and Codeberg
+    /// (the Gitea fork name is retained for wire compatibility).
     pub webhook_secret: Option<String>,
 }
 

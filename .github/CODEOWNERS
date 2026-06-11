@@ -1,34 +1,17 @@
 # SPDX-License-Identifier: MPL-2.0
-# CODEOWNERS - Define code review assignments for GitHub
-# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+# CODEOWNERS - Code ownership for echidnabot
+# See https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
-# Default: sole maintainer for all files
+# Default owner for everything
 * @hyperpolymath
 
-# Security-sensitive files require explicit ownership
-SECURITY.md @hyperpolymath
-.github/workflows/ @hyperpolymath
-.machine_readable/ @hyperpolymath
-contractiles/ @hyperpolymath
+# Core bot crates
+/src/ @hyperpolymath
+/crates/ @hyperpolymath
 
-# License files
-LICENSE @hyperpolymath
-LICENSES/ @hyperpolymath
+# Infrastructure and CI/CD
+/.github/ @hyperpolymath
+/scripts/ @hyperpolymath
 
-# Configuration
-.gitignore @hyperpolymath
-.github/ @hyperpolymath
-
-# Documentation
-README* @hyperpolymath
-CONTRIBUTING* @hyperpolymath
-CODE_OF_CONDUCT* @hyperpolymath
-GOVERNANCE* @hyperpolymath
-MAINTAINERS* @hyperpolymath
-CHANGELOG* @hyperpolymath
-ROADMAP* @hyperpolymath
-
-# Build and CI
-Justfile @hyperpolymath
-Makefile @hyperpolymath
-*.sh @hyperpolymath
+# SCM and machine-readable metadata
+/.machine_readable/ @hyperpolymath

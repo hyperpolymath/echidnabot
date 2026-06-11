@@ -1,24 +1,44 @@
 # CITATION.cff - Citation File Format for echidnabot
 # https://citation-file-format.github.io/
-# SPDX-License-Identifier: PMPL-1.0 OR LicenseRef-Palimpsest-0.5
+# SPDX-License-Identifier: MPL-2.0
 
 cff-version: 1.2.0
-title: "echidnabot"
+title: "echidnabot: Proof-Aware CI Bot"
 message: "If you use this software, please cite it as below."
 type: software
 authors:
   - family-names: "Jewell"
     given-names: "Jonathan D.A."
     alias: "hyperpolymath"
-    email: "hyperpolymath@proton.me"
-    affiliation: "Rhodium Standard / Independent Researcher"
+    email: "jonathan.jewell@open.ac.uk"
+    affiliation: "Rhodium Standard / Open University"
 repository-code: "https://github.com/hyperpolymath/echidnabot"
 url: "https://rhodium.sh/projects/echidnabot"
-abstract: "RSR-compliant project"
+abstract: >-
+  echidnabot is a formal-verification CI bot that orchestrates the
+  ECHIDNA theorem-proving platform for automatic proof verification on
+  every push and pull request. It bridges GitHub, GitLab, and
+  Bitbucket webhooks to ECHIDNA's multi-prover backend (Coq, Lean 4,
+  Agda, Isabelle/HOL, Z3, CVC5, Metamath, HOL Light, Mizar, PVS, ACL2,
+  HOL4) with container isolation, retry / circuit-breaker, a 5-level
+  trust bridge, and a four-mode response policy (Verifier / Advisor /
+  Consultant / Regulator). Written in Rust on Tokio and Axum.
 keywords:
-  - RSR
+  - theorem-prover
+  - formal-verification
+  - ci-cd
+  - proof-assistant
+  - rust
+  - coq
+  - lean4
+  - agda
+  - isabelle
+  - z3
+  - smt
+  - github-app
   - rhodium-standard
-license: PMPL-1.0
+  - RSR
+license: MPL-2.0
 license-url: "https://github.com/hyperpolymath/echidnabot/blob/main/LICENSE.txt"
 version: "0.1.0"
 date-released: "2025-12-10"
