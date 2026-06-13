@@ -63,7 +63,7 @@ But your CI pipeline does not understand proofs:
 
 == Current Status (v0.1.0)
 
-**Overall completion: ~90%** -- Core infrastructure, platform adapters, ECHIDNA integration, container isolation, bot modes, retry/circuit breaker, and trust bridge are implemented. 129 automated tests across unit and integration suites. Production hardening (observability, rate limiting, deployment automation) remains.
+**Overall completion: ~90%** -- Core infrastructure, platform adapters, ECHIDNA integration, container isolation, bot modes, retry/circuit breaker, and trust bridge are implemented. 184 automated tests across lib, lifecycle, integration, property, seam, and smoke suites. Production hardening (observability, rate limiting, deployment automation) remains.
 
 === What Is Implemented
 
@@ -81,7 +81,7 @@ But your CI pipeline does not understand proofs:
 
 |ECHIDNA Integration
 |Complete
-|HTTP client (reqwest) for ECHIDNA REST API, 12-prover enumeration with tier classification, job dispatch, result parsing, prover health checking
+|HTTP client (reqwest) for ECHIDNA REST API, `ProverSlug`-based prover addressing (String newtype, 12 backends wired by default), tier classification, job dispatch, result parsing, prover health checking
 
 |Job Scheduler
 |Complete
@@ -105,7 +105,7 @@ But your CI pipeline does not understand proofs:
 
 |Tests
 |Complete
-|129 tests (30 integration, 99 unit) covering webhook verification, ECHIDNA client, bot modes, job lifecycle, database models, circuit breaker, container executor, trust bridge, axiom tracking, result formatting
+|184 tests across lib, lifecycle, integration, property, seam, and smoke suites covering webhook verification, ECHIDNA client, bot modes, job lifecycle, database models, circuit breaker, container executor, trust bridge, axiom tracking, result formatting
 |===
 
 === What Is Not Yet Implemented
@@ -451,7 +451,7 @@ and current limitations — live in link:docs/deployment.adoc[`docs/deployment.a
 [source,bash]
 ----
 cargo build
-cargo test          # Run all 129 tests
+cargo test          # Run all 184 tests
 cargo test -- --nocapture  # With output
 ----
 
