@@ -1,16 +1,6 @@
-# SPDX-License-Identifier: MPL-2.0
-# Thin wrapper around hyperpolymath/standards hypatia-scan-reusable.yml.
-# Matches the echidna sibling-repo pattern (estate-wide consolidation:
-# 255 deployments, 30 unique SHAs, ~11.8% drift). The reusable hosts
-# the canonical 416-line single `scan` job byte-for-byte; this wrapper
-# only carries triggers, concurrency, and permissions.
-#
-# Caller MUST (per standards/hypatia-scan-reusable.yml header):
-#   - Use `secrets: inherit` so GITHUB_TOKEN + HYPATIA_DISPATCH_PAT flow.
-#   - Grant security-events: write (SARIF upload) and pull-requests:
-#     write (PR comment) at wrapper level — called-workflow permissions
-#     are CAPPED by the caller.
+# SPDX-License-Identifier: PMPL-1.0-or-later
 name: Hypatia Security Scan
+
 on:
   push:
     branches: [main, master, develop]
@@ -20,15 +10,10 @@ on:
     - cron: '0 0 * * 0'
   workflow_dispatch:
 
-# Estate guardrail: cancel superseded runs so re-pushes don't pile up.
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
 permissions:
   contents: read
-  security-events: write
-  pull-requests: write
+  security-events: read
+
 jobs:
-  hypatia:
-    uses: hyperpolymath/standards/.github/workflows/hypatia-scan-reusable.yml@3f34549c03274ec7a74683068f03a492b0fa805f # main as of 2026-06-01
-    secrets: inherit
+  scan:
+    uses: hyperpolymath/standards/.github/workflows/hypatia-scan-reusable.yml@b89b2ef1e98928fce53a85e83c37f23a1d99f6d3
