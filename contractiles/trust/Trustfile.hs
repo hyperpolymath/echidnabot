@@ -1,4 +1,4 @@
--- SPDX-License-Identifier: PLMP-1.0-or-later
+-- SPDX-License-Identifier: MPL-2.0
 -- Trustfile — integrity / provenance / supply-chain verification for echidnabot
 --
 -- Error-code namespace: T###
