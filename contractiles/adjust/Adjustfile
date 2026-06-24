@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: PLMP-1.0-or-later
+# SPDX-License-Identifier: MPL-2.0
 # Adjustfile — adaptive-maintenance contract for echidnabot
 #
 # Migration recipes for when upstream deps, toolchains, schemas, or

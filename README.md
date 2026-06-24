@@ -1,13 +1,13 @@
 <!--
 <!-- Owner: Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk> -->
-SPDX-License-Identifier: MPL-2.0
+SPDX-License-Identifier: CC-BY-SA-4.0
 SPDX-FileCopyrightText: 2025-2026 Jonathan D.A. Jewell (hyperpolymath)
 -->
 
 # echidnabot — Proof-Aware CI Bot
 
 [![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-pink?logo=github)](https://github.com/sponsors/hyperpolymath)
-[![License: PMPL-1.0](https://img.shields.io/badge/License-PMPL--1.0-blue.svg)](https://github.com/hyperpolymath/palimpsest-license)
+[![License: PMPL-1.0](https://img.shields.io/badge/License-MPL--2.0-blue.svg)](https://github.com/hyperpolymath/palimpsest-license)
 [![GitHub Release](https://img.shields.io/github/v/release/hyperpolymath/echidnabot?include_prereleases)](https://github.com/hyperpolymath/echidnabot/releases)
 
 > **The canonical README is [`README.adoc`](README.adoc).** This Markdown

@@ -1,6 +1,6 @@
 <!--
 <!-- Owner: Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk> -->
-SPDX-License-Identifier: MPL-2.0
+SPDX-License-Identifier: CC-BY-SA-4.0
 SPDX-FileCopyrightText: 2025-2026 Jonathan D.A. Jewell (hyperpolymath)
 -->
 
@@ -170,7 +170,7 @@ Before opening a PR:
       conventional commits via
       [`standards/changelog-reusable.yml`](https://github.com/hyperpolymath/standards/blob/main/.github/workflows/changelog-reusable.yml)
 - [ ] SPDX header on every new source file
-      (`// SPDX-License-Identifier: MPL-2.0`)
+      (`// SPDX-License-Identifier: CC-BY-SA-4.0`)
 - [ ] Commits GPG-signed
 
 When opening the PR:

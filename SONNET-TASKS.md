@@ -1,5 +1,5 @@
 <!--
-SPDX-License-Identifier: MPL-2.0
+SPDX-License-Identifier: CC-BY-SA-4.0
 Copyright (c) Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 -->
 # Echidnabot — Sonnet Task Plan
@@ -158,7 +158,7 @@ The repo has ZERO tests despite importing test libraries.
 ### 5.2 SPDX headers
 - Every `.rs` file needs:
   ```rust
-  // SPDX-License-Identifier: MPL-2.0
+  // SPDX-License-Identifier: CC-BY-SA-4.0
   // SPDX-FileCopyrightText: 2025 Jonathan D.A. Jewell
   ```
 

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: PMPL-1.0
+# SPDX-License-Identifier: MPL-2.0
 # Build stage
 FROM docker.io/library/rust:1.83-slim AS builder
 
