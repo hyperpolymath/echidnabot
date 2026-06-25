@@ -27,6 +27,8 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
+      id-token: write
+      attestations: write
     steps:
       - name: Checkout
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v4
@@ -46,6 +48,12 @@ jobs:
         run: cargo test --lib
       - name: Verify crate can be packaged
         run: cargo package --list
+      - name: Package crate
+        run: cargo package
+      - name: Attest crate provenance
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
+        with:
+          subject-path: 'target/package/*.crate'
       - name: Publish to crates.io (dry run)
         if: github.event.inputs.dry_run == 'true'
         run: cargo publish --dry-run
