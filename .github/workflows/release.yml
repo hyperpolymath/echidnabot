@@ -134,6 +134,8 @@ jobs:
     needs: [build-binaries, build-deb, build-rpm]
     permissions:
       contents: write
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - name: Download all artifacts
@@ -152,3 +154,7 @@ jobs:
           files: release/*
           generate_release_notes: true
           draft: false
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
+        with:
+          subject-path: 'release/*'
