@@ -14,7 +14,7 @@ use hmac::{Hmac, Mac};
 use sha2::Sha256;
 
 // Fixed secret — we're testing the parsing/comparison path, not the secret itself
-const SECRET: &[u8] = b"fuzz-test-secret-key-not-real";
+const SECRET: &[u8] = b"fuzz-test-secret-key-not-real";  // scanner-allow: rust-secrets
 
 fuzz_target!(|data: &[u8]| {
     // Split data: first 32 bytes treated as a "claimed signature", rest as body
