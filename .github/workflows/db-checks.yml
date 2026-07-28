@@ -125,7 +125,7 @@ jobs:
           echo "repositories columns OK ✓"
 
       - name: Store-layer round-trip tests
-        run: cargo test --lib store::
+        run: 'cargo test --lib store::'
 
       - name: Summary
         if: always()
