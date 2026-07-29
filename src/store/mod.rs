@@ -31,11 +31,11 @@ impl CommitCoverage {
     /// proof has been attempted; the check run won't post until at least
     /// one job has finalized anyway, so this is a no-op corner.
     pub fn percent(&self) -> u8 {
-        if self.total == 0 {
-            100
-        } else {
-            ((self.proven * 100) / self.total).min(100) as u8
-        }
+        self.proven
+            .saturating_mul(100)
+            .checked_div(self.total)
+            .unwrap_or(100)
+            .min(100) as u8
     }
 }
 

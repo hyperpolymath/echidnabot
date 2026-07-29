@@ -142,22 +142,17 @@ pub struct AxiomsSection {
 }
 
 /// Axiom-policy severity, ordered low → high.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum AxiomSeverity {
     /// Log only; never reported.
     Info,
     /// Reported as a check-run warning.
+    #[default]
     Warning,
     /// Reported as a check-run error. Combined with `[merge_block]`
     /// this can gate PR merges.
     Error,
-}
-
-impl Default for AxiomSeverity {
-    fn default() -> Self {
-        AxiomSeverity::Warning
-    }
 }
 
 /// `[merge_block]` table: gates for Regulator mode.

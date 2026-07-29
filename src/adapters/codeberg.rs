@@ -46,8 +46,8 @@
 //!
 //! - [ ] Full webhook payload decode (push / pull_request / issue_comment)
 //! - [ ] Inline review comments via Gitea Reviews API (`POST .../reviews`
-//!       with `comments[]` array; non-trivial because Gitea's review model
-//!       differs from GitHub's per-comment model)
+//!   with `comments[]` array; non-trivial because Gitea's review model
+//!   differs from GitHub's per-comment model)
 //! - [ ] Branch protection rule reads (for Regulator mode)
 //! - [ ] App-token auth (currently personal access token only)
 //! - [ ] Federation-aware repo IDs (Forgejo 7.x+ supports federated repos)

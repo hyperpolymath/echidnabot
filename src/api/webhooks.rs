@@ -543,6 +543,10 @@ enum RepoEventKind {
         priority = ?priority,
     )
 )]
+// The arguments mirror the platform-neutral webhook payload fields. Keeping
+// them explicit makes the tracing fields above and all platform call sites
+// auditable side by side.
+#[allow(clippy::too_many_arguments)]
 async fn enqueue_repo_jobs(
     state: &AppState,
     platform: Platform,

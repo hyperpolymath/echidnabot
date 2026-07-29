@@ -228,7 +228,7 @@ impl Store for SqliteStore {
         .bind(repo.created_at.to_rfc3339())
         .bind(repo.updated_at.to_rfc3339())
         .bind(
-            serde_json::to_value(&repo.mode)?
+            serde_json::to_value(repo.mode)?
                 .as_str()
                 .unwrap_or("verifier"),
         )

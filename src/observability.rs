@@ -57,6 +57,14 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{EnvFilter, Layer};
 
+/// Asynchronous shutdown hook registered with the graceful-shutdown
+/// coordinator.
+pub type CoordinatorShutdownHook = Box<
+    dyn FnOnce() -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send + 'static>>
+        + Send
+        + 'static,
+>;
+
 /// Env var that selects the log output format.
 pub const FORMAT_ENV_VAR: &str = "ECHIDNABOT_LOG_FORMAT";
 
@@ -127,16 +135,7 @@ impl TracerShutdown {
     ///     coordinator.register("tracer-flush", hook);
     /// }
     /// ```
-    pub fn into_coordinator_hook(
-        &mut self,
-    ) -> Option<
-        Box<
-            dyn FnOnce()
-                    -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send + 'static>>
-                + Send
-                + 'static,
-        >,
-    > {
+    pub fn into_coordinator_hook(&mut self) -> Option<CoordinatorShutdownHook> {
         let provider = self.provider.take()?;
         Some(Box::new(move || {
             Box::pin(async move {

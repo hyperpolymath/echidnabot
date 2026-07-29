@@ -848,7 +848,7 @@ async fn report_to_platform(
         },
         message: job_result.message.clone(),
         prover_output: job_result.prover_output.clone(),
-        duration_ms: job_result.duration_ms as u64,
+        duration_ms: job_result.duration_ms,
         artifacts: vec![],
         confidence: job_result.confidence.clone(),
         axioms: job_result.axioms.clone(),
