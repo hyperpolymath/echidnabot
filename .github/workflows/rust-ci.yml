@@ -12,3 +12,13 @@ permissions:
 jobs:
   rust-ci:
     uses: hyperpolymath/standards/.github/workflows/rust-ci-reusable.yml@412a7031577112b31ee287cc6060179d638d6500 # main 2026-05-31 (CI/CD campaigns C001-C005)
+    # The crate's library suite is known to hang past 20 minutes. Keep the
+    # ordinary PR gate aligned with publish.yml: run every named integration
+    # suite explicitly while the library-test deadlock is tracked separately.
+    with:
+      test_args: >-
+        --test integration_tests
+        --test lifecycle
+        --test property_tests
+        --test seam_test
+        --test smoke
