@@ -115,8 +115,7 @@ impl SolverIntegrity {
 
     /// Add or update a manifest entry for a specific prover.
     pub fn set_expected_hash(&mut self, prover: &ProverKind, hash: impl Into<String>) {
-        self.manifest
-            .insert(prover_key(prover), hash.into());
+        self.manifest.insert(prover_key(prover), hash.into());
     }
 
     /// Check if a manifest entry exists for a prover.
@@ -199,10 +198,7 @@ impl SolverIntegrity {
             expected_hash: self.expected_hash(prover).map(|s| s.to_string()),
             actual_hash: None,
             binary_path: None,
-            message: format!(
-                "{} binary not found on system",
-                prover.display_name()
-            ),
+            message: format!("{} binary not found on system", prover.display_name()),
         }
     }
 
@@ -259,9 +255,18 @@ mod tests {
 
     fn sample_manifest() -> SolverIntegrity {
         let mut manifest = HashMap::new();
-        manifest.insert("coq".to_string(), "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890".to_string());
-        manifest.insert("lean".to_string(), "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef".to_string());
-        manifest.insert("z3".to_string(), "fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321".to_string());
+        manifest.insert(
+            "coq".to_string(),
+            "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890".to_string(),
+        );
+        manifest.insert(
+            "lean".to_string(),
+            "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef".to_string(),
+        );
+        manifest.insert(
+            "z3".to_string(),
+            "fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321".to_string(),
+        );
         SolverIntegrity::with_manifest(manifest)
     }
 
@@ -335,7 +340,10 @@ mod tests {
 
         integrity.set_expected_hash(&ProverKind::new("metamath"), "hash123");
         assert!(integrity.has_manifest_entry(&ProverKind::new("metamath")));
-        assert_eq!(integrity.expected_hash(&ProverKind::new("metamath")), Some("hash123"));
+        assert_eq!(
+            integrity.expected_hash(&ProverKind::new("metamath")),
+            Some("hash123")
+        );
     }
 
     #[test]

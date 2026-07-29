@@ -10,10 +10,7 @@ use std::time::Duration;
 use super::{ProofResult, ProofStatus, ProverKind, TacticSuggestion};
 use crate::config::{EchidnaApiMode, EchidnaConfig};
 use crate::error::{Error, Result};
-use crate::trust::{
-    axiom_tracker::AxiomTracker,
-    confidence::assess_confidence,
-};
+use crate::trust::{axiom_tracker::AxiomTracker, confidence::assess_confidence};
 use tracing::warn;
 
 /// Client for ECHIDNA Core GraphQL API
@@ -85,7 +82,8 @@ impl EchidnaClient {
     ) -> Result<Vec<TacticSuggestion>> {
         match self.mode {
             EchidnaApiMode::Graphql => {
-                self.suggest_tactics_graphql(prover, context, goal_state).await
+                self.suggest_tactics_graphql(prover, context, goal_state)
+                    .await
             }
             EchidnaApiMode::Rest => self.suggest_tactics_rest(prover, context, goal_state).await,
             EchidnaApiMode::Auto => {
@@ -128,7 +126,10 @@ impl EchidnaClient {
             EchidnaApiMode::Auto => match self.prover_status_graphql(prover).await {
                 Ok(result) => Ok(result),
                 Err(err) => {
-                    warn!("GraphQL prover_status failed, falling back to REST: {}", err);
+                    warn!(
+                        "GraphQL prover_status failed, falling back to REST: {}",
+                        err
+                    );
                     self.prover_status_rest(prover).await
                 }
             },
@@ -185,7 +186,11 @@ impl EchidnaClient {
 
         if let Some(errors) = gql_response.errors {
             return Err(Error::Echidna(
-                errors.into_iter().map(|e| e.message).collect::<Vec<_>>().join(", "),
+                errors
+                    .into_iter()
+                    .map(|e| e.message)
+                    .collect::<Vec<_>>()
+                    .join(", "),
             ));
         }
 
@@ -260,7 +265,11 @@ impl EchidnaClient {
 
         if let Some(errors) = gql_response.errors {
             return Err(Error::Echidna(
-                errors.into_iter().map(|e| e.message).collect::<Vec<_>>().join(", "),
+                errors
+                    .into_iter()
+                    .map(|e| e.message)
+                    .collect::<Vec<_>>()
+                    .join(", "),
             ));
         }
 
@@ -361,7 +370,11 @@ impl EchidnaClient {
         }
 
         let data: RestVerifyResponse = response.json().await.map_err(Error::Http)?;
-        let status = if data.valid { ProofStatus::Verified } else { ProofStatus::Failed };
+        let status = if data.valid {
+            ProofStatus::Verified
+        } else {
+            ProofStatus::Failed
+        };
         // REST endpoint returns no raw output; axiom scan over empty string = clean.
         let prover_output = String::new();
         let axioms = AxiomTracker::scan(prover, &prover_output);
@@ -607,15 +620,23 @@ mod tests {
 
     #[test]
     fn test_prover_file_extensions() {
-        assert!(ProverKind::new("metamath").file_extensions().contains(&".mm"));
+        assert!(ProverKind::new("metamath")
+            .file_extensions()
+            .contains(&".mm"));
         assert!(ProverKind::new("lean").file_extensions().contains(&".lean"));
         assert!(ProverKind::new("coq").file_extensions().contains(&".v"));
     }
 
     #[test]
     fn test_prover_from_extension() {
-        assert_eq!(ProverKind::from_extension(".mm"), Some(ProverKind::new("metamath")));
-        assert_eq!(ProverKind::from_extension("lean"), Some(ProverKind::new("lean")));
+        assert_eq!(
+            ProverKind::from_extension(".mm"),
+            Some(ProverKind::new("metamath"))
+        );
+        assert_eq!(
+            ProverKind::from_extension("lean"),
+            Some(ProverKind::new("lean"))
+        );
         assert_eq!(ProverKind::from_extension(".xyz"), None);
     }
 

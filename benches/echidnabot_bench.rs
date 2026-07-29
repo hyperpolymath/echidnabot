@@ -157,7 +157,10 @@ fn bench_goal_fingerprint(c: &mut Criterion) {
 fn bench_proof_job_new(c: &mut Criterion) {
     let repo = Uuid::new_v4();
     let prover = ProverKind::new("coq");
-    let files = vec!["theories/Main.v".to_string(), "theories/Lemmas.v".to_string()];
+    let files = vec![
+        "theories/Main.v".to_string(),
+        "theories/Lemmas.v".to_string(),
+    ];
 
     c.bench_function("proof_job_new", |b| {
         b.iter(|| {

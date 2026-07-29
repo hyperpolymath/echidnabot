@@ -302,10 +302,7 @@ mod tests {
             m.provers.per_prover.get("coq").unwrap().timeout_seconds,
             Some(300)
         );
-        assert_eq!(
-            m.provers.per_prover.get("lean4").unwrap().lake,
-            Some(true)
-        );
+        assert_eq!(m.provers.per_prover.get("lean4").unwrap().lake, Some(true));
         assert_eq!(m.proofs.include.len(), 2);
         assert_eq!(m.axioms.severity, Some(AxiomSeverity::Error));
         assert_eq!(m.merge_block.min_confidence, Some(4));
@@ -413,8 +410,7 @@ mod tests {
 
     #[test]
     fn fixture_ephapax_parses() {
-        let content =
-            include_str!("../../tests/fixtures/manifest/ephapax.a2ml");
+        let content = include_str!("../../tests/fixtures/manifest/ephapax.a2ml");
         let m = RepoManifest::parse(content).expect("ephapax fixture parses");
         assert_eq!(m.bot.mode, Some(BotMode::Regulator));
         assert!(m.prover_runs("coq"));
@@ -424,8 +420,7 @@ mod tests {
 
     #[test]
     fn fixture_valence_shell_parses() {
-        let content =
-            include_str!("../../tests/fixtures/manifest/valence-shell.a2ml");
+        let content = include_str!("../../tests/fixtures/manifest/valence-shell.a2ml");
         let m = RepoManifest::parse(content).expect("valence-shell fixture parses");
         assert_eq!(m.bot.mode, Some(BotMode::Advisor));
         assert!(m.prover_runs("coq"));

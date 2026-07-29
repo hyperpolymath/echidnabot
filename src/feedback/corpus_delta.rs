@@ -287,8 +287,10 @@ impl CorpusDelta {
     /// Named `proof_states_echidnabot_YYYY-MM-DD.jsonl` so `merge_corpus.jl`
     /// picks it up via its step-1b glob (`startswith("proof_states_echidnabot_")`).
     pub fn proof_state_path_for(&self, ts: DateTime<Utc>) -> PathBuf {
-        self.training_data_dir
-            .join(format!("proof_states_echidnabot_{}.jsonl", ts.format("%Y-%m-%d")))
+        self.training_data_dir.join(format!(
+            "proof_states_echidnabot_{}.jsonl",
+            ts.format("%Y-%m-%d")
+        ))
     }
 
     pub async fn counter_value(&self) -> u32 {
@@ -361,7 +363,11 @@ mod tests {
         let cd = CorpusDelta::new(dir.clone());
 
         let path = cd.record(&sample_row(true)).await.unwrap();
-        assert!(path.file_name().unwrap().to_string_lossy().starts_with("delta_"));
+        assert!(path
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .starts_with("delta_"));
 
         let _ = cd.record(&sample_row(false)).await.unwrap();
 
@@ -380,9 +386,15 @@ mod tests {
         cd.record(&row).await.unwrap();
 
         let ps_path = cd.proof_state_path_for(row.timestamp);
-        assert!(ps_path.exists(), "proof_states file should have been created");
         assert!(
-            ps_path.file_name().unwrap().to_string_lossy()
+            ps_path.exists(),
+            "proof_states file should have been created"
+        );
+        assert!(
+            ps_path
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
                 .starts_with("proof_states_echidnabot_"),
             "filename must match merge_corpus.jl glob"
         );
@@ -409,7 +421,10 @@ mod tests {
         cd.record(&row).await.unwrap();
 
         let ps_path = cd.proof_state_path_for(row.timestamp);
-        assert!(!ps_path.exists(), "failed proof should not appear in corpus feed");
+        assert!(
+            !ps_path.exists(),
+            "failed proof should not appear in corpus feed"
+        );
 
         let _ = tokio::fs::remove_dir_all(&dir).await;
     }

@@ -9,7 +9,9 @@ pub mod retry; // Exponential backoff for transient failures
 
 pub use job_queue::JobScheduler;
 pub use limiter::{JobLimiter, LimiterConfig};
-pub use retry::{CircuitBreaker, CircuitState, RetryConfig, RetryPolicy, retry, retry_with_backoff};
+pub use retry::{
+    retry, retry_with_backoff, CircuitBreaker, CircuitState, RetryConfig, RetryPolicy,
+};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -67,7 +69,12 @@ pub struct ProofJob {
 }
 
 impl ProofJob {
-    pub fn new(repo_id: Uuid, commit_sha: String, prover: ProverKind, file_paths: Vec<String>) -> Self {
+    pub fn new(
+        repo_id: Uuid,
+        commit_sha: String,
+        prover: ProverKind,
+        file_paths: Vec<String>,
+    ) -> Self {
         Self {
             id: JobId::new(),
             repo_id,
@@ -92,11 +99,7 @@ impl ProofJob {
     }
 
     /// Attach PR + delivery context (for jobs originating from webhooks).
-    pub fn with_context(
-        mut self,
-        pr_number: Option<u64>,
-        delivery_id: Option<String>,
-    ) -> Self {
+    pub fn with_context(mut self, pr_number: Option<u64>, delivery_id: Option<String>) -> Self {
         self.pr_number = pr_number;
         self.delivery_id = delivery_id;
         self
@@ -127,9 +130,7 @@ impl ProofJob {
     /// Get duration in milliseconds (if completed)
     pub fn duration_ms(&self) -> Option<u64> {
         match (self.started_at, self.completed_at) {
-            (Some(start), Some(end)) => {
-                Some((end - start).num_milliseconds().max(0) as u64)
-            }
+            (Some(start), Some(end)) => Some((end - start).num_milliseconds().max(0) as u64),
             _ => None,
         }
     }

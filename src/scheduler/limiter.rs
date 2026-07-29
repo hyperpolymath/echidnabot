@@ -8,7 +8,7 @@
 //! - Fair scheduling (FIFO within priority levels)
 
 use std::sync::Arc;
-use tokio::sync::{Semaphore, OwnedSemaphorePermit};
+use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tracing::{debug, info};
 
 /// Job limiter with concurrent execution control
@@ -34,8 +34,8 @@ pub struct LimiterConfig {
 impl Default for LimiterConfig {
     fn default() -> Self {
         Self {
-            global_limit: 10,    // Max 10 jobs total
-            per_repo_limit: 3,   // Max 3 jobs per repo
+            global_limit: 10,  // Max 10 jobs total
+            per_repo_limit: 3, // Max 3 jobs per repo
         }
     }
 }

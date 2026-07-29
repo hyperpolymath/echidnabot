@@ -33,7 +33,11 @@ impl GitHubAdapter {
             .build()
             .map_err(|e| Error::GitHub(e.to_string()))?;
 
-        Ok(Self { client, http, token: token.to_string() })
+        Ok(Self {
+            client,
+            http,
+            token: token.to_string(),
+        })
     }
 
     /// Create adapter from environment variable
@@ -56,7 +60,13 @@ impl PlatformAdapter for GitHubAdapter {
 
         let status = if commit == "HEAD" {
             tokio::process::Command::new("git")
-                .args(["clone", "--depth", "1", &url, &*clone_path.to_string_lossy()])
+                .args([
+                    "clone",
+                    "--depth",
+                    "1",
+                    &url,
+                    &*clone_path.to_string_lossy(),
+                ])
                 .status()
                 .await
                 .map_err(Error::Io)?
@@ -79,7 +89,13 @@ impl PlatformAdapter for GitHubAdapter {
         if !status.success() && commit != "HEAD" {
             // Try fetching the specific commit instead
             let status = tokio::process::Command::new("git")
-                .args(["clone", "--depth", "1", &url, &*clone_path.to_string_lossy()])
+                .args([
+                    "clone",
+                    "--depth",
+                    "1",
+                    &url,
+                    &*clone_path.to_string_lossy(),
+                ])
                 .status()
                 .await
                 .map_err(Error::Io)?;
@@ -113,7 +129,9 @@ impl PlatformAdapter for GitHubAdapter {
     async fn create_check_run(&self, repo: &RepoId, check: CheckRun) -> Result<CheckRunId> {
         let checks = self.client.checks(&repo.owner, &repo.name);
 
-        use octocrab::params::checks::{CheckRunConclusion as OctoConclusion, CheckRunStatus as OctoStatus};
+        use octocrab::params::checks::{
+            CheckRunConclusion as OctoConclusion, CheckRunStatus as OctoStatus,
+        };
 
         let (status, conclusion) = match check.status {
             CheckStatus::Queued => (OctoStatus::Queued, None),
@@ -145,7 +163,10 @@ impl PlatformAdapter for GitHubAdapter {
             builder = builder.details_url(url);
         }
 
-        let result = builder.send().await.map_err(|e| Error::GitHub(e.to_string()))?;
+        let result = builder
+            .send()
+            .await
+            .map_err(|e| Error::GitHub(e.to_string()))?;
 
         Ok(CheckRunId(result.id.to_string()))
     }
@@ -158,7 +179,9 @@ impl PlatformAdapter for GitHubAdapter {
     }
 
     async fn create_comment(&self, repo: &RepoId, pr: PrId, body: &str) -> Result<CommentId> {
-        let pr_num: u64 = pr.0.parse().map_err(|_| Error::GitHub("Invalid PR ID".to_string()))?;
+        let pr_num: u64 =
+            pr.0.parse()
+                .map_err(|_| Error::GitHub("Invalid PR ID".to_string()))?;
 
         let comment = self
             .client
@@ -192,7 +215,9 @@ impl PlatformAdapter for GitHubAdapter {
             .await
             .map_err(|e| Error::GitHub(e.to_string()))?;
 
-        Ok(repo_info.default_branch.unwrap_or_else(|| "main".to_string()))
+        Ok(repo_info
+            .default_branch
+            .unwrap_or_else(|| "main".to_string()))
     }
 
     async fn get_file_contents(
@@ -239,7 +264,9 @@ impl PlatformAdapter for GitHubAdapter {
         body: &str,
         location: ReviewCommentLocation,
     ) -> Result<CommentId> {
-        let pr_num: u64 = pr.0.parse().map_err(|_| Error::GitHub("Invalid PR ID".to_string()))?;
+        let pr_num: u64 =
+            pr.0.parse()
+                .map_err(|_| Error::GitHub("Invalid PR ID".to_string()))?;
 
         // GitHub API: POST /repos/{owner}/{repo}/pulls/{pull_number}/comments
         // Requires commit_id, path, side, and line (or position for legacy diffs).
@@ -285,7 +312,9 @@ impl PlatformAdapter for GitHubAdapter {
             data["id"]
                 .as_u64()
                 .map(|id| id.to_string())
-                .ok_or_else(|| Error::GitHub("Missing id in review comment response".to_string()))?,
+                .ok_or_else(|| {
+                    Error::GitHub("Missing id in review comment response".to_string())
+                })?,
         ))
     }
 }

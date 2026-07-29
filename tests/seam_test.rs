@@ -39,18 +39,15 @@ use axum::{routing::get, Extension, Router};
 use axum_test::TestServer;
 
 use echidnabot::adapters::Platform;
-use echidnabot::api::{create_schema, webhook_router};
 use echidnabot::api::graphql::GraphQLState;
 use echidnabot::api::webhooks::AppState;
+use echidnabot::api::{create_schema, webhook_router};
 use echidnabot::config::Config;
 use echidnabot::dispatcher::{EchidnaClient, ProverKind};
 use echidnabot::feedback::corpus_delta::{CorpusDelta, DeltaRow, DeltaSource};
 use echidnabot::modes::{BotMode, ModeSelector};
 use echidnabot::scheduler::JobScheduler;
-use echidnabot::store::{
-    models::Repository,
-    SqliteStore, Store,
-};
+use echidnabot::store::{models::Repository, SqliteStore, Store};
 
 use std::sync::Arc;
 use uuid::Uuid;
@@ -77,7 +74,11 @@ async fn make_server_with_repo(
     // Pre-register the repository that the webhook payload will reference.
     // The handler silently skips unregistered repos (see enqueue_repo_jobs),
     // so pre-registration is required for jobs to be enqueued.
-    let mut repo = Repository::new(Platform::GitHub, "test-owner".into(), "lean-proof-repo".into());
+    let mut repo = Repository::new(
+        Platform::GitHub,
+        "test-owner".into(),
+        "lean-proof-repo".into(),
+    );
     repo.mode = mode;
     repo.enabled_provers = vec![ProverKind::new(prover)];
     let repo_id = repo.id;
@@ -310,7 +311,8 @@ async fn seam_7a_unregistered_repo_does_not_enqueue() {
 
     response.assert_status_ok();
     assert_eq!(
-        scheduler.stats().await.queued, 0,
+        scheduler.stats().await.queued,
+        0,
         "Unregistered repo must not enqueue jobs"
     );
 }
@@ -327,7 +329,11 @@ async fn seam_7a_daemon_default_mode_override_advisor_still_enqueues() {
     let echidna = Arc::new(EchidnaClient::new(&config.echidna));
 
     // Register a repo with the built-in default (Verifier).
-    let repo = Repository::new(Platform::GitHub, "test-owner".into(), "lean-proof-repo".into());
+    let repo = Repository::new(
+        Platform::GitHub,
+        "test-owner".into(),
+        "lean-proof-repo".into(),
+    );
     store.create_repository(&repo).await.unwrap();
 
     let graphql_state = GraphQLState {
@@ -394,7 +400,10 @@ async fn seam_7b_canonical_prover_lean_normalises_to_lean() {
 
     // Locate the proof_states file.
     let ps_path = cd.proof_state_path_for(row.timestamp);
-    assert!(ps_path.exists(), "proof_states file must exist after successful record");
+    assert!(
+        ps_path.exists(),
+        "proof_states file must exist after successful record"
+    );
     assert!(
         ps_path
             .file_name()
@@ -408,13 +417,22 @@ async fn seam_7b_canonical_prover_lean_normalises_to_lean() {
     let contents = tokio::fs::read_to_string(&ps_path).await.unwrap();
     let entry: serde_json::Value = serde_json::from_str(contents.trim()).unwrap();
 
-    assert_eq!(entry["prover"], "Lean", "lean slug must normalise to 'Lean'");
+    assert_eq!(
+        entry["prover"], "Lean",
+        "lean slug must normalise to 'Lean'"
+    );
     assert_eq!(entry["theorem"], "forall A : Prop, A -> A");
     assert_eq!(entry["goal"], "forall A : Prop, A -> A");
     assert_eq!(entry["tactic_proof"], "intro h; exact h");
     assert_eq!(entry["source"], "echidnabot-webhook");
-    assert!(entry["id"].is_number(), "id field must be present and numeric");
-    assert!(entry["duration_ms"].is_number(), "duration_ms must be present");
+    assert!(
+        entry["id"].is_number(),
+        "id field must be present and numeric"
+    );
+    assert!(
+        entry["duration_ms"].is_number(),
+        "duration_ms must be present"
+    );
 }
 
 /// `canonical_prover_name` spot-check: `"coq"` → `"Coq"`.
@@ -629,11 +647,20 @@ async fn seam_end_to_end_webhook_to_corpus_entry() {
     let entry: serde_json::Value = serde_json::from_str(contents.trim()).unwrap();
 
     // Required fields per `merge_corpus.jl` schema.
-    assert_eq!(entry["prover"], "Lean",   "prover must be canonical 'Lean'");
-    assert!(entry["theorem"].is_string(), "theorem field must be present");
-    assert!(entry["goal"].is_string(),    "goal field must be present");
-    assert!(entry["tactic_proof"].is_string(), "tactic_proof must be present");
-    assert_eq!(entry["source"], "echidnabot-webhook", "source must be webhook");
+    assert_eq!(entry["prover"], "Lean", "prover must be canonical 'Lean'");
+    assert!(
+        entry["theorem"].is_string(),
+        "theorem field must be present"
+    );
+    assert!(entry["goal"].is_string(), "goal field must be present");
+    assert!(
+        entry["tactic_proof"].is_string(),
+        "tactic_proof must be present"
+    );
+    assert_eq!(
+        entry["source"], "echidnabot-webhook",
+        "source must be webhook"
+    );
     assert_eq!(entry["duration_ms"], 317, "duration_ms must match");
     assert_eq!(entry["id"], 0, "id is 0 until merge_corpus.jl reassigns");
 }
@@ -657,7 +684,8 @@ async fn seam_end_to_end_advisor_mode_enqueues_and_corpus_written() {
 
     // Same dispatch path as Verifier — one job.
     assert_eq!(
-        scheduler.stats().await.queued, 1,
+        scheduler.stats().await.queued,
+        1,
         "Advisor mode must enqueue job on push"
     );
 
@@ -675,7 +703,10 @@ async fn seam_end_to_end_advisor_mode_enqueues_and_corpus_written() {
     corpus.record(&row).await.unwrap();
 
     let ps_path = corpus.proof_state_path_for(row.timestamp);
-    assert!(ps_path.exists(), "Advisor corpus entry must be written on success");
+    assert!(
+        ps_path.exists(),
+        "Advisor corpus entry must be written on success"
+    );
     let contents = tokio::fs::read_to_string(&ps_path).await.unwrap();
     let entry: serde_json::Value = serde_json::from_str(contents.trim()).unwrap();
     assert_eq!(entry["prover"], "Lean");
@@ -697,7 +728,8 @@ async fn seam_ping_event_returns_200_no_jobs_enqueued() {
 
     response.assert_status_ok();
     assert_eq!(
-        scheduler.stats().await.queued, 0,
+        scheduler.stats().await.queued,
+        0,
         "ping events must not enqueue proof jobs"
     );
 }
@@ -717,7 +749,8 @@ async fn seam_unknown_event_type_returns_200_no_jobs_enqueued() {
 
     response.assert_status_ok();
     assert_eq!(
-        scheduler.stats().await.queued, 0,
+        scheduler.stats().await.queued,
+        0,
         "unknown event types must not enqueue jobs"
     );
 }

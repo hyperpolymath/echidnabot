@@ -51,7 +51,13 @@ impl PlatformAdapter for GitLabAdapter {
 
         let status = if commit == "HEAD" {
             tokio::process::Command::new("git")
-                .args(["clone", "--depth", "1", &url, &*clone_path.to_string_lossy()])
+                .args([
+                    "clone",
+                    "--depth",
+                    "1",
+                    &url,
+                    &*clone_path.to_string_lossy(),
+                ])
                 .status()
                 .await
                 .map_err(Error::Io)?
@@ -73,7 +79,13 @@ impl PlatformAdapter for GitLabAdapter {
 
         if !status.success() && commit != "HEAD" {
             let status = tokio::process::Command::new("git")
-                .args(["clone", "--depth", "1", &url, &*clone_path.to_string_lossy()])
+                .args([
+                    "clone",
+                    "--depth",
+                    "1",
+                    &url,
+                    &*clone_path.to_string_lossy(),
+                ])
                 .status()
                 .await
                 .map_err(Error::Io)?;
@@ -104,9 +116,10 @@ impl PlatformAdapter for GitLabAdapter {
     }
 
     async fn create_check_run(&self, repo: &RepoId, check: CheckRun) -> Result<CheckRunId> {
-        let token = self.token.as_ref().ok_or_else(|| {
-            Error::Config("GITLAB_TOKEN not set".to_string())
-        })?;
+        let token = self
+            .token
+            .as_ref()
+            .ok_or_else(|| Error::Config("GITLAB_TOKEN not set".to_string()))?;
 
         let project_path = self.project_path(repo);
         let encoded_project = urlencoding::encode(&project_path);
@@ -118,7 +131,10 @@ impl PlatformAdapter for GitLabAdapter {
         );
 
         let (state, description) = match &check.status {
-            CheckStatus::Completed { conclusion, summary } => {
+            CheckStatus::Completed {
+                conclusion,
+                summary,
+            } => {
                 let state = match conclusion {
                     CheckConclusion::Success => "success",
                     CheckConclusion::Failure => "failed",
@@ -165,9 +181,10 @@ impl PlatformAdapter for GitLabAdapter {
     }
 
     async fn create_comment(&self, repo: &RepoId, pr: PrId, body: &str) -> Result<CommentId> {
-        let token = self.token.as_ref().ok_or_else(|| {
-            Error::Config("GITLAB_TOKEN not set".to_string())
-        })?;
+        let token = self
+            .token
+            .as_ref()
+            .ok_or_else(|| Error::Config("GITLAB_TOKEN not set".to_string()))?;
 
         let project_path = self.project_path(repo);
         let encoded_project = urlencoding::encode(&project_path);
@@ -205,17 +222,14 @@ impl PlatformAdapter for GitLabAdapter {
     }
 
     async fn create_issue(&self, repo: &RepoId, issue: NewIssue) -> Result<IssueId> {
-        let token = self.token.as_ref().ok_or_else(|| {
-            Error::Config("GITLAB_TOKEN not set".to_string())
-        })?;
+        let token = self
+            .token
+            .as_ref()
+            .ok_or_else(|| Error::Config("GITLAB_TOKEN not set".to_string()))?;
 
         let project_path = self.project_path(repo);
         let encoded_project = urlencoding::encode(&project_path);
-        let url = format!(
-            "{}/projects/{}/issues",
-            self.api_url(),
-            encoded_project
-        );
+        let url = format!("{}/projects/{}/issues", self.api_url(), encoded_project);
 
         let payload = serde_json::json!({
             "title": issue.title,
@@ -246,17 +260,14 @@ impl PlatformAdapter for GitLabAdapter {
     }
 
     async fn get_default_branch(&self, repo: &RepoId) -> Result<String> {
-        let token = self.token.as_ref().ok_or_else(|| {
-            Error::Config("GITLAB_TOKEN not set".to_string())
-        })?;
+        let token = self
+            .token
+            .as_ref()
+            .ok_or_else(|| Error::Config("GITLAB_TOKEN not set".to_string()))?;
 
         let project_path = self.project_path(repo);
         let encoded_project = urlencoding::encode(&project_path);
-        let url = format!(
-            "{}/projects/{}",
-            self.api_url(),
-            encoded_project
-        );
+        let url = format!("{}/projects/{}", self.api_url(), encoded_project);
 
         let response = self
             .client

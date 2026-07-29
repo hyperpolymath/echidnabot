@@ -154,7 +154,10 @@ impl ShutdownCoordinator {
     /// Drain the scheduler's in-flight job counter, bounded by the
     /// configured timeout. Returns `Ok(())` on clean drain or
     /// `Err(remaining)` when the deadline fires with jobs still running.
-    pub async fn drain_scheduler(&self, scheduler: &JobScheduler) -> std::result::Result<(), usize> {
+    pub async fn drain_scheduler(
+        &self,
+        scheduler: &JobScheduler,
+    ) -> std::result::Result<(), usize> {
         let deadline = tokio::time::Instant::now() + self.timeout;
         let poll = Duration::from_millis(100);
         loop {
@@ -279,7 +282,10 @@ pub async fn wait_for_termination() {
         let mut term = match signal(SignalKind::terminate()) {
             Ok(s) => s,
             Err(e) => {
-                tracing::warn!("Failed to install SIGTERM handler: {}; only SIGINT will trigger shutdown", e);
+                tracing::warn!(
+                    "Failed to install SIGTERM handler: {}; only SIGINT will trigger shutdown",
+                    e
+                );
                 let _ = tokio::signal::ctrl_c().await;
                 return;
             }
@@ -287,7 +293,10 @@ pub async fn wait_for_termination() {
         let mut int = match signal(SignalKind::interrupt()) {
             Ok(s) => s,
             Err(e) => {
-                tracing::warn!("Failed to install SIGINT handler: {}; only SIGTERM will trigger shutdown", e);
+                tracing::warn!(
+                    "Failed to install SIGINT handler: {}; only SIGTERM will trigger shutdown",
+                    e
+                );
                 let _ = term.recv().await;
                 return;
             }
@@ -354,7 +363,10 @@ mod tests {
         let coord = ShutdownCoordinator::new(Duration::from_millis(500));
         let sched = Arc::new(JobScheduler::new(2, 10));
         let started = std::time::Instant::now();
-        coord.drain_scheduler(&sched).await.expect("drain must succeed on idle scheduler");
+        coord
+            .drain_scheduler(&sched)
+            .await
+            .expect("drain must succeed on idle scheduler");
         assert!(
             started.elapsed() < Duration::from_millis(100),
             "drain on idle scheduler must be fast"

@@ -4,30 +4,30 @@
 //! echidnabot CLI and server entry point
 
 use clap::{Parser, Subcommand};
-use echidnabot::{Config, Result};
-use echidnabot::adapters::{
-    CheckConclusion, CheckRun, CheckStatus as AdapterCheckStatus, Platform,
-    PlatformAdapter, PrId, RepoId,
-};
 use echidnabot::adapters::bitbucket::BitbucketAdapter;
 use echidnabot::adapters::github::GitHubAdapter;
 use echidnabot::adapters::gitlab::GitLabAdapter;
+use echidnabot::adapters::{
+    CheckConclusion, CheckRun, CheckStatus as AdapterCheckStatus, Platform, PlatformAdapter, PrId,
+    RepoId,
+};
 use echidnabot::api::graphql::GraphQLState;
 use echidnabot::api::{create_schema, webhook_router};
-use echidnabot::dispatcher::{EchidnaClient, ProofResult, ProofStatus, ProverKind};
 use echidnabot::dispatcher::echidna_client::ProverStatus;
+use echidnabot::dispatcher::{EchidnaClient, ProofResult, ProofStatus, ProverKind};
+use echidnabot::feedback::corpus_delta::{CorpusDelta, DeltaRow, DeltaSource};
 use echidnabot::modes::{self, BotMode, ModeSelector};
 use echidnabot::result_formatter;
 use echidnabot::scheduler::{JobScheduler, ProofJob};
 use echidnabot::shutdown::{
     resolve_shutdown_timeout, wait_for_termination, ShutdownCoordinator, ShutdownSignal,
 };
-use echidnabot::store::{SqliteStore, Store};
-use echidnabot::feedback::corpus_delta::{CorpusDelta, DeltaRow, DeltaSource};
+use echidnabot::store::models::goal_fingerprint;
 use echidnabot::store::models::{
     ProofResultRecord, Repository as StoreRepository, TacticOutcomeRecord,
 };
-use echidnabot::store::models::goal_fingerprint;
+use echidnabot::store::{SqliteStore, Store};
+use echidnabot::{Config, Result};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
@@ -233,8 +233,7 @@ async fn main() -> Result<()> {
 /// `TracerShutdown::into_coordinator_hook()`. Used by `serve` to wire
 /// the OpenTelemetry flush into the graceful-shutdown drain phase.
 type TracerFlushHook = Box<
-    dyn FnOnce()
-            -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send + 'static>>
+    dyn FnOnce() -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send + 'static>>
         + Send
         + 'static,
 >;
@@ -246,7 +245,7 @@ async fn serve(
     tracer_hook: Option<TracerFlushHook>,
 ) -> Result<()> {
     use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
-    use axum::{Extension, routing::get, routing::post, Router};
+    use axum::{routing::get, routing::post, Extension, Router};
 
     // Webhook signature verification is per-integration (handled in
     // src/api/webhooks.rs). When no `webhook_secret` is configured for a
@@ -298,7 +297,10 @@ async fn serve(
     let schema = create_schema(graphql_state);
 
     let rate_limiter = config.server.rate_limit_rpm.map(|rpm| {
-        tracing::info!("Webhook rate limiting enabled: {} requests/minute per IP", rpm);
+        tracing::info!(
+            "Webhook rate limiting enabled: {} requests/minute per IP",
+            rpm
+        );
         Arc::new(echidnabot::api::rate_limit::WebhookRateLimiter::new(rpm))
     });
     if rate_limiter.is_none() {
@@ -531,10 +533,18 @@ async fn register(
     Ok(())
 }
 
-async fn check(config: &Config, repo: &str, commit: Option<&str>, prover: Option<&str>) -> Result<()> {
+async fn check(
+    config: &Config,
+    repo: &str,
+    commit: Option<&str>,
+    prover: Option<&str>,
+) -> Result<()> {
     let client = EchidnaClient::new(&config.echidna);
     let health = client.health_check().await?;
-    tracing::info!("ECHIDNA health check: {}", if health { "ok" } else { "unhealthy" });
+    tracing::info!(
+        "ECHIDNA health check: {}",
+        if health { "ok" } else { "unhealthy" }
+    );
 
     if !health {
         tracing::warn!("ECHIDNA reported unhealthy; results may be unreliable");
@@ -549,9 +559,7 @@ async fn check(config: &Config, repo: &str, commit: Option<&str>, prover: Option
         (None, None)
     };
 
-    let selected_prover = prover
-        .and_then(parse_prover_arg)
-        .or(inferred_prover);
+    let selected_prover = prover.and_then(parse_prover_arg).or(inferred_prover);
 
     if let Some(ref kind) = selected_prover {
         let status = client.prover_status(kind).await?;
@@ -761,21 +769,13 @@ async fn run_scheduler_loop(
             // Errors here are logged but never block the scheduler — the DB
             // is the source of truth, and a missing GitHub token / 503 from
             // the platform shouldn't cascade.
-            if let Err(err) = report_to_platform(
-                store.clone(),
-                echidna.as_ref(),
-                &config,
-                &job,
-                &result,
-            )
-            .await
+            if let Err(err) =
+                report_to_platform(store.clone(), echidna.as_ref(), &config, &job, &result).await
             {
                 tracing::warn!("Platform report skipped for job {}: {}", job.id, err);
             }
 
-            scheduler
-                .complete_job(job.id, result)
-                .await;
+            scheduler.complete_job(job.id, result).await;
         } else {
             // Idle — wait briefly for either the next polling tick or
             // the shutdown signal. Whichever fires first wins; on
@@ -1024,7 +1024,10 @@ async fn report_to_platform(
                         path: failed_file.clone(),
                         line: extract_error_line(&job_result.prover_output).unwrap_or(1),
                     };
-                    match adapter.create_review_comment(&repo_id, pr_id.clone(), &body, location).await {
+                    match adapter
+                        .create_review_comment(&repo_id, pr_id.clone(), &body, location)
+                        .await
+                    {
                         Ok(id) => Ok(id),
                         Err(review_err) => {
                             tracing::debug!(
@@ -1127,7 +1130,11 @@ async fn record_feedback(
         &result.prover_output
     };
     let fingerprint = goal_fingerprint(goal_state_proxy);
-    let tactic_label = if result.success { "proof_accepted" } else { "proof_rejected" };
+    let tactic_label = if result.success {
+        "proof_accepted"
+    } else {
+        "proof_rejected"
+    };
 
     let outcome = TacticOutcomeRecord::new(
         Some(job.id.0),
@@ -1342,7 +1349,8 @@ async fn process_job(
         echidnabot::dispatcher::ProofStatus::Failed
     };
     let axioms = echidnabot::trust::axiom_tracker::AxiomTracker::scan(&job.prover, &prover_output);
-    let confidence = echidnabot::trust::confidence::assess_confidence(&job.prover, final_status, false, 1);
+    let confidence =
+        echidnabot::trust::confidence::assess_confidence(&job.prover, final_status, false, 1);
     Ok(echidnabot::scheduler::JobResult {
         success,
         message,
@@ -1381,11 +1389,22 @@ async fn clone_repo(config: &Config, repo: &RepoId, commit: &str) -> Result<Path
 async fn clone_repo_via_git(base_url: &str, repo: &RepoId, commit: &str) -> Result<PathBuf> {
     let temp_dir = tempfile::tempdir()?;
     let clone_path = temp_dir.keep();
-    let url = format!("{}/{}/{}.git", base_url.trim_end_matches('/'), repo.owner, repo.name);
+    let url = format!(
+        "{}/{}/{}.git",
+        base_url.trim_end_matches('/'),
+        repo.owner,
+        repo.name
+    );
 
     let status = if commit == "HEAD" {
         tokio::process::Command::new("git")
-            .args(["clone", "--depth", "1", &url, &*clone_path.to_string_lossy()])
+            .args([
+                "clone",
+                "--depth",
+                "1",
+                &url,
+                &*clone_path.to_string_lossy(),
+            ])
             .status()
             .await?
     } else {
@@ -1405,7 +1424,13 @@ async fn clone_repo_via_git(base_url: &str, repo: &RepoId, commit: &str) -> Resu
 
     if !status.success() && commit != "HEAD" {
         let status = tokio::process::Command::new("git")
-            .args(["clone", "--depth", "1", &url, &*clone_path.to_string_lossy()])
+            .args([
+                "clone",
+                "--depth",
+                "1",
+                &url,
+                &*clone_path.to_string_lossy(),
+            ])
             .status()
             .await?;
 
@@ -1460,7 +1485,10 @@ fn extract_error_line(prover_output: &str) -> Option<u32> {
         // Lean: path:N:M: ...
         let parts: Vec<&str> = line.splitn(4, ':').collect();
         if parts.len() >= 3 {
-            if let (Ok(n), _) = (parts[1].trim().parse::<u32>(), parts[2].trim().parse::<u32>()) {
+            if let (Ok(n), _) = (
+                parts[1].trim().parse::<u32>(),
+                parts[2].trim().parse::<u32>(),
+            ) {
                 if n > 0 {
                     return Some(n);
                 }

@@ -10,7 +10,7 @@ use uuid::Uuid;
 use crate::adapters::Platform;
 use crate::dispatcher::ProverKind;
 use crate::modes::BotMode;
-use crate::scheduler::{JobId, JobStatus, JobPriority};
+use crate::scheduler::{JobId, JobPriority, JobStatus};
 
 /// Repository record
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -110,7 +110,11 @@ impl From<crate::scheduler::ProofJob> for ProofJobRecord {
             queued_at: job.queued_at,
             started_at: job.started_at,
             completed_at: job.completed_at,
-            error_message: job.result.as_ref().filter(|r| !r.success).map(|r| r.message.clone()),
+            error_message: job
+                .result
+                .as_ref()
+                .filter(|r| !r.success)
+                .map(|r| r.message.clone()),
             pr_number: job.pr_number,
             delivery_id: job.delivery_id,
         }
@@ -153,7 +157,7 @@ pub struct CheckRunRecord {
     pub id: Uuid,
     pub job_id: Uuid,
     pub platform: Platform,
-    pub external_id: String,  // Platform-specific ID
+    pub external_id: String, // Platform-specific ID
     pub status: String,
     pub conclusion: Option<String>,
     pub created_at: DateTime<Utc>,
