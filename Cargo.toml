@@ -26,7 +26,7 @@ path = "src/main.rs"
 
 [dependencies]
 # Fleet coordination
-gitbot-shared-context = { path = "../../shared-context" }
+gitbot-shared-context = { git = "https://github.com/hyperpolymath/gitbot-fleet", rev = "40ef6bf1a43813948476d33c764e3405adc950c2" }
 
 # Async runtime
 tokio = { version = "1", features = ["full"] }
