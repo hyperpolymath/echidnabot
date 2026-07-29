@@ -26,8 +26,7 @@ use crate::modes::BotMode;
 use crate::store::models::Repository;
 
 /// Canonical per-bot directive path, walked first in the cascade.
-const DIRECTIVE_PATH_ECHIDNABOT: &str =
-    ".machine_readable/bot_directives/echidnabot.a2ml";
+const DIRECTIVE_PATH_ECHIDNABOT: &str = ".machine_readable/bot_directives/echidnabot.a2ml";
 
 /// Fleet-wide directive path, walked second.
 const DIRECTIVE_PATH_ALL: &str = ".machine_readable/bot_directives/all.a2ml";
@@ -222,9 +221,9 @@ mod tests {
     fn cascade_falls_back_to_db_when_directive_has_no_mode() {
         let repo = fixture_repo(BotMode::Advisor);
         let directive = "(echidnabot (provers \"lean\" \"coq\"))"; // no mode
-        // Scheme parser returns Verifier on no-match, but our resolver's
-        // "contains 'mode'" check makes us NOT trust that fallback. So we
-        // fall through to DB.
+                                                                   // Scheme parser returns Verifier on no-match, but our resolver's
+                                                                   // "contains 'mode'" check makes us NOT trust that fallback. So we
+                                                                   // fall through to DB.
         assert_eq!(resolve_mode(&repo, Some(directive)), BotMode::Advisor);
     }
 

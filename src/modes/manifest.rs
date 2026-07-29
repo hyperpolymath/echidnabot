@@ -142,22 +142,17 @@ pub struct AxiomsSection {
 }
 
 /// Axiom-policy severity, ordered low → high.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum AxiomSeverity {
     /// Log only; never reported.
     Info,
     /// Reported as a check-run warning.
+    #[default]
     Warning,
     /// Reported as a check-run error. Combined with `[merge_block]`
     /// this can gate PR merges.
     Error,
-}
-
-impl Default for AxiomSeverity {
-    fn default() -> Self {
-        AxiomSeverity::Warning
-    }
 }
 
 /// `[merge_block]` table: gates for Regulator mode.
@@ -302,10 +297,7 @@ mod tests {
             m.provers.per_prover.get("coq").unwrap().timeout_seconds,
             Some(300)
         );
-        assert_eq!(
-            m.provers.per_prover.get("lean4").unwrap().lake,
-            Some(true)
-        );
+        assert_eq!(m.provers.per_prover.get("lean4").unwrap().lake, Some(true));
         assert_eq!(m.proofs.include.len(), 2);
         assert_eq!(m.axioms.severity, Some(AxiomSeverity::Error));
         assert_eq!(m.merge_block.min_confidence, Some(4));
@@ -413,8 +405,7 @@ mod tests {
 
     #[test]
     fn fixture_ephapax_parses() {
-        let content =
-            include_str!("../../tests/fixtures/manifest/ephapax.a2ml");
+        let content = include_str!("../../tests/fixtures/manifest/ephapax.a2ml");
         let m = RepoManifest::parse(content).expect("ephapax fixture parses");
         assert_eq!(m.bot.mode, Some(BotMode::Regulator));
         assert!(m.prover_runs("coq"));
@@ -424,8 +415,7 @@ mod tests {
 
     #[test]
     fn fixture_valence_shell_parses() {
-        let content =
-            include_str!("../../tests/fixtures/manifest/valence-shell.a2ml");
+        let content = include_str!("../../tests/fixtures/manifest/valence-shell.a2ml");
         let m = RepoManifest::parse(content).expect("valence-shell fixture parses");
         assert_eq!(m.bot.mode, Some(BotMode::Advisor));
         assert!(m.prover_runs("coq"));

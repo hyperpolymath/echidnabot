@@ -83,7 +83,11 @@ impl Reranker {
         let fingerprint = goal_fingerprint(goal_state);
         let fingerprint_history = self
             .store
-            .list_tactic_outcomes_by_fingerprint(prover.clone(), &fingerprint, self.fingerprint_limit)
+            .list_tactic_outcomes_by_fingerprint(
+                prover.clone(),
+                &fingerprint,
+                self.fingerprint_limit,
+            )
             .await?;
 
         for suggestion in suggestions.iter_mut() {
@@ -115,7 +119,11 @@ impl Reranker {
         } else {
             let global = self
                 .store
-                .list_tactic_outcomes_by_tactic(prover.clone(), &suggestion.tactic, self.global_limit)
+                .list_tactic_outcomes_by_tactic(
+                    prover.clone(),
+                    &suggestion.tactic,
+                    self.global_limit,
+                )
                 .await?;
             if global.is_empty() {
                 return Ok(suggestion.confidence);
@@ -136,8 +144,8 @@ mod tests {
     use uuid::Uuid;
 
     async fn fresh_store() -> (Arc<dyn Store>, std::path::PathBuf) {
-        let path = std::env::temp_dir()
-            .join(format!("echidnabot-rerank-test-{}.db", Uuid::new_v4()));
+        let path =
+            std::env::temp_dir().join(format!("echidnabot-rerank-test-{}.db", Uuid::new_v4()));
         let url = format!("sqlite://{}?mode=rwc", path.display());
         let store = SqliteStore::new(&url).await.unwrap();
         (Arc::new(store) as Arc<dyn Store>, path)
@@ -155,7 +163,10 @@ mod tests {
     async fn empty_input_returns_empty() {
         let (store, path) = fresh_store().await;
         let r = Reranker::new(store);
-        let out = r.rerank(&ProverKind::new("coq"), "goal", vec![]).await.unwrap();
+        let out = r
+            .rerank(&ProverKind::new("coq"), "goal", vec![])
+            .await
+            .unwrap();
         assert!(out.is_empty());
         let _ = std::fs::remove_file(&path);
     }
@@ -188,7 +199,12 @@ mod tests {
         for _ in 0..4 {
             store
                 .record_tactic_outcome(&TacticOutcomeRecord::new(
-                    None, ProverKind::new("coq"), fp.clone(), "reflexivity".into(), true, 1,
+                    None,
+                    ProverKind::new("coq"),
+                    fp.clone(),
+                    "reflexivity".into(),
+                    true,
+                    1,
                 ))
                 .await
                 .unwrap();
@@ -214,7 +230,12 @@ mod tests {
         for _ in 0..5 {
             store
                 .record_tactic_outcome(&TacticOutcomeRecord::new(
-                    None, ProverKind::new("coq"), fp.clone(), "auto".into(), false, 99,
+                    None,
+                    ProverKind::new("coq"),
+                    fp.clone(),
+                    "auto".into(),
+                    false,
+                    99,
                 ))
                 .await
                 .unwrap();
@@ -239,13 +260,21 @@ mod tests {
         for _ in 0..10 {
             store
                 .record_tactic_outcome(&TacticOutcomeRecord::new(
-                    None, ProverKind::new("coq"), fp.clone(), "t".into(), false, 1,
+                    None,
+                    ProverKind::new("coq"),
+                    fp.clone(),
+                    "t".into(),
+                    false,
+                    1,
                 ))
                 .await
                 .unwrap();
         }
         let r = Reranker::new(store).with_alpha(1.0);
-        let out = r.rerank(&ProverKind::new("coq"), goal, vec![sug("t", 0.77)]).await.unwrap();
+        let out = r
+            .rerank(&ProverKind::new("coq"), goal, vec![sug("t", 0.77)])
+            .await
+            .unwrap();
         assert!((out[0].confidence - 0.77).abs() < 1e-9);
         let _ = std::fs::remove_file(&path);
     }
@@ -258,7 +287,12 @@ mod tests {
         for _ in 0..3 {
             store
                 .record_tactic_outcome(&TacticOutcomeRecord::new(
-                    None, ProverKind::new("coq"), other.clone(), "tac".into(), true, 1,
+                    None,
+                    ProverKind::new("coq"),
+                    other.clone(),
+                    "tac".into(),
+                    true,
+                    1,
                 ))
                 .await
                 .unwrap();
@@ -271,7 +305,11 @@ mod tests {
             .unwrap();
         // Fingerprint lookup misses → global fallback: (3+1)/(3+2)=0.8
         // alpha=0 → confidence = 0.8 exactly
-        assert!((out[0].confidence - 0.8).abs() < 1e-6, "got {}", out[0].confidence);
+        assert!(
+            (out[0].confidence - 0.8).abs() < 1e-6,
+            "got {}",
+            out[0].confidence
+        );
         let _ = std::fs::remove_file(&path);
     }
 
@@ -284,13 +322,23 @@ mod tests {
         for _ in 0..5 {
             store
                 .record_tactic_outcome(&TacticOutcomeRecord::new(
-                    None, ProverKind::new("coq"), fp.clone(), "good".into(), true, 1,
+                    None,
+                    ProverKind::new("coq"),
+                    fp.clone(),
+                    "good".into(),
+                    true,
+                    1,
                 ))
                 .await
                 .unwrap();
             store
                 .record_tactic_outcome(&TacticOutcomeRecord::new(
-                    None, ProverKind::new("coq"), fp.clone(), "bad".into(), false, 1,
+                    None,
+                    ProverKind::new("coq"),
+                    fp.clone(),
+                    "bad".into(),
+                    false,
+                    1,
                 ))
                 .await
                 .unwrap();
@@ -299,7 +347,11 @@ mod tests {
         // Input: "bad" has higher base confidence than "good".
         let r = Reranker::new(store).with_alpha(0.3);
         let out = r
-            .rerank(&ProverKind::new("coq"), goal, vec![sug("bad", 0.9), sug("good", 0.1)])
+            .rerank(
+                &ProverKind::new("coq"),
+                goal,
+                vec![sug("bad", 0.9), sug("good", 0.1)],
+            )
             .await
             .unwrap();
         // History flips the ranking: "good" should surface above "bad".

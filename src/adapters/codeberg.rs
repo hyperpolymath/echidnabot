@@ -46,8 +46,8 @@
 //!
 //! - [ ] Full webhook payload decode (push / pull_request / issue_comment)
 //! - [ ] Inline review comments via Gitea Reviews API (`POST .../reviews`
-//!       with `comments[]` array; non-trivial because Gitea's review model
-//!       differs from GitHub's per-comment model)
+//!   with `comments[]` array; non-trivial because Gitea's review model
+//!   differs from GitHub's per-comment model)
 //! - [ ] Branch protection rule reads (for Regulator mode)
 //! - [ ] App-token auth (currently personal access token only)
 //! - [ ] Federation-aware repo IDs (Forgejo 7.x+ supports federated repos)
@@ -128,7 +128,13 @@ impl PlatformAdapter for CodebergAdapter {
 
         let status = if commit == "HEAD" {
             tokio::process::Command::new("git")
-                .args(["clone", "--depth", "1", &url, &*clone_path.to_string_lossy()])
+                .args([
+                    "clone",
+                    "--depth",
+                    "1",
+                    &url,
+                    &*clone_path.to_string_lossy(),
+                ])
                 .status()
                 .await
                 .map_err(Error::Io)?
@@ -150,7 +156,13 @@ impl PlatformAdapter for CodebergAdapter {
 
         if !status.success() && commit != "HEAD" {
             let status = tokio::process::Command::new("git")
-                .args(["clone", "--depth", "1", &url, &*clone_path.to_string_lossy()])
+                .args([
+                    "clone",
+                    "--depth",
+                    "1",
+                    &url,
+                    &*clone_path.to_string_lossy(),
+                ])
                 .status()
                 .await
                 .map_err(Error::Io)?;
@@ -186,9 +198,10 @@ impl PlatformAdapter for CodebergAdapter {
         //   POST /api/v1/repos/{owner}/{repo}/statuses/{sha}
         // Body: {state, target_url, description, context}
         // States: pending | success | error | failure | warning
-        let token = self.token.as_ref().ok_or_else(|| {
-            Error::Config("CODEBERG_TOKEN not set".to_string())
-        })?;
+        let token = self
+            .token
+            .as_ref()
+            .ok_or_else(|| Error::Config("CODEBERG_TOKEN not set".to_string()))?;
 
         let url = format!(
             "{}/repos/{}/statuses/{}",
@@ -198,7 +211,10 @@ impl PlatformAdapter for CodebergAdapter {
         );
 
         let (state, description) = match &check.status {
-            CheckStatus::Completed { conclusion, summary } => {
+            CheckStatus::Completed {
+                conclusion,
+                summary,
+            } => {
                 let state = match conclusion {
                     CheckConclusion::Success => "success",
                     CheckConclusion::Failure => "failure",
@@ -261,9 +277,10 @@ impl PlatformAdapter for CodebergAdapter {
         // Gitea/Forgejo issue comments (which work for both Issues and
         // PRs, since PRs are issues in this model) at:
         //   POST /api/v1/repos/{owner}/{repo}/issues/{index}/comments
-        let token = self.token.as_ref().ok_or_else(|| {
-            Error::Config("CODEBERG_TOKEN not set".to_string())
-        })?;
+        let token = self
+            .token
+            .as_ref()
+            .ok_or_else(|| Error::Config("CODEBERG_TOKEN not set".to_string()))?;
 
         let url = format!(
             "{}/repos/{}/issues/{}/comments",
@@ -311,15 +328,12 @@ impl PlatformAdapter for CodebergAdapter {
         // `issue.labels` Vec<String> would need a name→id lookup round
         // trip. For the scaffold we pass labels as a hint in the body
         // and TODO the proper label resolution.
-        let token = self.token.as_ref().ok_or_else(|| {
-            Error::Config("CODEBERG_TOKEN not set".to_string())
-        })?;
+        let token = self
+            .token
+            .as_ref()
+            .ok_or_else(|| Error::Config("CODEBERG_TOKEN not set".to_string()))?;
 
-        let url = format!(
-            "{}/repos/{}/issues",
-            self.api_url(),
-            self.repo_path(repo),
-        );
+        let url = format!("{}/repos/{}/issues", self.api_url(), self.repo_path(repo),);
 
         // TODO(#62): resolve label names → numeric IDs via
         //   GET /api/v1/repos/{owner}/{repo}/labels
@@ -368,17 +382,15 @@ impl PlatformAdapter for CodebergAdapter {
             data["number"]
                 .as_u64()
                 .map(|id| id.to_string())
-                .ok_or_else(|| Error::GitHub("Missing number in Codeberg issue response".to_string()))?,
+                .ok_or_else(|| {
+                    Error::GitHub("Missing number in Codeberg issue response".to_string())
+                })?,
         ))
     }
 
     async fn get_default_branch(&self, repo: &RepoId) -> Result<String> {
         // GET /api/v1/repos/{owner}/{repo}  ->  {... "default_branch": "main", ...}
-        let url = format!(
-            "{}/repos/{}",
-            self.api_url(),
-            self.repo_path(repo),
-        );
+        let url = format!("{}/repos/{}", self.api_url(), self.repo_path(repo),);
 
         let mut req = self.client.get(&url);
         if let Some(token) = self.token.as_ref() {

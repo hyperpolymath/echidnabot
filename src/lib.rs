@@ -14,8 +14,8 @@
 //!
 //! See `docs/ARCHITECTURE.adoc` for the full design document.
 
-pub mod api;
 pub mod adapters;
+pub mod api;
 pub mod config;
 pub mod dispatcher;
 pub mod error;

@@ -15,7 +15,7 @@ use crate::adapters::Platform;
 use crate::dispatcher::ProverKind;
 use crate::error::Result;
 use crate::scheduler::JobId;
-use models::{Repository, ProofJobRecord, ProofResultRecord, TacticOutcomeRecord};
+use models::{ProofJobRecord, ProofResultRecord, Repository, TacticOutcomeRecord};
 
 /// Per-commit coverage view — total proof attempts vs successful ones.
 /// Empty results means no jobs run yet for that commit.
@@ -31,11 +31,11 @@ impl CommitCoverage {
     /// proof has been attempted; the check run won't post until at least
     /// one job has finalized anyway, so this is a no-op corner.
     pub fn percent(&self) -> u8 {
-        if self.total == 0 {
-            100
-        } else {
-            ((self.proven * 100) / self.total).min(100) as u8
-        }
+        self.proven
+            .saturating_mul(100)
+            .checked_div(self.total)
+            .unwrap_or(100)
+            .min(100) as u8
     }
 }
 
@@ -69,11 +69,7 @@ pub trait Store: Send + Sync {
     /// Coverage for the (repo_id, commit_sha) tuple — counts of total
     /// and successful proof_jobs at that commit. Used by Regulator mode
     /// to decide whether the threshold is met before blocking a merge.
-    async fn commit_coverage(
-        &self,
-        repo_id: Uuid,
-        commit_sha: &str,
-    ) -> Result<CommitCoverage>;
+    async fn commit_coverage(&self, repo_id: Uuid, commit_sha: &str) -> Result<CommitCoverage>;
 
     // Tactic-outcome operations (double-loop feedback, Package 7b)
     async fn record_tactic_outcome(&self, outcome: &TacticOutcomeRecord) -> Result<()>;

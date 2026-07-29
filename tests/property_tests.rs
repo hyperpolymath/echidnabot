@@ -124,9 +124,7 @@ fn arb_ipv6() -> impl Strategy<Value = IpAddr> {
         0u16..=0xffff,
         0u16..=0xffff,
     )
-    .prop_map(|(a, b, c, d, e, f, g, h)| {
-        IpAddr::V6(Ipv6Addr::new(a, b, c, d, e, f, g, h))
-    })
+        .prop_map(|(a, b, c, d, e, f, g, h)| IpAddr::V6(Ipv6Addr::new(a, b, c, d, e, f, g, h)))
 }
 
 proptest! {

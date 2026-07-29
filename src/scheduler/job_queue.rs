@@ -48,7 +48,11 @@ impl JobScheduler {
     }
 
     /// Connect to fleet for a repository session
-    pub async fn connect_to_fleet(&self, repo_name: &str, repo_path: impl Into<std::path::PathBuf>) -> Result<()> {
+    pub async fn connect_to_fleet(
+        &self,
+        repo_name: &str,
+        repo_path: impl Into<std::path::PathBuf>,
+    ) -> Result<()> {
         let mut fleet = self.fleet.lock().await;
         fleet.connect(repo_name, repo_path)
     }
@@ -87,9 +91,7 @@ impl JobScheduler {
 
         // Check for duplicates
         let is_duplicate = queue.iter().any(|j| {
-            j.repo_id == job.repo_id
-                && j.commit_sha == job.commit_sha
-                && j.prover == job.prover
+            j.repo_id == job.repo_id && j.commit_sha == job.commit_sha && j.prover == job.prover
         });
 
         if is_duplicate {
@@ -209,7 +211,9 @@ impl JobScheduler {
             if let Some(pos) = queue.iter().position(|j| j.id == job_id) {
                 // Safe: pos came from position() while we hold the lock,
                 // so the index is guaranteed in-bounds for VecDeque::remove.
-                let mut job = queue.remove(pos).expect("position() guarantees in-bounds index");
+                let mut job = queue
+                    .remove(pos)
+                    .expect("position() guarantees in-bounds index");
                 job.cancel();
                 tracing::info!("Cancelled queued job {}", job_id);
                 return true;
@@ -252,7 +256,9 @@ impl JobScheduler {
         // via the difference between active_count and max_concurrent clamped
         // at 0. Under light load this is 0; under saturation it reflects backpressure.
         // The `/metrics` handler documents this as an approximation.
-        self.active_count.load(Ordering::Relaxed).saturating_sub(self.max_concurrent)
+        self.active_count
+            .load(Ordering::Relaxed)
+            .saturating_sub(self.max_concurrent)
     }
 }
 
@@ -318,8 +324,8 @@ mod tests {
 
         let job2 = ProofJob::new(
             repo_id,
-            "abc123".to_string(), // Same commit
-            ProverKind::new("metamath"),  // Same prover
+            "abc123".to_string(),        // Same commit
+            ProverKind::new("metamath"), // Same prover
             vec!["test.mm".to_string()],
         );
 

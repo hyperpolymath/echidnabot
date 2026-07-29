@@ -17,8 +17,8 @@ pub use directives::{
     resolve_mode_with_daemon_default,
 };
 pub use manifest::{
-    AxiomSeverity, AxiomsSection, BlockedOnSection, BotSection, MergeBlockSection,
-    ProofsSection, ProverConfig, ProversSection, RepoManifest,
+    AxiomSeverity, AxiomsSection, BlockedOnSection, BotSection, MergeBlockSection, ProofsSection,
+    ProverConfig, ProversSection, RepoManifest,
 };
 
 use serde::{Deserialize, Serialize};
@@ -113,7 +113,6 @@ impl BotMode {
         }
     }
 }
-
 
 impl fmt::Display for BotMode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -370,12 +369,7 @@ mod tests {
     #[test]
     fn test_format_result_success() {
         let mode = BotMode::Advisor;
-        let result = mode.format_result(
-            true,
-            "Coq",
-            "Proof complete",
-            vec!["tactic1".to_string()],
-        );
+        let result = mode.format_result(true, "Coq", "Proof complete", vec!["tactic1".to_string()]);
         assert_eq!(result.check_status, CheckStatus::Success);
         assert!(!result.should_block);
     }

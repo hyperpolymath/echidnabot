@@ -52,7 +52,7 @@ impl WebhookRateLimiter {
     pub fn check_ip(&self, ip: IpAddr) -> bool {
         let now = Instant::now();
         let mut state = self.state.lock().expect("rate limiter mutex poisoned");
-        let timestamps = state.entry(ip).or_insert_with(VecDeque::new);
+        let timestamps = state.entry(ip).or_default();
 
         // Evict entries older than the window
         let cutoff = now - self.window;

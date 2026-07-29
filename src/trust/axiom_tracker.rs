@@ -110,7 +110,10 @@ impl AxiomReport {
 
     /// Get all flags at or above a given severity level
     pub fn flags_at_severity(&self, min_severity: u8) -> Vec<&AxiomFlag> {
-        self.flags.iter().filter(|f| f.severity() >= min_severity).collect()
+        self.flags
+            .iter()
+            .filter(|f| f.severity() >= min_severity)
+            .collect()
     }
 
     /// Format as a human-readable summary
@@ -239,9 +242,7 @@ fn scan_metamath(output: &str, flags: &mut Vec<AxiomFlag>) {
         flags.push(AxiomFlag::UserAxiom);
     }
     // Undischarged hypotheses
-    if output.contains("hypothesis not discharged")
-        || output.contains("floating hypothesis")
-    {
+    if output.contains("hypothesis not discharged") || output.contains("floating hypothesis") {
         flags.push(AxiomFlag::UndischargedAssumption);
     }
 }
@@ -314,10 +315,7 @@ mod tests {
 
     #[test]
     fn test_agda_postulate_detected() {
-        let report = AxiomTracker::scan(
-            &ProverKind::new("agda"),
-            "postulate\n  funext : ...",
-        );
+        let report = AxiomTracker::scan(&ProverKind::new("agda"), "postulate\n  funext : ...");
         assert!(!report.clean);
         assert!(report.flags.contains(&AxiomFlag::Postulate));
         assert_eq!(report.flags[0].severity(), 2); // Warning level
@@ -336,10 +334,7 @@ mod tests {
 
     #[test]
     fn test_isabelle_oops_detected() {
-        let report = AxiomTracker::scan(
-            &ProverKind::new("isabelle"),
-            "lemma foo: \"True\" oops",
-        );
+        let report = AxiomTracker::scan(&ProverKind::new("isabelle"), "lemma foo: \"True\" oops");
         assert!(!report.clean);
         assert!(report.flags.contains(&AxiomFlag::Oops));
         assert!(report.has_unsound());
@@ -347,10 +342,7 @@ mod tests {
 
     #[test]
     fn test_metamath_axiom_detected() {
-        let report = AxiomTracker::scan(
-            &ProverKind::new("metamath"),
-            "$a axiom |- ( ph -> ps )",
-        );
+        let report = AxiomTracker::scan(&ProverKind::new("metamath"), "$a axiom |- ( ph -> ps )");
         assert!(!report.clean);
         assert!(report.flags.contains(&AxiomFlag::UserAxiom));
     }
@@ -400,10 +392,7 @@ mod tests {
 
     #[test]
     fn test_clean_report_summary() {
-        let report = AxiomTracker::scan(
-            &ProverKind::new("z3"),
-            "sat\n(model ...)",
-        );
+        let report = AxiomTracker::scan(&ProverKind::new("z3"), "sat\n(model ...)");
         let summary = report.summary();
         assert!(summary.contains("clean"));
     }

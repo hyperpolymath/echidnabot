@@ -10,6 +10,7 @@
 schema_version = "2.0"
 directive_type = "bot-directive"
 target_bot = "echidnabot"
+project = "ephapax"
 
 [bot]
 mode = "regulator"

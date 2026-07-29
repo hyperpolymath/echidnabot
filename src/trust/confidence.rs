@@ -189,31 +189,31 @@ pub fn is_small_kernel(prover: &ProverKind) -> bool {
     match prover.as_str() {
         // Tier 1 small-kernel systems
         "coq" => true,      // Gallina kernel
-        "lean" => true,      // Lean4 kernel
-        "isabelle" => true,  // Isabelle/Pure kernel
-        "agda" => true,      // Dependent type checker
-        "metamath" => true,  // Extremely small kernel
+        "lean" => true,     // Lean4 kernel
+        "isabelle" => true, // Isabelle/Pure kernel
+        "agda" => true,     // Dependent type checker
+        "metamath" => true, // Extremely small kernel
 
         // SAT/SMT solvers -- large TCB but produce certificates
         "z3" => false,
         "cvc5" => false,
 
         // Other provers
-        "hol-light" => true,  // Small OCaml kernel
+        "hol-light" => true, // Small OCaml kernel
         "mizar" => false,    // Large checker
         "pvs" => false,      // Large TCB
         "acl2" => false,     // Built on Common Lisp
         "hol4" => true,      // Small ML kernel
 
         // Tier-3 small-kernel systems
-        "idris2" | "idris" => true,  // Dependent-type kernel
-        "fstar" => true,             // F* type-theory kernel
+        "idris2" | "idris" => true, // Dependent-type kernel
+        "fstar" => true,            // F* type-theory kernel
 
         // Tier-3 large-TCB systems
-        "vampire" | "eprover" | "spass" => false,  // Large first-order ATPs
-        "dafny" | "why3" | "alt-ergo" => false,    // VC-based tools
-        "tamarin" | "proverif" => false,           // Protocol model checkers
-        "dreal" | "abc" => false,                  // Numerical / hardware checkers
+        "vampire" | "eprover" | "spass" => false, // Large first-order ATPs
+        "dafny" | "why3" | "alt-ergo" => false,   // VC-based tools
+        "tamarin" | "proverif" => false,          // Protocol model checkers
+        "dreal" | "abc" => false,                 // Numerical / hardware checkers
 
         // Unknown provers: assume false (conservative estimate)
         _ => false,
@@ -292,12 +292,7 @@ mod tests {
 
     #[test]
     fn test_assess_level4_small_kernel_with_cert() {
-        let report = assess_confidence(
-            &ProverKind::new("coq"),
-            ProofStatus::Verified,
-            true,
-            1,
-        );
+        let report = assess_confidence(&ProverKind::new("coq"), ProofStatus::Verified, true, 1);
         assert_eq!(report.level, ConfidenceLevel::Level4);
     }
 
@@ -314,34 +309,19 @@ mod tests {
 
     #[test]
     fn test_assess_level2_small_kernel_no_cert() {
-        let report = assess_confidence(
-            &ProverKind::new("lean"),
-            ProofStatus::Verified,
-            false,
-            1,
-        );
+        let report = assess_confidence(&ProverKind::new("lean"), ProofStatus::Verified, false, 1);
         assert_eq!(report.level, ConfidenceLevel::Level2);
     }
 
     #[test]
     fn test_assess_level1_large_tcb() {
-        let report = assess_confidence(
-            &ProverKind::new("pvs"),
-            ProofStatus::Verified,
-            false,
-            1,
-        );
+        let report = assess_confidence(&ProverKind::new("pvs"), ProofStatus::Verified, false, 1);
         assert_eq!(report.level, ConfidenceLevel::Level1);
     }
 
     #[test]
     fn test_assess_failed_proof_always_level1() {
-        let report = assess_confidence(
-            &ProverKind::new("coq"),
-            ProofStatus::Failed,
-            true,
-            3,
-        );
+        let report = assess_confidence(&ProverKind::new("coq"), ProofStatus::Failed, true, 3);
         assert_eq!(report.level, ConfidenceLevel::Level1);
     }
 

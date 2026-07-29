@@ -150,7 +150,17 @@ fn build_context(recent: &[ProofJobRecord]) -> String {
         let detail = job
             .error_message
             .as_deref()
-            .map(|s| format!(" — error: {}", s.lines().next().unwrap_or("").chars().take(120).collect::<String>()))
+            .map(|s| {
+                format!(
+                    " — error: {}",
+                    s.lines()
+                        .next()
+                        .unwrap_or("")
+                        .chars()
+                        .take(120)
+                        .collect::<String>()
+                )
+            })
             .unwrap_or_default();
         out.push_str(&format!(
             "- {} · {:?} · status={:?}{}\n",

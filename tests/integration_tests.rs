@@ -12,6 +12,8 @@
 //! - Circuit breaker behavior
 //! - Container executor command generation
 
+use echidnabot::adapters::Platform;
+use echidnabot::config::Config;
 use echidnabot::dispatcher::{ProofResult, ProofStatus, ProverKind};
 use echidnabot::executor::{IsolationBackend, PodmanExecutor};
 use echidnabot::modes::{BotMode, CheckStatus};
@@ -19,12 +21,9 @@ use echidnabot::result_formatter::{
     check_run_conclusion, format_proof_result, generate_pr_comment,
 };
 use echidnabot::scheduler::{
-    CircuitBreaker, CircuitState, JobId, JobPriority, JobResult, JobScheduler, JobStatus,
-    ProofJob,
+    CircuitBreaker, CircuitState, JobId, JobPriority, JobResult, JobScheduler, JobStatus, ProofJob,
 };
 use echidnabot::store::models::{ProofJobRecord, ProofResultRecord, Repository};
-use echidnabot::adapters::Platform;
-use echidnabot::config::Config;
 
 use axum::http::HeaderMap;
 use hmac::{Hmac, Mac};
@@ -102,10 +101,22 @@ fn test_prover_kind_display_names() {
 
 #[test]
 fn test_prover_kind_from_extension() {
-    assert_eq!(ProverKind::from_extension(".v"), Some(ProverKind::new("coq")));
-    assert_eq!(ProverKind::from_extension(".lean"), Some(ProverKind::new("lean")));
-    assert_eq!(ProverKind::from_extension(".mm"), Some(ProverKind::new("metamath")));
-    assert_eq!(ProverKind::from_extension(".smt2"), Some(ProverKind::new("z3")));
+    assert_eq!(
+        ProverKind::from_extension(".v"),
+        Some(ProverKind::new("coq"))
+    );
+    assert_eq!(
+        ProverKind::from_extension(".lean"),
+        Some(ProverKind::new("lean"))
+    );
+    assert_eq!(
+        ProverKind::from_extension(".mm"),
+        Some(ProverKind::new("metamath"))
+    );
+    assert_eq!(
+        ProverKind::from_extension(".smt2"),
+        Some(ProverKind::new("z3"))
+    );
     assert_eq!(ProverKind::from_extension(".unknown"), None);
 }
 
@@ -205,7 +216,12 @@ fn test_result_formatter_truncates_long_output() {
         axioms: None,
     };
 
-    let formatted = format_proof_result(BotMode::Advisor, &proof_result, ProverKind::new("coq"), vec![]);
+    let formatted = format_proof_result(
+        BotMode::Advisor,
+        &proof_result,
+        ProverKind::new("coq"),
+        vec![],
+    );
     let comment = generate_pr_comment(&formatted, BotMode::Advisor);
 
     // Comment should contain truncation notice
@@ -412,8 +428,7 @@ fn test_proof_result_record() {
 
 #[test]
 fn test_executor_build_podman_args_security() {
-    let executor = PodmanExecutor::default()
-        .with_backend(IsolationBackend::Podman);
+    let executor = PodmanExecutor::default().with_backend(IsolationBackend::Podman);
 
     let args = executor.build_podman_args(ProverKind::new("lean"));
 
@@ -443,11 +458,14 @@ fn test_executor_custom_resource_limits() {
 
 #[tokio::test]
 async fn test_executor_no_backend_refuses_proofs() {
-    let executor = PodmanExecutor::default()
-        .with_backend(IsolationBackend::None);
+    let executor = PodmanExecutor::default().with_backend(IsolationBackend::None);
 
     let result = executor
-        .execute_proof(ProverKind::new("lean"), "theorem test : True := trivial", None)
+        .execute_proof(
+            ProverKind::new("lean"),
+            "theorem test : True := trivial",
+            None,
+        )
         .await;
 
     assert!(result.is_err());
@@ -509,11 +527,10 @@ async fn test_scheduler_enqueue_dequeue_cycle() {
 
 #[tokio::test]
 async fn test_tactic_outcome_roundtrip_via_store() {
+    use echidnabot::store::models::{goal_fingerprint, TacticOutcomeRecord};
     use echidnabot::store::{SqliteStore, Store};
-    use echidnabot::store::models::{TacticOutcomeRecord, goal_fingerprint};
 
-    let path = std::env::temp_dir()
-        .join(format!("echidnabot-test-outcomes-{}.db", Uuid::new_v4()));
+    let path = std::env::temp_dir().join(format!("echidnabot-test-outcomes-{}.db", Uuid::new_v4()));
     let url = format!("sqlite://{}?mode=rwc", path.display());
     let store = SqliteStore::new(&url).await.unwrap();
 

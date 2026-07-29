@@ -51,7 +51,13 @@ impl PlatformAdapter for BitbucketAdapter {
 
         let status = if commit == "HEAD" {
             tokio::process::Command::new("git")
-                .args(["clone", "--depth", "1", &url, &*clone_path.to_string_lossy()])
+                .args([
+                    "clone",
+                    "--depth",
+                    "1",
+                    &url,
+                    &*clone_path.to_string_lossy(),
+                ])
                 .status()
                 .await
                 .map_err(Error::Io)?
@@ -73,7 +79,13 @@ impl PlatformAdapter for BitbucketAdapter {
 
         if !status.success() && commit != "HEAD" {
             let status = tokio::process::Command::new("git")
-                .args(["clone", "--depth", "1", &url, &*clone_path.to_string_lossy()])
+                .args([
+                    "clone",
+                    "--depth",
+                    "1",
+                    &url,
+                    &*clone_path.to_string_lossy(),
+                ])
                 .status()
                 .await
                 .map_err(Error::Io)?;
@@ -104,9 +116,10 @@ impl PlatformAdapter for BitbucketAdapter {
     }
 
     async fn create_check_run(&self, repo: &RepoId, check: CheckRun) -> Result<CheckRunId> {
-        let token = self.token.as_ref().ok_or_else(|| {
-            Error::Config("BITBUCKET_TOKEN not set".to_string())
-        })?;
+        let token = self
+            .token
+            .as_ref()
+            .ok_or_else(|| Error::Config("BITBUCKET_TOKEN not set".to_string()))?;
 
         let project_path = self.project_path(repo);
         let url = format!(
@@ -117,7 +130,10 @@ impl PlatformAdapter for BitbucketAdapter {
         );
 
         let (state, description) = match &check.status {
-            CheckStatus::Completed { conclusion, summary } => {
+            CheckStatus::Completed {
+                conclusion,
+                summary,
+            } => {
                 let state = match conclusion {
                     CheckConclusion::Success => "SUCCESSFUL",
                     CheckConclusion::Failure => "FAILED",
@@ -150,12 +166,7 @@ impl PlatformAdapter for BitbucketAdapter {
             .await
             .map_err(|e| Error::GitHub(e.to_string()))?;
 
-        Ok(CheckRunId(
-            data["uuid"]
-                .as_str()
-                .unwrap_or("0")
-                .to_string(),
-        ))
+        Ok(CheckRunId(data["uuid"].as_str().unwrap_or("0").to_string()))
     }
 
     async fn update_check_run(&self, _id: CheckRunId, _status: CheckStatus) -> Result<()> {
@@ -165,9 +176,10 @@ impl PlatformAdapter for BitbucketAdapter {
     }
 
     async fn create_comment(&self, repo: &RepoId, pr: PrId, body: &str) -> Result<CommentId> {
-        let token = self.token.as_ref().ok_or_else(|| {
-            Error::Config("BITBUCKET_TOKEN not set".to_string())
-        })?;
+        let token = self
+            .token
+            .as_ref()
+            .ok_or_else(|| Error::Config("BITBUCKET_TOKEN not set".to_string()))?;
 
         let project_path = self.project_path(repo);
         let url = format!(
@@ -206,16 +218,13 @@ impl PlatformAdapter for BitbucketAdapter {
     }
 
     async fn create_issue(&self, repo: &RepoId, issue: NewIssue) -> Result<IssueId> {
-        let token = self.token.as_ref().ok_or_else(|| {
-            Error::Config("BITBUCKET_TOKEN not set".to_string())
-        })?;
+        let token = self
+            .token
+            .as_ref()
+            .ok_or_else(|| Error::Config("BITBUCKET_TOKEN not set".to_string()))?;
 
         let project_path = self.project_path(repo);
-        let url = format!(
-            "{}/repositories/{}/issues",
-            self.api_url(),
-            project_path
-        );
+        let url = format!("{}/repositories/{}/issues", self.api_url(), project_path);
 
         let payload = serde_json::json!({
             "title": issue.title,
@@ -248,16 +257,13 @@ impl PlatformAdapter for BitbucketAdapter {
     }
 
     async fn get_default_branch(&self, repo: &RepoId) -> Result<String> {
-        let token = self.token.as_ref().ok_or_else(|| {
-            Error::Config("BITBUCKET_TOKEN not set".to_string())
-        })?;
+        let token = self
+            .token
+            .as_ref()
+            .ok_or_else(|| Error::Config("BITBUCKET_TOKEN not set".to_string()))?;
 
         let project_path = self.project_path(repo);
-        let url = format!(
-            "{}/repositories/{}",
-            self.api_url(),
-            project_path
-        );
+        let url = format!("{}/repositories/{}", self.api_url(), project_path);
 
         let response = self
             .client

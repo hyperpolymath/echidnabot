@@ -46,13 +46,25 @@ impl FleetCoordinator {
     }
 
     /// Disconnect from fleet (mark echidnabot as complete)
-    pub fn disconnect(&mut self, findings_count: usize, errors_count: usize, files_analyzed: usize) -> Result<()> {
+    pub fn disconnect(
+        &mut self,
+        findings_count: usize,
+        errors_count: usize,
+        files_analyzed: usize,
+    ) -> Result<()> {
         if let Some(ref mut ctx) = self.context {
-            info!("Disconnecting from gitbot-fleet (findings: {}, errors: {}, files: {})",
-                  findings_count, errors_count, files_analyzed);
+            info!(
+                "Disconnecting from gitbot-fleet (findings: {}, errors: {}, files: {})",
+                findings_count, errors_count, files_analyzed
+            );
 
-            ctx.complete_bot(BotId::Echidnabot, findings_count, errors_count, files_analyzed)
-                .map_err(|e| Error::Internal(format!("Failed to complete bot: {}", e)))?;
+            ctx.complete_bot(
+                BotId::Echidnabot,
+                findings_count,
+                errors_count,
+                files_analyzed,
+            )
+            .map_err(|e| Error::Internal(format!("Failed to complete bot: {}", e)))?;
 
             // TODO: Persist context to ~/.gitbot-fleet/sessions/
         }

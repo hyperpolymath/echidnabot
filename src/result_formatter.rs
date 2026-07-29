@@ -19,12 +19,15 @@ pub fn format_proof_result(
     let prover_name = prover.display_name();
 
     // Convert tactic suggestions to strings
-    let suggestion_strings: Vec<String> = suggestions
-        .iter()
-        .map(format_tactic_suggestion)
-        .collect();
+    let suggestion_strings: Vec<String> =
+        suggestions.iter().map(format_tactic_suggestion).collect();
 
-    mode.format_result(success, prover_name, &result.prover_output, suggestion_strings)
+    mode.format_result(
+        success,
+        prover_name,
+        &result.prover_output,
+        suggestion_strings,
+    )
 }
 
 /// Format a tactic suggestion for display
@@ -58,7 +61,11 @@ pub fn generate_pr_comment(result: &FormattedResult, mode: BotMode) -> String {
         comment.push_str("```\n");
         // Truncate long output
         let truncated = if details.len() > 2000 {
-            format!("{}...\n\n(Output truncated, {} chars total)", &details[..2000], details.len())
+            format!(
+                "{}...\n\n(Output truncated, {} chars total)",
+                &details[..2000],
+                details.len()
+            )
         } else {
             details.clone()
         };
@@ -179,7 +186,8 @@ mod tests {
     #[test]
     fn test_format_success_verifier() {
         let result = make_success_result();
-        let formatted = format_proof_result(BotMode::Verifier, &result, ProverKind::new("coq"), vec![]);
+        let formatted =
+            format_proof_result(BotMode::Verifier, &result, ProverKind::new("coq"), vec![]);
 
         assert_eq!(formatted.check_status, CheckStatus::Success);
         assert!(!formatted.should_block);
@@ -190,7 +198,12 @@ mod tests {
     fn test_format_failure_advisor() {
         let result = make_failure_result();
         let suggestions = make_suggestions();
-        let formatted = format_proof_result(BotMode::Advisor, &result, ProverKind::new("coq"), suggestions);
+        let formatted = format_proof_result(
+            BotMode::Advisor,
+            &result,
+            ProverKind::new("coq"),
+            suggestions,
+        );
 
         assert_eq!(formatted.check_status, CheckStatus::Failure);
         assert!(!formatted.should_block); // Advisor doesn't block
@@ -201,7 +214,8 @@ mod tests {
     #[test]
     fn test_format_failure_regulator() {
         let result = make_failure_result();
-        let formatted = format_proof_result(BotMode::Regulator, &result, ProverKind::new("lean"), vec![]);
+        let formatted =
+            format_proof_result(BotMode::Regulator, &result, ProverKind::new("lean"), vec![]);
 
         assert_eq!(formatted.check_status, CheckStatus::Failure);
         assert!(formatted.should_block); // Regulator blocks merges
@@ -212,7 +226,12 @@ mod tests {
     fn test_pr_comment_with_suggestions() {
         let result = make_failure_result();
         let suggestions = make_suggestions();
-        let formatted = format_proof_result(BotMode::Advisor, &result, ProverKind::new("coq"), suggestions);
+        let formatted = format_proof_result(
+            BotMode::Advisor,
+            &result,
+            ProverKind::new("coq"),
+            suggestions,
+        );
         let comment = generate_pr_comment(&formatted, BotMode::Advisor);
 
         assert!(comment.contains("echidnabot"));
@@ -225,7 +244,8 @@ mod tests {
     #[test]
     fn test_pr_comment_regulator_blocking() {
         let result = make_failure_result();
-        let formatted = format_proof_result(BotMode::Regulator, &result, ProverKind::new("coq"), vec![]);
+        let formatted =
+            format_proof_result(BotMode::Regulator, &result, ProverKind::new("coq"), vec![]);
         let comment = generate_pr_comment(&formatted, BotMode::Regulator);
 
         assert!(comment.contains("Merge Blocked"));
@@ -235,7 +255,12 @@ mod tests {
     #[test]
     fn test_pr_comment_consultant_interactive() {
         let result = make_success_result();
-        let formatted = format_proof_result(BotMode::Consultant, &result, ProverKind::new("agda"), vec![]);
+        let formatted = format_proof_result(
+            BotMode::Consultant,
+            &result,
+            ProverKind::new("agda"),
+            vec![],
+        );
         let comment = generate_pr_comment(&formatted, BotMode::Consultant);
 
         assert!(comment.contains("Ask me anything"));
@@ -247,8 +272,10 @@ mod tests {
         let success = make_success_result();
         let failure = make_failure_result();
 
-        let success_formatted = format_proof_result(BotMode::Verifier, &success, ProverKind::new("z3"), vec![]);
-        let failure_formatted = format_proof_result(BotMode::Verifier, &failure, ProverKind::new("z3"), vec![]);
+        let success_formatted =
+            format_proof_result(BotMode::Verifier, &success, ProverKind::new("z3"), vec![]);
+        let failure_formatted =
+            format_proof_result(BotMode::Verifier, &failure, ProverKind::new("z3"), vec![]);
 
         assert_eq!(check_run_conclusion(&success_formatted), "success");
         assert_eq!(check_run_conclusion(&failure_formatted), "failure");

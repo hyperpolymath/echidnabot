@@ -8,16 +8,13 @@ use chrono::{DateTime, Utc};
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::dispatcher::{
-    EchidnaClient,
-    ProverKind as CoreProverKind,
-    TacticSuggestion as CoreSuggestion,
-};
 use crate::dispatcher::echidna_client::ProverStatus as CoreProverStatus;
+use crate::dispatcher::{
+    EchidnaClient, ProverKind as CoreProverKind, TacticSuggestion as CoreSuggestion,
+};
 use crate::scheduler::{JobPriority, JobScheduler};
 use crate::store::models::{
-    ProofJobRecord, Repository as StoreRepository, TacticOutcomeRecord,
-    goal_fingerprint,
+    goal_fingerprint, ProofJobRecord, Repository as StoreRepository, TacticOutcomeRecord,
 };
 use crate::store::Store;
 
@@ -218,11 +215,7 @@ impl QueryRoot {
     }
 
     /// List all registered repositories
-    async fn repositories(
-        &self,
-        ctx: &Context<'_>,
-        platform: Option<Platform>,
-    ) -> Vec<Repository> {
+    async fn repositories(&self, ctx: &Context<'_>, platform: Option<Platform>) -> Vec<Repository> {
         let state = match ctx.data::<GraphQLState>() {
             Ok(state) => state,
             Err(_) => return vec![],
@@ -287,7 +280,11 @@ impl QueryRoot {
                 kind: map_prover_kind(kind.clone()),
                 name: kind.display_name().to_string(),
                 tier: kind.tier() as i32,
-                file_extensions: kind.file_extensions().iter().map(|s| s.to_string()).collect(),
+                file_extensions: kind
+                    .file_extensions()
+                    .iter()
+                    .map(|s| s.to_string())
+                    .collect(),
                 status,
             });
         }
@@ -398,11 +395,7 @@ impl MutationRoot {
     ) -> async_graphql::Result<Repository> {
         let state = ctx.data::<GraphQLState>()?;
 
-        let mut repo = StoreRepository::new(
-            map_platform(input.platform),
-            input.owner,
-            input.name,
-        );
+        let mut repo = StoreRepository::new(map_platform(input.platform), input.owner, input.name);
         repo.webhook_secret = input.webhook_secret;
         if let Some(provers) = input.enabled_provers {
             repo.enabled_provers = provers.into_iter().map(map_prover_kind_to_core).collect();
@@ -451,7 +444,7 @@ impl MutationRoot {
                 map_prover_kind_to_core(prover),
                 Vec::new(),
             )
-                .with_priority(JobPriority::Critical);
+            .with_priority(JobPriority::Critical);
             let record = ProofJobRecord::from(job.clone());
             state
                 .store
@@ -572,7 +565,9 @@ impl MutationRoot {
         let prover = map_prover_kind_to_core(input.prover);
         let fingerprint = goal_fingerprint(&input.goal_state);
 
-        let job_uuid = input.job_id.as_deref()
+        let job_uuid = input
+            .job_id
+            .as_deref()
             .and_then(|id| Uuid::parse_str(id).ok());
 
         let record = TacticOutcomeRecord::new(
@@ -599,7 +594,11 @@ impl From<StoreRepository> for Repository {
             platform: map_platform_to_graphql(repo.platform),
             owner: repo.owner,
             name: repo.name,
-            enabled_provers: repo.enabled_provers.into_iter().map(map_prover_kind).collect(),
+            enabled_provers: repo
+                .enabled_provers
+                .into_iter()
+                .map(map_prover_kind)
+                .collect(),
             last_checked_commit: repo.last_checked_commit,
         }
     }

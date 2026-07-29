@@ -57,6 +57,14 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{EnvFilter, Layer};
 
+/// Asynchronous shutdown hook registered with the graceful-shutdown
+/// coordinator.
+pub type CoordinatorShutdownHook = Box<
+    dyn FnOnce() -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send + 'static>>
+        + Send
+        + 'static,
+>;
+
 /// Env var that selects the log output format.
 pub const FORMAT_ENV_VAR: &str = "ECHIDNABOT_LOG_FORMAT";
 
@@ -127,16 +135,7 @@ impl TracerShutdown {
     ///     coordinator.register("tracer-flush", hook);
     /// }
     /// ```
-    pub fn into_coordinator_hook(
-        &mut self,
-    ) -> Option<
-        Box<
-            dyn FnOnce() -> std::pin::Pin<
-                    Box<dyn std::future::Future<Output = ()> + Send + 'static>,
-                > + Send
-                + 'static,
-        >,
-    > {
+    pub fn into_coordinator_hook(&mut self) -> Option<CoordinatorShutdownHook> {
         let provider = self.provider.take()?;
         Some(Box::new(move || {
             Box::pin(async move {
@@ -265,10 +264,14 @@ mod tests {
         // SAFETY: tests are single-threaded per Rust default test harness
         // for env-var ops; this is the standard pattern for env-driven
         // unit tests in this crate.
-        unsafe { std::env::remove_var(FORMAT_ENV_VAR); }
+        unsafe {
+            std::env::remove_var(FORMAT_ENV_VAR);
+        }
         assert_eq!(LogFormat::from_env(), LogFormat::Text);
         if let Some(v) = prev {
-            unsafe { std::env::set_var(FORMAT_ENV_VAR, v); }
+            unsafe {
+                std::env::set_var(FORMAT_ENV_VAR, v);
+            }
         }
     }
 
@@ -276,7 +279,9 @@ mod tests {
     fn log_format_recognises_json_case_insensitive() {
         let prev = std::env::var(FORMAT_ENV_VAR).ok();
         for v in ["json", "JSON", "Json", "jSoN"] {
-            unsafe { std::env::set_var(FORMAT_ENV_VAR, v); }
+            unsafe {
+                std::env::set_var(FORMAT_ENV_VAR, v);
+            }
             assert_eq!(LogFormat::from_env(), LogFormat::Json, "input was {v}");
         }
         match prev {
@@ -288,7 +293,9 @@ mod tests {
     #[test]
     fn log_format_unknown_falls_back_to_text() {
         let prev = std::env::var(FORMAT_ENV_VAR).ok();
-        unsafe { std::env::set_var(FORMAT_ENV_VAR, "yaml"); }
+        unsafe {
+            std::env::set_var(FORMAT_ENV_VAR, "yaml");
+        }
         assert_eq!(LogFormat::from_env(), LogFormat::Text);
         match prev {
             Some(v) => unsafe { std::env::set_var(FORMAT_ENV_VAR, v) },

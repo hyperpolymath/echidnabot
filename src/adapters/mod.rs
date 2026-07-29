@@ -4,10 +4,10 @@
 
 use serde::{Deserialize, Serialize};
 
-pub mod github;
-pub mod gitlab;
 pub mod bitbucket;
 pub mod codeberg;
+pub mod github;
+pub mod gitlab;
 
 use async_trait::async_trait;
 use std::path::PathBuf;

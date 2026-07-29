@@ -76,7 +76,11 @@ impl ProverSlug {
     /// Detect prover from file extension (classic 12 only; others return None)
     pub fn from_extension(ext: &str) -> Option<Self> {
         let ext = ext.to_lowercase();
-        let ext = if ext.starts_with('.') { ext } else { format!(".{}", ext) };
+        let ext = if ext.starts_with('.') {
+            ext
+        } else {
+            format!(".{}", ext)
+        };
 
         CLASSIC_PROVERS.iter().find_map(|(slug, _)| {
             let prover = ProverSlug::new(*slug);
@@ -90,7 +94,8 @@ impl ProverSlug {
 
     /// Human-readable name for classic provers (classic 12), others return slug
     pub fn display_name(&self) -> &str {
-        CLASSIC_PROVERS.iter()
+        CLASSIC_PROVERS
+            .iter()
             .find(|(slug, _)| slug.to_lowercase() == self.0)
             .map(|(_, name)| *name)
             .unwrap_or(self.0.as_str())
@@ -102,13 +107,14 @@ impl ProverSlug {
             "agda" | "coq" | "lean" | "isabelle" | "z3" | "cvc5" => 1,
             "metamath" | "hol-light" | "mizar" => 2,
             "pvs" | "acl2" | "hol4" => 3,
-            _ => 0,  // Unknown or HP-ecosystem; defer to echidna
+            _ => 0, // Unknown or HP-ecosystem; defer to echidna
         }
     }
 
     /// Get file extensions for classic provers
     pub fn file_extensions(&self) -> &[&str] {
-        CLASSIC_PROVERS.iter()
+        CLASSIC_PROVERS
+            .iter()
             .find(|(slug, _)| slug.to_lowercase() == self.0)
             .map(|(_, _)| {
                 // Return extensions from the tuple's list
@@ -146,7 +152,9 @@ impl ProverSlug {
 
     /// All classic prover slugs (12) — known statically
     pub fn classic_all() -> impl Iterator<Item = Self> {
-        CLASSIC_PROVERS.iter().map(|(slug, _)| ProverSlug::new(*slug))
+        CLASSIC_PROVERS
+            .iter()
+            .map(|(slug, _)| ProverSlug::new(*slug))
     }
 
     /// All known provers (currently classic 12; supports 113 via slug resolution)

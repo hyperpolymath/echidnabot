@@ -10,10 +10,10 @@
 use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
 use axum::{routing::get, Extension, Router};
 use axum_test::TestServer;
-use echidnabot::api::{create_schema, webhook_router};
 use echidnabot::api::graphql::GraphQLState;
 use echidnabot::api::rate_limit::WebhookRateLimiter;
 use echidnabot::api::webhooks::AppState;
+use echidnabot::api::{create_schema, webhook_router};
 use echidnabot::config::Config;
 use echidnabot::dispatcher::EchidnaClient;
 use echidnabot::modes::ModeSelector;
@@ -98,7 +98,10 @@ async fn smoke_gitlab_webhook_route_exists() {
         .bytes(b"{}".as_ref().into())
         .await;
     let status = response.status_code().as_u16();
-    assert!(status != 404 && status < 500, "gitlab webhook must exist, got {status}");
+    assert!(
+        status != 404 && status < 500,
+        "gitlab webhook must exist, got {status}"
+    );
 }
 
 #[tokio::test]
@@ -109,7 +112,10 @@ async fn smoke_bitbucket_webhook_route_exists() {
         .bytes(b"{}".as_ref().into())
         .await;
     let status = response.status_code().as_u16();
-    assert!(status != 404 && status < 500, "bitbucket webhook must exist, got {status}");
+    assert!(
+        status != 404 && status < 500,
+        "bitbucket webhook must exist, got {status}"
+    );
 }
 
 #[tokio::test]
@@ -121,8 +127,14 @@ async fn smoke_graphql_typename_query() {
         .await;
     response.assert_status_ok();
     let body: serde_json::Value = response.json();
-    assert!(body.get("data").is_some(), "must return data field, got: {body}");
-    assert!(body.get("errors").is_none(), "must not return errors, got: {body}");
+    assert!(
+        body.get("data").is_some(),
+        "must return data field, got: {body}"
+    );
+    assert!(
+        body.get("errors").is_none(),
+        "must not return errors, got: {body}"
+    );
 }
 
 #[tokio::test]
@@ -174,10 +186,8 @@ async fn smoke_rate_limiting_returns_429_at_limit() {
         .with_state(app_state);
 
     // into_make_service_with_connect_info required for ConnectInfo extractor in middleware
-    let server = TestServer::new(
-        app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
-    )
-    .unwrap();
+    let server =
+        TestServer::new(app.into_make_service_with_connect_info::<std::net::SocketAddr>()).unwrap();
 
     // First 2 must pass (limit=2, all from same loopback IP in axum-test)
     for i in 0..2 {
@@ -196,7 +206,11 @@ async fn smoke_rate_limiting_returns_429_at_limit() {
         .post("/webhooks/github")
         .bytes(b"{}".as_ref().into())
         .await;
-    assert_eq!(r.status_code(), 429, "request 3 must be rate-limited (limit=2)");
+    assert_eq!(
+        r.status_code(),
+        429,
+        "request 3 must be rate-limited (limit=2)"
+    );
     assert!(
         r.headers().get("Retry-After").is_some(),
         "rate-limited response must include Retry-After header"

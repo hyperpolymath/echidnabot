@@ -18,19 +18,36 @@ use echidnabot::store::{
     models::{ProofJobRecord, Repository},
     SqliteStore, Store,
 };
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 use uuid::Uuid;
 
 fn make_job_result(success: bool) -> JobResult {
     JobResult {
         success,
-        message: if success { "Verified".to_string() } else { "Failed".to_string() },
-        prover_output: if success { "proof completed" } else { "error: goal not proved" }.to_string(),
+        message: if success {
+            "Verified".to_string()
+        } else {
+            "Failed".to_string()
+        },
+        prover_output: if success {
+            "proof completed"
+        } else {
+            "error: goal not proved"
+        }
+        .to_string(),
         duration_ms: 100,
-        verified_files: if success { vec!["main.v".to_string()] } else { vec![] },
-        failed_files: if success { vec![] } else { vec!["main.v".to_string()] },
+        verified_files: if success {
+            vec!["main.v".to_string()]
+        } else {
+            vec![]
+        },
+        failed_files: if success {
+            vec![]
+        } else {
+            vec!["main.v".to_string()]
+        },
         confidence: None,
         axioms: None,
     }
@@ -62,7 +79,10 @@ fn lifecycle_job_transitions_queued_to_running() {
     let mut job = make_job(Uuid::new_v4(), "abc123", "lean");
     job.start();
     assert_eq!(job.status, JobStatus::Running);
-    assert!(job.started_at.is_some(), "started_at must be set after start()");
+    assert!(
+        job.started_at.is_some(),
+        "started_at must be set after start()"
+    );
 }
 
 #[test]
@@ -71,7 +91,10 @@ fn lifecycle_job_transitions_running_to_completed() {
     job.start();
     job.complete(make_job_result(true));
     assert_eq!(job.status, JobStatus::Completed);
-    assert!(job.completed_at.is_some(), "completed_at must be set after complete()");
+    assert!(
+        job.completed_at.is_some(),
+        "completed_at must be set after complete()"
+    );
 }
 
 #[test]
@@ -103,7 +126,10 @@ fn lifecycle_job_result_attached_after_completion() {
     let mut job = make_job(Uuid::new_v4(), "res_check", "coq");
     job.start();
     job.complete(make_job_result(true));
-    assert!(job.result.is_some(), "result must be attached after complete()");
+    assert!(
+        job.result.is_some(),
+        "result must be attached after complete()"
+    );
     assert!(job.result.unwrap().success);
 }
 
@@ -127,7 +153,11 @@ async fn lifecycle_scheduler_full_job_cycle() {
     let repo = Uuid::new_v4();
 
     let job = make_job(repo, "sha001", "coq");
-    let job_id = sched.enqueue(job).await.unwrap().expect("first enqueue must succeed");
+    let job_id = sched
+        .enqueue(job)
+        .await
+        .unwrap()
+        .expect("first enqueue must succeed");
 
     assert_eq!(sched.stats().await.queued, 1);
     assert_eq!(sched.stats().await.running, 0);
@@ -231,7 +261,11 @@ async fn lifecycle_scheduler_queue_depth_under_capacity() {
 async fn lifecycle_store_repository_crud() {
     let store = SqliteStore::new("sqlite::memory:").await.unwrap();
 
-    let repo = Repository::new(Platform::GitHub, "test-owner".to_string(), "test-repo".to_string());
+    let repo = Repository::new(
+        Platform::GitHub,
+        "test-owner".to_string(),
+        "test-repo".to_string(),
+    );
     let repo_id = repo.id;
 
     store.create_repository(&repo).await.unwrap();
@@ -251,7 +285,11 @@ async fn lifecycle_store_repository_crud() {
 async fn lifecycle_store_proof_job_persist_and_retrieve() {
     let store = SqliteStore::new("sqlite::memory:").await.unwrap();
 
-    let repo = Repository::new(Platform::GitHub, "owner".to_string(), "lifecycle".to_string());
+    let repo = Repository::new(
+        Platform::GitHub,
+        "owner".to_string(),
+        "lifecycle".to_string(),
+    );
     let repo_id = repo.id;
     store.create_repository(&repo).await.unwrap();
 
@@ -312,7 +350,10 @@ async fn lifecycle_shutdown_drains_empty_scheduler_immediately() {
     let coord = ShutdownCoordinator::new(Duration::from_secs(30));
     let sched = Arc::new(JobScheduler::new(2, 10));
     let started = std::time::Instant::now();
-    coord.drain_scheduler(&sched).await.expect("empty scheduler must drain instantly");
+    coord
+        .drain_scheduler(&sched)
+        .await
+        .expect("empty scheduler must drain instantly");
     assert!(
         started.elapsed() < Duration::from_millis(50),
         "empty drain must not block (took {:?})",
@@ -374,9 +415,17 @@ async fn lifecycle_shutdown_timeout_fires_with_warning_when_drain_exceeds_deadli
         ProverKind::new("coq"),
         vec!["slow.v".to_string()],
     );
-    sched.enqueue(job).await.unwrap().expect("enqueue must succeed");
+    sched
+        .enqueue(job)
+        .await
+        .unwrap()
+        .expect("enqueue must succeed");
     sched.try_start_next().await.expect("must start the job");
-    assert_eq!(sched.running_count(), 1, "test pre-condition: 1 job running");
+    assert_eq!(
+        sched.running_count(),
+        1,
+        "test pre-condition: 1 job running"
+    );
 
     // Drain with a very short timeout — should return Err(remaining).
     let coord = ShutdownCoordinator::new(Duration::from_millis(100));
@@ -384,8 +433,15 @@ async fn lifecycle_shutdown_timeout_fires_with_warning_when_drain_exceeds_deadli
     let result = coord.drain_scheduler(&sched).await;
     let elapsed = started.elapsed();
 
-    assert!(result.is_err(), "drain must time out when jobs never complete");
-    assert_eq!(result.unwrap_err(), 1, "must report 1 in-flight job remaining");
+    assert!(
+        result.is_err(),
+        "drain must time out when jobs never complete"
+    );
+    assert_eq!(
+        result.unwrap_err(),
+        1,
+        "must report 1 in-flight job remaining"
+    );
     assert!(
         elapsed >= Duration::from_millis(100) && elapsed < Duration::from_millis(500),
         "drain must respect the deadline (~100ms), took {:?}",
@@ -422,5 +478,9 @@ async fn lifecycle_shutdown_signal_wakes_all_subscribers() {
             .expect("subscriber must wake within 500ms")
             .unwrap();
     }
-    assert_eq!(woke.load(Ordering::SeqCst), 5, "all 5 subscribers must wake");
+    assert_eq!(
+        woke.load(Ordering::SeqCst),
+        5,
+        "all 5 subscribers must wake"
+    );
 }

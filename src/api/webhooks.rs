@@ -24,8 +24,8 @@ use crate::config::Config;
 use crate::error::Result;
 use crate::modes::{self, ModeSelector};
 use crate::scheduler::{JobPriority, JobScheduler, ProofJob};
-use crate::store::Store;
 use crate::store::models::ProofJobRecord;
+use crate::store::Store;
 
 /// Application state shared across handlers
 #[derive(Clone)]
@@ -166,15 +166,10 @@ async fn handle_github_webhook(
                 if !modes::is_any_mention(&payload.comment.body) {
                     return (StatusCode::OK, "OK");
                 }
-                if payload
-                    .comment
-                    .user
-                    .as_ref()
-                    .is_some_and(|u| {
-                        u.login.eq_ignore_ascii_case("echidnabot")
-                            || matches!(u.user_type.as_deref(), Some("Bot"))
-                    })
-                {
+                if payload.comment.user.as_ref().is_some_and(|u| {
+                    u.login.eq_ignore_ascii_case("echidnabot")
+                        || matches!(u.user_type.as_deref(), Some("Bot"))
+                }) {
                     tracing::debug!("Ignoring own comment / bot author");
                     return (StatusCode::OK, "OK");
                 }
@@ -306,8 +301,7 @@ async fn handle_gitlab_webhook(
                 let Some(mr) = payload.merge_request.as_ref() else {
                     return (StatusCode::OK, "OK");
                 };
-                let (owner, name) =
-                    split_full_name(&payload.project.path_with_namespace);
+                let (owner, name) = split_full_name(&payload.project.path_with_namespace);
                 let _ = handle_consultant_mention(
                     &state,
                     Platform::GitLab,
@@ -549,6 +543,10 @@ enum RepoEventKind {
         priority = ?priority,
     )
 )]
+// The arguments mirror the platform-neutral webhook payload fields. Keeping
+// them explicit makes the tracing fields above and all platform call sites
+// auditable side by side.
+#[allow(clippy::too_many_arguments)]
 async fn enqueue_repo_jobs(
     state: &AppState,
     platform: Platform,
@@ -689,7 +687,8 @@ async fn handle_consultant_mention(
     // Phase 7: directive content lookup is still TODO (executor would
     // clone target repo). For now the cascade falls through to DB mode,
     // with the daemon-wide mode_selector as the next fallback.
-    let mode = modes::resolve_mode_with_daemon_default(&repo, None, state.mode_selector.default_mode);
+    let mode =
+        modes::resolve_mode_with_daemon_default(&repo, None, state.mode_selector.default_mode);
     if mode != modes::BotMode::Consultant {
         tracing::debug!(
             "@echidnabot mention on {} but mode is {} (not Consultant) — ignoring",
@@ -731,26 +730,27 @@ async fn handle_consultant_mention(
     // is registered, the response includes the BoJ output above the
     // local-data summary. When BoJ is down (current state per the
     // documented exception) we surface that fact and ship local only.
-    let final_body = match crate::llm::query_boj_q_and_a(state, &repo, pr_number, &question, &pr_jobs).await {
-        Ok(boj_response) => format!(
-            "{}\n\n---\n\n{}",
-            boj_response.trim_end(),
-            local_answer.trim_start()
-        ),
-        Err(err) => {
-            tracing::warn!(
-                "BoJ Q&A unavailable ({}) — replying with local data only",
-                err
-            );
-            format!(
-                "{}\n\n> ℹ️ _LLM-enriched Q&A is currently unavailable \
+    let final_body =
+        match crate::llm::query_boj_q_and_a(state, &repo, pr_number, &question, &pr_jobs).await {
+            Ok(boj_response) => format!(
+                "{}\n\n---\n\n{}",
+                boj_response.trim_end(),
+                local_answer.trim_start()
+            ),
+            Err(err) => {
+                tracing::warn!(
+                    "BoJ Q&A unavailable ({}) — replying with local data only",
+                    err
+                );
+                format!(
+                    "{}\n\n> ℹ️ _LLM-enriched Q&A is currently unavailable \
                  (BoJ-only-MCP exception per AGENTIC.a2ml). Reply above is \
                  grounded in echidnabot's local job store; richer answers will \
                  unlock when BoJ revives._\n",
-                local_answer.trim_end()
-            )
-        }
-    };
+                    local_answer.trim_end()
+                )
+            }
+        };
 
     let adapter = crate::adapters::build_adapter(&state.config, repo.platform)?;
     let repo_id = RepoId {
@@ -759,10 +759,7 @@ async fn handle_consultant_mention(
         name: repo.name.clone(),
     };
     let pr_id = PrId(pr_number.to_string());
-    if let Err(err) = adapter
-        .create_comment(&repo_id, pr_id, &final_body)
-        .await
-    {
+    if let Err(err) = adapter.create_comment(&repo_id, pr_id, &final_body).await {
         tracing::warn!(
             "Consultant create_comment failed for {} PR #{}: {}",
             repo.full_name(),
@@ -812,7 +809,15 @@ fn build_consultant_summary(
         };
         let detail = match (&job.status, &job.error_message) {
             (crate::scheduler::JobStatus::Failed, Some(msg)) => {
-                format!(" — {}", msg.lines().next().unwrap_or("").chars().take(80).collect::<String>())
+                format!(
+                    " — {}",
+                    msg.lines()
+                        .next()
+                        .unwrap_or("")
+                        .chars()
+                        .take(80)
+                        .collect::<String>()
+                )
             }
             _ => String::new(),
         };
@@ -1192,10 +1197,7 @@ mod tests {
         let expected = hex::encode(mac.finalize().into_bytes());
 
         let mut headers = HeaderMap::new();
-        headers.insert(
-            "X-Gitea-Signature",
-            expected.parse().unwrap(),
-        );
+        headers.insert("X-Gitea-Signature", expected.parse().unwrap());
 
         assert!(verify_codeberg_signature(&headers, &body, secret).is_ok());
     }

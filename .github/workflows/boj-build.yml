@@ -16,7 +16,11 @@ jobs:
   trigger-boj:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    if: ${{ vars.BOJ_SERVER_URL != '' || secrets.BOJ_SERVER_URL != '' }}
+    # NOTE: `secrets` is not available in a job-level `if:` — only github,
+    # needs, vars and inputs are. Referencing it here made the whole run
+    # graph fail to build, so this workflow never ran at all. Gate on vars
+    # only; the secret is still consulted inside the step below.
+    if: ${{ vars.BOJ_SERVER_URL != '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
