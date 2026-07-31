@@ -34,7 +34,7 @@ tokio = { version = "1", features = ["full"] }
 # HTTP framework
 axum = { version = "0.8", features = ["macros"] }
 tower = "0.4"
-tower-http = { version = "0.6", features = ["cors", "trace", "request-id"] }
+tower-http = { version = "0.7", features = ["cors", "trace", "request-id"] }
 
 # GraphQL
 async-graphql = { version = "7", features = ["uuid", "chrono"] }
@@ -110,7 +110,7 @@ urlencoding = "2"
 criterion = { version = "0.8", features = ["html_reports"] }
 tokio-test = "0.4"
 axum-test = "18"
-mockall = "0.14"
+mockall = "0.15"
 tempfile = "3"
 wiremock = "0.6"
 proptest = "1"
