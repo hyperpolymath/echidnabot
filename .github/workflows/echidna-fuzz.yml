@@ -111,7 +111,7 @@ jobs:
       contracts: ${{ steps.detect.outputs.contracts }}
       contract_count: ${{ steps.detect.outputs.contract_count }}
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Detect contract files
         id: detect
         run: |
@@ -151,9 +151,9 @@ jobs:
       matrix:
         contract: ${{ fromJson(format('["{0}"]', needs.detect-contracts.outputs.contracts)) }}
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Restore Echidna corpus cache
-        uses: actions/cache@8b402f58fbc84540c8b491a91e594a4576fec3d7 # v5.0.2
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: echidna-corpus
           key: echidna-corpus-${{ matrix.contract }}-${{ hashFiles(format('contracts/{0}.sol', matrix.contract)) }}
@@ -273,13 +273,13 @@ jobs:
           fi
       - name: Save corpus cache
         if: always()
-        uses: actions/cache/save@8b402f58fbc84540c8b491a91e594a4576fec3d7 # v5.0.2
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: echidna-corpus
           key: echidna-corpus-${{ matrix.contract }}-${{ hashFiles(format('contracts/{0}.sol', matrix.contract)) }}
       - name: Upload Echidna results
         if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: echidna-property-results-${{ matrix.contract }}
           path: echidna-results/
@@ -299,9 +299,9 @@ jobs:
       matrix:
         contract: ${{ fromJson(format('["{0}"]', needs.detect-contracts.outputs.contracts)) }}
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Restore Echidna corpus cache
-        uses: actions/cache@8b402f58fbc84540c8b491a91e594a4576fec3d7 # v5.0.2
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: echidna-corpus-assertion
           key: echidna-corpus-assertion-${{ matrix.contract }}-${{ hashFiles(format('contracts/{0}.sol', matrix.contract)) }}
@@ -355,7 +355,7 @@ jobs:
           fi
       - name: Upload Echidna results
         if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: echidna-assertion-results-${{ matrix.contract }}
           path: echidna-results/
