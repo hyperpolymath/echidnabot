@@ -45,9 +45,14 @@ jobs:
             binary: echidnabot.exe
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # ARMED, not yet fired: this pin's action.yml also has no `toolchain`
+      # default (see stress-test.yml for the full explanation). It only runs on
+      # a release, so it reads healthy until the moment it matters. publish.yml
+      # uses the same SHA and survives solely because it passes `toolchain:`.
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561 # stable
         with:
+          toolchain: stable
           targets: ${{ matrix.target }}
       - name: Install cross-compilation tools
         if: matrix.target == 'aarch64-unknown-linux-gnu'

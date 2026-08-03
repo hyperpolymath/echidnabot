@@ -11,8 +11,18 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      # dtolnay/rust-toolchain selects its toolchain from the REF it is
+      # referenced by (@stable, @1.91) -- each of those branches ships an
+      # action.yml carrying a matching `default:`. SHA-pinning removes that
+      # signal. MEASURED: this commit's action.yml has `toolchain: required:
+      # true` and NO default, so the job died with
+      #   error: invalid toolchain name ''
+      # The `# stable 1.91` comment beside the pin was therefore decoration,
+      # not fact. Passing `toolchain:` explicitly makes the pin genuinely inert.
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b # stable 1.91
+        with:
+          toolchain: stable
 
       - name: Install stress testing tools
         run: |
