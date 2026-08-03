@@ -13,6 +13,20 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    # Some crates only work version-aligned, so they must be proposed as one
+    # PR. Ungrouped, Dependabot bumped opentelemetry_sdk 0.27 -> 0.32 alone
+    # (#110) while its three siblings stayed on 0.27; the crate stopped
+    # compiling and DB Checks went red. Group families here rather than
+    # relying on review to catch the split.
+    groups:
+      opentelemetry:
+        patterns:
+          - "opentelemetry*"
+          - "tracing-opentelemetry"
+      tower:
+        patterns:
+          - "tower"
+          - "tower-http"
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-patch"]
