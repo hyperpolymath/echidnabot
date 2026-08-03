@@ -30,5 +30,29 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-patch"]
+    # Crates that ship as a COUPLED RELEASE TRAIN must be raised together.
+    # Dependabot has no concept of a train: it sees N independent crates and
+    # will raise one on its own, which is not an update but a split.
+    #
+    # MEASURED: #110 raised opentelemetry_sdk 0.27.1 -> 0.32.1 by itself and was
+    # merged. The result was THREE opentelemetry versions resolved into one
+    # graph (0.27.1, 0.28.0, 0.32.0) and a lib that would not compile:
+    #   error[E0432]: unresolved import `opentelemetry_sdk::trace::TracerProvider`
+    #   error[E0271]: type mismatch resolving
+    #                 `<Vec<KeyValue> as IntoIterator>::Item == KeyValue`
+    # That last one reads as self-contradictory until you know two crate
+    # versions are present: Rust gives each its own type universe, so there are
+    # genuinely two distinct types both named KeyValue.
+    #
+    # Grouping does not guarantee the train compiles. It guarantees the whole
+    # train arrives in ONE pull request, so the breakage is visible before merge
+    # instead of after.
+    groups:
+      opentelemetry:
+        patterns:
+          - "opentelemetry"
+          - "opentelemetry-*"
+          - "opentelemetry_*"
+          - "tracing-opentelemetry"
   
   # Note: npm/pip removed per RSR - use Deno (deno.json) for JS, Julia/Rust for data processing

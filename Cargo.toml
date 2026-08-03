@@ -43,7 +43,7 @@ async-graphql-axum = "7"
 # Serialization
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-toml = "0.8"
+toml = "1.1"
 
 # Database
 # NOTE: `default-features = false` + explicit re-add of `macros`/`migrate`
@@ -82,23 +82,15 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 # Enable by setting `OTEL_EXPORTER_OTLP_ENDPOINT` or [observability]
 # `otlp_endpoint` in echidnabot.toml. When unset, only the fmt layer
 # is installed, so logs continue to work without a collector.
-#
-# These four crates only work version-aligned: opentelemetry_sdk 0.N pairs with
-# opentelemetry/opentelemetry-otlp 0.N and tracing-opentelemetry 0.N+1. Bumping
-# one alone breaks the build — #110 moved opentelemetry_sdk to 0.32 on its own
-# and src/observability.rs stopped compiling (TracerProvider renamed,
-# Resource::new made private, opentelemetry_sdk::runtime removed). Dependabot
-# now proposes them as one group; see the `opentelemetry` group in
-# .github/dependabot.yml. Moving the family to 0.32 is tracked separately.
-opentelemetry = { version = "0.27", features = ["trace"] }
-opentelemetry-otlp = { version = "0.27", features = ["grpc-tonic", "trace"] }
-opentelemetry_sdk = { version = "0.27", features = ["rt-tokio", "trace"] }
-tracing-opentelemetry = "0.28"
+opentelemetry = { version = "0.32", features = ["trace"] }
+opentelemetry-otlp = { version = "0.32", features = ["grpc-tonic", "trace"] }
+opentelemetry_sdk = { version = "0.32", features = ["rt-tokio", "trace"] }
+tracing-opentelemetry = "0.33"
 
 rand = "0.8"
 
 # Crypto for webhook verification
-hmac = "0.12"
+hmac = "0.13"
 sha2 = "0.10"
 hex = "0.4"
 
@@ -117,7 +109,7 @@ urlencoding = "2"
 [dev-dependencies]
 criterion = { version = "0.8", features = ["html_reports"] }
 tokio-test = "0.4"
-axum-test = "18"
+axum-test = "20"
 mockall = "0.15"
 tempfile = "3"
 wiremock = "0.6"
