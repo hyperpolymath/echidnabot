@@ -13,13 +13,17 @@
 //! Run locally: `cargo bench`
 //! Compare: `cargo bench -- --save-baseline main` then `cargo bench -- --baseline main`
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use echidnabot::api::rate_limit::WebhookRateLimiter;
 use echidnabot::dispatcher::ProverKind;
 use echidnabot::scheduler::ProofJob;
 use echidnabot::store::models::goal_fingerprint;
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
+// criterion 0.8 deprecated its own `black_box` re-export in favour of the std
+// one. The estate CI gate runs clippy with `-D warnings`, so the deprecation is
+// a build failure, not a note -- 14 call sites below, all identical in effect.
+use std::hint::black_box;
 use std::net::{IpAddr, Ipv4Addr};
 use uuid::Uuid;
 
