@@ -6,16 +6,19 @@
 # Provenance rule (TESTING-TAXONOMY.adoc, "draw from proven-tests-and-benches
 # FIRST"): the categories and their meanings come from that suite's Taxonomy
 # module. The assertions here are echidnabot's own, because the proven suite has
-# no echidnabot subject to reuse -- see the gap note at the foot of this file.
+# no echidnabot subject to reuse.
 #
-# ⚠ WHY THIS WORKFLOW CHECKS OUT TWO REPOSITORIES
-# echidnabot CANNOT BUILD STANDALONE. Its Cargo.toml declares
+# ⚠ WHY ONE CHECKOUT IS ENOUGH -- it was not, until #109
+# This workflow first landed asserting a TWO-repo layout, because echidnabot
+# could not build standalone: Cargo.toml declared
 #   gitbot-shared-context = { path = "../../shared-context" }
-# which lives in hyperpolymath/gitbot-fleet. A fresh clone of echidnabot alone
-# fails dependency resolution outright:
-#   "failed to load source for dependency gitbot-shared-context"
-# Verified 2026-07-29. The layout below (gitbot-fleet/bots/echidnabot) is the one
-# that resolves; it is also how the fleet vendors this bot.
+# which resolves only inside a gitbot-fleet checkout. #109 replaced that with a
+# rev-pinned git dependency, so a fresh clone now resolves on its own.
+# Verified: `cargo metadata --format-version 1` exits 0 from a standalone clone.
+#
+# The assertion below is KEPT, with a new meaning. It no longer proves that a
+# two-repo layout was assembled correctly; it proves nobody has regressed
+# gitbot-shared-context back to a `path =` dependency.
 #
 # ⚠ WHY `cargo test --lib` IS NOT RUN HERE
 # The unit tests inside src/lib.rs HANG -- measured: no completion in 20 minutes,
@@ -47,33 +50,19 @@ jobs:
     permissions:
       contents: read
     steps:
-      # gitbot-fleet supplies shared-context; echidnabot must sit at bots/echidnabot.
-      - name: Checkout gitbot-fleet (provides ../../shared-context)
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: hyperpolymath/gitbot-fleet
-          path: fleet
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Checkout echidnabot into fleet/bots/echidnabot
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          path: fleet/bots/echidnabot
-
-      - name: Prove the layout resolves before building
-        working-directory: fleet/bots/echidnabot
+      - name: Prove a standalone clone resolves before building
         run: |
           set -euo pipefail
-          # Fails loudly if the two-repo layout is ever broken, rather than
-          # producing a confusing compile error thousands of lines later.
+          # Regression guard: fails loudly if gitbot-shared-context ever returns
+          # to a `path =` dependency, which would make a fresh clone unbuildable.
           cargo metadata --format-version 1 >/dev/null
-          echo "✅ dependency graph resolves (gitbot-shared-context found)"
+          echo "✅ dependency graph resolves from a standalone checkout"
 
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
-        with:
-          workspaces: fleet/bots/echidnabot
 
       - name: Unit + Point-to-Point + End-to-End
-        working-directory: fleet/bots/echidnabot
         run: |
           set -euo pipefail
           # Named explicitly. A bare `cargo test` also runs --lib, which hangs
