@@ -40,5 +40,23 @@ updates:
           - "opentelemetry-*"
           - "opentelemetry_*"
           - "tracing-opentelemetry"
+      # RustCrypto is the same shape of trap, confirmed the same way.
+      # MEASURED: #120 raised hmac 0.12.1 -> 0.13.0 alone while sha2 stayed on
+      # 0.10. hmac 0.13 wants digest 0.11; sha2 0.10 supplies digest 0.10, so
+      # BOTH landed in the graph and the trait bounds stopped being satisfiable:
+      #   error[E0599]: no associated function `new_from_slice` found for `Hmac<D>`
+      #   error[E0277]: the trait bound `CoreWrapper<..>: CoreProxy` is not satisfied
+      # Ten errors, all one cause. These crates share the `digest` trait
+      # surface and must move together.
+      rustcrypto:
+        patterns:
+          - "digest"
+          - "hmac"
+          - "sha1"
+          - "sha2"
+          - "sha3"
+          - "hkdf"
+          - "blake2"
+          - "md-5"
   
   # Note: npm/pip removed per RSR - use Deno (deno.json) for JS, Julia/Rust for data processing

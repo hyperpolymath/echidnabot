@@ -57,7 +57,7 @@ async fn make_test_server() -> TestServer {
         .layer(Extension(schema))
         .with_state(app_state);
 
-    TestServer::new(app).unwrap()
+    TestServer::new(app)
 }
 
 #[tokio::test]
@@ -186,8 +186,7 @@ async fn smoke_rate_limiting_returns_429_at_limit() {
         .with_state(app_state);
 
     // into_make_service_with_connect_info required for ConnectInfo extractor in middleware
-    let server =
-        TestServer::new(app.into_make_service_with_connect_info::<std::net::SocketAddr>()).unwrap();
+    let server = TestServer::new(app.into_make_service_with_connect_info::<std::net::SocketAddr>());
 
     // First 2 must pass (limit=2, all from same loopback IP in axum-test)
     for i in 0..2 {

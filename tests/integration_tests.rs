@@ -26,7 +26,7 @@ use echidnabot::scheduler::{
 use echidnabot::store::models::{ProofJobRecord, ProofResultRecord, Repository};
 
 use axum::http::HeaderMap;
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use sha2::Sha256;
 use std::time::Duration;
 use uuid::Uuid;
