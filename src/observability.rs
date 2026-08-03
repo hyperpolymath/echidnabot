@@ -51,7 +51,7 @@
 use opentelemetry::trace::TracerProvider as _;
 use opentelemetry::KeyValue;
 use opentelemetry_otlp::WithExportConfig;
-use opentelemetry_sdk::trace::TracerProvider as SdkTracerProvider;
+use opentelemetry_sdk::trace::SdkTracerProvider;
 use opentelemetry_sdk::Resource;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
@@ -110,7 +110,7 @@ impl TracerShutdown {
     /// Safe to call multiple times (subsequent calls are no-ops).
     pub fn shutdown(mut self) {
         if let Some(provider) = self.provider.take() {
-            // SdkTracerProvider::shutdown returns TraceResult<()> in 0.27;
+            // SdkTracerProvider::shutdown returns OTelSdkResult<()>;
             // log on failure but never panic — shutdown must be infallible
             // from the caller's perspective.
             if let Err(e) = provider.shutdown() {
@@ -220,13 +220,20 @@ pub fn init_tracing(
             .with_endpoint(endpoint)
             .build()?;
 
-        let resource = Resource::new(vec![
-            KeyValue::new("service.name", "echidnabot"),
-            KeyValue::new("service.version", env!("CARGO_PKG_VERSION")),
-        ]);
+        // opentelemetry_sdk 0.29 made `Resource::new` pub(crate); the builder
+        // is the supported construction path.
+        let resource = Resource::builder()
+            .with_attributes([
+                KeyValue::new("service.name", "echidnabot"),
+                KeyValue::new("service.version", env!("CARGO_PKG_VERSION")),
+            ])
+            .build();
 
+        // `with_batch_exporter` no longer takes a runtime argument: 0.29
+        // dropped `opentelemetry_sdk::runtime` in favour of the exporter
+        // selecting its own. The `rt-tokio` feature still supplies it.
         let provider = SdkTracerProvider::builder()
-            .with_batch_exporter(exporter, opentelemetry_sdk::runtime::Tokio)
+            .with_batch_exporter(exporter)
             .with_resource(resource)
             .build();
 
@@ -332,11 +339,13 @@ mod tests {
 
     #[test]
     fn resource_attributes_include_service_name_and_version() {
-        let resource = Resource::new(vec![
-            KeyValue::new("service.name", "echidnabot"),
-            KeyValue::new("service.version", env!("CARGO_PKG_VERSION")),
-        ]);
-        // Resource doesn't expose attrs directly via public API in 0.27;
+        let resource = Resource::builder()
+            .with_attributes([
+                KeyValue::new("service.name", "echidnabot"),
+                KeyValue::new("service.version", env!("CARGO_PKG_VERSION")),
+            ])
+            .build();
+        // Resource doesn't expose attrs directly via public API;
         // we verify Debug formatting shows the attributes are populated.
         let dbg = format!("{resource:?}");
         assert!(dbg.contains("echidnabot"));
@@ -392,7 +401,7 @@ mod tests {
             .build()
             .expect("exporter builds");
         let provider = SdkTracerProvider::builder()
-            .with_batch_exporter(exporter, opentelemetry_sdk::runtime::Tokio)
+            .with_batch_exporter(exporter)
             .build();
         let mut guard = TracerShutdown {
             provider: Some(provider),

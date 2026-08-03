@@ -116,7 +116,7 @@ async fn make_server_with_repo(
         .layer(Extension(schema))
         .with_state(app_state);
 
-    let server = TestServer::new(app).unwrap();
+    let server = TestServer::new(app);
     (server, store, scheduler, repo_id)
 }
 
@@ -301,7 +301,7 @@ async fn seam_7a_unregistered_repo_does_not_enqueue() {
         .layer(Extension(schema))
         .with_state(app_state);
 
-    let server = TestServer::new(app).unwrap();
+    let server = TestServer::new(app);
 
     let response = server
         .post("/webhooks/github")
@@ -357,7 +357,7 @@ async fn seam_7a_daemon_default_mode_override_advisor_still_enqueues() {
         .layer(Extension(schema))
         .with_state(app_state);
 
-    let server = TestServer::new(app).unwrap();
+    let server = TestServer::new(app);
 
     let response = server
         .post("/webhooks/github")

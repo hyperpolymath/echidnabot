@@ -18,7 +18,7 @@ use echidnabot::api::rate_limit::WebhookRateLimiter;
 use echidnabot::dispatcher::ProverKind;
 use echidnabot::scheduler::ProofJob;
 use echidnabot::store::models::goal_fingerprint;
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use sha2::Sha256;
 // criterion 0.8 deprecated its own `black_box` re-export in favour of the std
 // one; CI runs clippy with `-D warnings`, so the re-export is an error here.
