@@ -21,8 +21,7 @@ use echidnabot::store::models::goal_fingerprint;
 use hmac::{Hmac, KeyInit, Mac};
 use sha2::Sha256;
 // criterion 0.8 deprecated its own `black_box` re-export in favour of the std
-// one. The estate CI gate runs clippy with `-D warnings`, so the deprecation is
-// a build failure, not a note -- 14 call sites below, all identical in effect.
+// one; CI runs clippy with `-D warnings`, so the re-export is an error here.
 use std::hint::black_box;
 use std::net::{IpAddr, Ipv4Addr};
 use uuid::Uuid;

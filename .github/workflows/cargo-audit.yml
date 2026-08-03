@@ -23,7 +23,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
       - name: Install Rust toolchain
+        # `toolchain:` is mandatory when this action is pinned to a SHA — see
+        # the note in stress-test.yml. This SHA currently tolerates its absence;
+        # stating it explicitly keeps the step working across future re-pins.
         uses: dtolnay/rust-toolchain@4be9e76fd7c4901c61fb841f559994984270fce7 # stable
+        with:
+          toolchain: stable
       - name: Install cargo-audit
         run: cargo install cargo-audit --locked
       - name: Run cargo audit

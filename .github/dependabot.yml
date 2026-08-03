@@ -13,16 +13,18 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-    ignore:
-      - dependency-name: "*"
-        update-types: ["version-update:semver-patch"]
+    # Some crates only work version-aligned, so they must be proposed as one
+    # PR. Ungrouped, Dependabot bumped opentelemetry_sdk 0.27 -> 0.32 alone
+    # (#110) while its three siblings stayed on 0.27; the crate stopped
+    # compiling and DB Checks went red. Group families here rather than
+    # relying on review to catch the split.
     # Crates that ship as a COUPLED RELEASE TRAIN must be raised together.
     # Dependabot has no concept of a train: it sees N independent crates and
     # will raise one on its own, which is not an update but a split.
     #
     # MEASURED: #110 raised opentelemetry_sdk 0.27.1 -> 0.32.1 by itself and was
-    # merged. The result was THREE opentelemetry versions resolved into one
-    # graph (0.27.1, 0.28.0, 0.32.0) and a lib that would not compile:
+    # merged. THREE opentelemetry versions resolved into one graph (0.27.1,
+    # 0.28.0, 0.32.0) and the lib stopped compiling:
     #   error[E0432]: unresolved import `opentelemetry_sdk::trace::TracerProvider`
     #   error[E0271]: type mismatch resolving
     #                 `<Vec<KeyValue> as IntoIterator>::Item == KeyValue`
@@ -30,9 +32,14 @@ updates:
     # versions are present: Rust gives each its own type universe, so there are
     # genuinely two distinct types both named KeyValue.
     #
-    # Grouping does not guarantee the train compiles. It guarantees the whole
+    # ⚠ Grouping does NOT guarantee the train compiles. It guarantees the whole
     # train arrives in ONE pull request, so the breakage is visible before merge
-    # instead of after.
+    # instead of after. #118 duly arrived grouped, and was merged red anyway.
+    #
+    # ⚠ ONE `groups:` KEY PER ECOSYSTEM. #117 and #124 each added one, and the
+    # merge left two. YAML is last-wins and parses silently, so the second block
+    # SILENTLY DISCARDED the first -- `tower` was configured and dead. A YAML
+    # parse check does not catch this; only reading back the resolved keys does.
     groups:
       opentelemetry:
         patterns:
@@ -40,6 +47,10 @@ updates:
           - "opentelemetry-*"
           - "opentelemetry_*"
           - "tracing-opentelemetry"
+      tower:
+        patterns:
+          - "tower"
+          - "tower-http"
       # RustCrypto is the same shape of trap, confirmed the same way.
       # MEASURED: #120 raised hmac 0.12.1 -> 0.13.0 alone while sha2 stayed on
       # 0.10. hmac 0.13 wants digest 0.11; sha2 0.10 supplies digest 0.10, so
@@ -58,5 +69,8 @@ updates:
           - "hkdf"
           - "blake2"
           - "md-5"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-patch"]
   
   # Note: npm/pip removed per RSR - use Deno (deno.json) for JS, Julia/Rust for data processing
