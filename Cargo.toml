@@ -90,7 +90,7 @@ tracing-opentelemetry = "0.33"
 rand = "0.8"
 
 # Crypto for webhook verification
-hmac = "0.12"
+hmac = "0.13"
 sha2 = "0.10"
 hex = "0.4"
 
