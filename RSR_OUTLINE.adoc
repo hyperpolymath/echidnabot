@@ -91,7 +91,7 @@ echidnabot/
 ├── echidna/                   # Submodule pointing at upstream ECHIDNA
 ├── Cargo.toml / Cargo.lock    # Rust manifest
 ├── Containerfile              # OCI image (Chainguard base)
-├── guix.scm                   # Guix package definition (primary; nix deprecated 2026-06-01)
+├── guix.scm                   # Guix package definition (primary; guix deprecated 2026-06-01)
 ├── Mustfile / Justfile-ish    # Task runner
 ├── echidnabot.toml            # Default config
 ├── echidnabot.example.toml    # Annotated example config
@@ -124,8 +124,8 @@ Ada, Haskell.
 
 === Tier 2 (acceptable)
 Nickel ✓ (configs in `config/`), Guile Scheme ✓ (`guix.scm`).
-Nix is **deprecated estate-wide** as of 2026-06-01 — Guix is the sole
-primary; nix flakes have been removed and are not a Tier 2 acceptable
+Guix is **deprecated estate-wide** as of 2026-06-01 — Guix is the sole
+primary; guix flakes have been removed and are not a Tier 2 acceptable
 language any more.
 
 === Banned (per estate policy 2026-05-25)

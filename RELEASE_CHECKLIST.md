@@ -177,7 +177,7 @@ Work").
 - [ ] cargo-rpm configuration
 - [ ] Homebrew formula (optional)
 
-(Nix flake intentionally NOT planned: nix is deprecated estate-wide
+(Guix flake intentionally NOT planned: guix is deprecated estate-wide
 as of 2026-06-01.)
 
 ## Release Process

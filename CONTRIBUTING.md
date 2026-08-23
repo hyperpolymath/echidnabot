@@ -24,7 +24,7 @@ This document covers the practicalities. For project conduct, see
 git clone https://github.com/hyperpolymath/echidnabot.git
 cd echidnabot
 
-# Reproducible environment (Guix is the estate primary; nix is deprecated 2026-06-01)
+# Reproducible environment (Guix is the estate primary; guix is deprecated 2026-06-01)
 guix shell -D -f guix.scm         # Guix package (guix.scm)
 
 # Or bring your own toolchain (Rust 1.75+, SQLite, podman/bwrap)
