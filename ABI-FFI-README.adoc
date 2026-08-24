@@ -1,50 +1,52 @@
-<!--
-<!-- Owner: Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk> -->
-SPDX-License-Identifier: CC-BY-SA-4.0
-SPDX-FileCopyrightText: 2025-2026 Jonathan D.A. Jewell (hyperpolymath)
--->
+SPDX-License-Identifier: CC-BY-SA-4.0 SPDX-FileCopyrightText: 2025-2026
+Jonathan D.A. Jewell (hyperpolymath) –>
 
-# echidnabot ABI/FFI
+== echidnabot ABI/FFI
 
-This document describes the **ABI** (Application Binary Interface) and **FFI**
-(Foreign Function Interface) layers of echidnabot, in line with the
-[Hyperpolymath estate convention](https://github.com/hyperpolymath/standards):
+This document describes the *ABI* (Application Binary Interface) and
+*FFI* (Foreign Function Interface) layers of echidnabot, in line with
+the https://github.com/hyperpolymath/standards[Hyperpolymath estate
+convention]:
 
-> **Zig = APIs + FFIs. Idris2 = ABIs.**
+____
+*Zig = APIs + FFIs. Idris2 = ABIs.*
+____
 
 The Idris2 layer defines the binary contract (types, layout, foreign
 declarations); the Zig layer is the C-ABI implementation that any other
 language can link against.
 
----
+'''''
 
-## Current Status
+=== Current Status
 
-The ABI/FFI surface in this repository is a **scaffold**, not a shipped
+The ABI/FFI surface in this repository is a *scaffold*, not a shipped
 artefact. The skeleton is in place — what is missing is:
 
-1. **Idris2 ABI definitions** (`src/abi/Types.idr`, `Layout.idr`,
-   `Foreign.idr`) exist but are not yet wired to Rust types in `src/`.
-   They will define the binary contract for the proof-job lifecycle
-   (`ProofJob`, `JobResult`, `ProverKind`, `Verdict`).
-2. **Zig FFI implementation** (`ffi/zig/src/main.zig`,
-   `ffi/zig/build.zig`) is a **template scaffold** carrying
-   `{{project}}` placeholders. It will not build until those are
-   substituted to `echidnabot` and the export functions are realised
-   against the real `ProofJob` API.
-3. **Generated C header** (`generated/abi/echidnabot.h`) does not yet
-   exist; will be produced by `idris2 --cg c-header` once the ABI is
-   sealed.
+[arabic]
+. *Idris2 ABI definitions* (`+src/abi/Types.idr+`, `+Layout.idr+`,
+`+Foreign.idr+`) exist but are not yet wired to Rust types in `+src/+`.
+They will define the binary contract for the proof-job lifecycle
+(`+ProofJob+`, `+JobResult+`, `+ProverKind+`, `+Verdict+`).
+. *Zig FFI implementation* (`+ffi/zig/src/main.zig+`,
+`+ffi/zig/build.zig+`) is a *template scaffold* carrying `+{{project}}+`
+placeholders. It will not build until those are substituted to
+`+echidnabot+` and the export functions are realised against the real
+`+ProofJob+` API.
+. *Generated C header* (`+generated/abi/echidnabot.h+`) does not yet
+exist; will be produced by `+idris2 --cg c-header+` once the ABI is
+sealed.
 
-Track this work via the [ABI/FFI epic](https://github.com/hyperpolymath/echidnabot/issues?q=is%3Aissue+label%3Aabi-ffi)
-on the issue tracker. The intended end-state is what this document
+Track this work via the
+https://github.com/hyperpolymath/echidnabot/issues?q=is%3Aissue+label%3Aabi-ffi[ABI/FFI
+epic] on the issue tracker. The intended end-state is what this document
 describes; the current code reflects scaffold-only readiness.
 
----
+'''''
 
-## Intended Architecture
+=== Intended Architecture
 
-```
+....
 +---------------------------------------------+
 |  ABI Definitions (Idris2)                   |
 |  src/abi/                                   |
@@ -75,21 +77,21 @@ describes; the current code reflects scaffold-only readiness.
 |  Any Language via C ABI                     |
 |  Rust, AffineScript, Julia, OCaml, ...      |
 +---------------------------------------------+
-```
+....
 
 Why this split? See the
-[estate boundary memo](https://github.com/hyperpolymath/standards/blob/main/docs/boundary-conventions.md):
-Idris2 is the only language in the estate toolchain that can carry the
-*proofs* of layout compatibility, alignment, and forward-compatibility
-that an ABI demands. Zig is the only language that can emit a clean C
-ABI **without dragging in a runtime** — the resulting `.so` has no
-hidden Rust or libc surprises.
+https://github.com/hyperpolymath/standards/blob/main/docs/boundary-conventions.md[estate
+boundary memo]: Idris2 is the only language in the estate toolchain that
+can carry the _proofs_ of layout compatibility, alignment, and
+forward-compatibility that an ABI demands. Zig is the only language that
+can emit a clean C ABI *without dragging in a runtime* — the resulting
+`+.so+` has no hidden Rust or libc surprises.
 
----
+'''''
 
-## Directory Structure
+=== Directory Structure
 
-```
+....
 echidnabot/
 ├── src/abi/                         # ABI definitions (Idris2)
 │   ├── Types.idr                    # Core type definitions with proofs
@@ -106,17 +108,18 @@ echidnabot/
 └── generated/                       # (not yet present)
     └── abi/
         └── echidnabot.h             # Generated C header from src/abi/
-```
+....
 
----
+'''''
 
-## Why Idris2 for ABI?
+=== Why Idris2 for ABI?
 
-### Formal verification
+==== Formal verification
 
-Idris2's dependent types let us prove ABI properties at compile time:
+Idris2’s dependent types let us prove ABI properties at compile time:
 
-```idris
+[source,idris]
+----
 -- Prove struct size is correct
 public export
 proofJobSize : HasSize ProofJob 64
@@ -128,13 +131,14 @@ priorityAligned : Divides 4 (offsetOf ProofJob.priority)
 -- Prove backwards compatibility
 public export
 abiCompatible : Compatible (ABI 0) (ABI 1)
-```
+----
 
-### Type-level invariants
+==== Type-level invariants
 
 Encode invariants C and Zig cannot express:
 
-```idris
+[source,idris]
+----
 -- Non-null pointer guaranteed at type level
 data Handle : Type where
   MkHandle : (ptr : Bits64) -> {auto 0 nonNull : So (ptr /= 0)} -> Handle
@@ -142,11 +146,12 @@ data Handle : Type where
 -- Buffer with length proof
 data Buffer : (n : Nat) -> Type where
   MkBuffer : Vect n Byte -> Buffer n
-```
+----
 
-### Platform abstraction
+==== Platform abstraction
 
-```idris
+[source,idris]
+----
 CInt : Platform -> Type
 CInt Linux   = Bits32
 CInt Windows = Bits32
@@ -154,92 +159,100 @@ CInt Windows = Bits32
 CSize : Platform -> Type
 CSize Linux   = Bits64
 CSize Windows = Bits64
-```
+----
 
-### Safe evolution
+==== Safe evolution
 
-```idris
+[source,idris]
+----
 -- Compiler enforces compatibility
 abiUpgrade : ABI 0 -> ABI 1
 abiUpgrade old = MkABI1 {
   v0_compat    = old,
   new_features = defaults
 }
-```
+----
 
----
+'''''
 
-## Why Zig for FFI?
+=== Why Zig for FFI?
 
-### C ABI compatibility
+==== C ABI compatibility
 
 Zig exports C-compatible functions naturally:
 
-```zig
+[source,zig]
+----
 export fn echidnabot_init() ?*Handle {
     // ...
 }
-```
+----
 
-### Memory safety
+==== Memory safety
 
 Compile-time safety without runtime overhead:
 
-```zig
+[source,zig]
+----
 const handle = init() orelse return error.InitFailed;
 defer free(handle);
-```
+----
 
-### Cross-compilation built in
+==== Cross-compilation built in
 
-```bash
+[source,bash]
+----
 zig build -Dtarget=x86_64-linux-gnu
 zig build -Dtarget=aarch64-macos-none
 zig build -Dtarget=x86_64-windows-gnu
-```
+----
 
-### No runtime dependency
+==== No runtime dependency
 
-Zig only includes what you `@import`. The resulting `.so` is the smallest
-possible footprint that still honours the C ABI.
+Zig only includes what you `+@import+`. The resulting `+.so+` is the
+smallest possible footprint that still honours the C ABI.
 
----
+'''''
 
-## Intended Building (when scaffold is realised)
+=== Intended Building (when scaffold is realised)
 
-### Build the FFI library
+==== Build the FFI library
 
-```bash
+[source,bash]
+----
 cd ffi/zig
 zig build                              # debug
 zig build -Doptimize=ReleaseFast       # optimised
 zig build test                         # unit tests
 zig build test-integration             # integration tests
-```
+----
 
-### Generate the C header from the Idris2 ABI
+==== Generate the C header from the Idris2 ABI
 
-```bash
+[source,bash]
+----
 cd src/abi
 idris2 --cg c-header Types.idr -o ../../generated/abi/echidnabot.h
-```
+----
 
-### Cross-compile
+==== Cross-compile
 
-```bash
+[source,bash]
+----
 cd ffi/zig
 zig build -Dtarget=x86_64-linux-gnu      # Linux x86_64
 zig build -Dtarget=aarch64-macos-none    # macOS ARM64
 zig build -Dtarget=x86_64-windows-gnu    # Windows x86_64
-```
+----
 
----
+'''''
 
-## Intended Usage (post-scaffold)
+=== Intended Usage (post-scaffold)
 
-### From C
+==== From C
 
-```c
+[source,c]
+----
 #include "echidnabot.h"
 
 int main(void) {
@@ -255,17 +268,19 @@ int main(void) {
     echidnabot_free(h);
     return 0;
 }
-```
+----
 
 Compile:
 
-```bash
+[source,bash]
+----
 gcc example.c -lechidnabot -L./zig-out/lib -o example
-```
+----
 
-### From Idris2
+==== From Idris2
 
-```idris
+[source,idris]
+----
 import Echidnabot.ABI.Foreign
 
 main : IO ()
@@ -275,11 +290,12 @@ main = do
   Right result <- dispatch h "coq" "proofs/foo.v"
     | Left err => putStrLn $ "error: " ++ errorDescription err
   free h
-```
+----
 
-### From Rust
+==== From Rust
 
-```rust
+[source,rust]
+----
 #[link(name = "echidnabot")]
 extern "C" {
     fn echidnabot_init() -> *mut std::ffi::c_void;
@@ -290,11 +306,12 @@ extern "C" {
         path:   *const std::os::raw::c_char,
     ) -> i32;
 }
-```
+----
 
-### From Julia
+==== From Julia
 
-```julia
+[source,julia]
+----
 const libechidnabot = "libechidnabot"
 
 function init()
@@ -307,34 +324,38 @@ function dispatch(h, prover::String, path::String)
     ccall((:echidnabot_dispatch, libechidnabot), Cint,
           (Ptr{Cvoid}, Cstring, Cstring), h, prover, path)
 end
-```
+----
 
-### From AffineScript
+==== From AffineScript
 
 Once the AffineScript FFI surface lands, the call shape will match the
-`extern "C"` block above via the standard
-`affine.ffi.bind_c` helper. See the
-[affinescript bindings tracker](https://github.com/hyperpolymath/affinescript/issues/446).
+`+extern "C"+` block above via the standard `+affine.ffi.bind_c+`
+helper. See the
+https://github.com/hyperpolymath/affinescript/issues/446[affinescript
+bindings tracker].
 
----
+'''''
 
-## Testing
+=== Testing
 
-### Zig unit tests
+==== Zig unit tests
 
-```bash
+[source,bash]
+----
 cd ffi/zig && zig build test
-```
+----
 
-### Integration tests
+==== Integration tests
 
-```bash
+[source,bash]
+----
 cd ffi/zig && zig build test-integration
-```
+----
 
-### Idris2 ABI verification
+==== Idris2 ABI verification
 
-```idris
+[source,idris]
+----
 -- Compile-time verification (elaborator reflection)
 %runElab verifyABI
 
@@ -344,43 +365,47 @@ main = do
   verifyLayoutsCorrect
   verifyAlignmentsCorrect
   putStrLn "ABI verification passed"
-```
+----
 
----
+'''''
 
-## Contributing to ABI / FFI
+=== Contributing to ABI / FFI
 
 When modifying the surface:
 
-1. **Update the ABI first** (`src/abi/*.idr`)
-   - Modify type definitions
-   - Update layout proofs
-   - Ensure backwards compatibility (`Compatible (ABI n) (ABI n+1)`)
-2. **Regenerate the C header**
-   ```bash
-   idris2 --cg c-header src/abi/Types.idr -o generated/abi/echidnabot.h
-   ```
-3. **Update the FFI implementation** (`ffi/zig/src/main.zig`)
-   - Implement / amend exported functions
-   - Match ABI types exactly
-4. **Add tests**
-   - Zig unit + integration tests
-   - Idris2 ABI verification
-5. **Update this document** when the surface shape changes (function
-   signatures, struct layout, ownership rules).
+[arabic]
+. *Update the ABI first* (`+src/abi/*.idr+`)
+* Modify type definitions
+* Update layout proofs
+* Ensure backwards compatibility (`+Compatible (ABI n) (ABI n+1)+`)
+. *Regenerate the C header*
++
+[source,bash]
+----
+idris2 --cg c-header src/abi/Types.idr -o generated/abi/echidnabot.h
+----
+. *Update the FFI implementation* (`+ffi/zig/src/main.zig+`)
+* Implement / amend exported functions
+* Match ABI types exactly
+. *Add tests*
+* Zig unit + integration tests
+* Idris2 ABI verification
+. *Update this document* when the surface shape changes (function
+signatures, struct layout, ownership rules).
 
----
+'''''
 
-## License
+=== License
 
 This document and the surrounding scaffold are MPL-2.0, matching the
-rest of echidnabot. See [`LICENSE`](LICENSE).
+rest of echidnabot. See link:LICENSE[`+LICENSE+`].
 
----
+'''''
 
-## See Also
+=== See Also
 
-- [Idris2 documentation](https://idris2.readthedocs.io)
-- [Zig documentation](https://ziglang.org/documentation/master/)
-- [Hyperpolymath standards](https://github.com/hyperpolymath/standards)
-- [Estate boundary memo (Zig=APIs+FFIs, Idris2=ABIs)](https://github.com/hyperpolymath/standards/blob/main/docs/boundary-conventions.md)
+* https://idris2.readthedocs.io[Idris2 documentation]
+* https://ziglang.org/documentation/master/[Zig documentation]
+* https://github.com/hyperpolymath/standards[Hyperpolymath standards]
+* https://github.com/hyperpolymath/standards/blob/main/docs/boundary-conventions.md[Estate
+boundary memo (Zig=APIs+FFIs&#44; Idris2=ABIs)]

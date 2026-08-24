@@ -40,7 +40,7 @@ for the structural picture; this file is the **status checklist**.
 * Nickel — config snapshots in `config/`
 * Guile Scheme ✓ — `guix.scm` packaging
 
-Nix is **deprecated estate-wide** as of 2026-06-01 — `flake.nix` /
+Guix is **deprecated estate-wide** as of 2026-06-01 — `flake.guix` /
 `flake.lock` removed from this repo on the same date; Guix is the sole
 packaging primary going forward.
 
@@ -66,7 +66,7 @@ packaging primary going forward.
 |Task runner present |✓ |`Mustfile` (Just-equivalent)
 |`LICENSE` (MPL-2.0) |✓ |Palimpsest commentary in `PALIMPSEST.adoc`
 |`Containerfile` present |✓ |Multi-stage with Chainguard base
-|`guix.scm` present |✓ |Sole packaging primary (nix deprecated 2026-06-01)
+|`guix.scm` present |✓ |Sole packaging primary (guix deprecated 2026-06-01)
 |`CHANGELOG.md` present |✓ |Auto-generated from conventional commits (standards#206)
 |`CITATION.cff` present |✓ |Academic citation metadata
 |`codemeta.json` present |✓ |CodeMeta software metadata

@@ -76,8 +76,8 @@ Both are FOSS with independent governance (no Big Tech).
 
 ### Package Management
 
-- **Sole primary**: Guix (guix.scm) — nix is deprecated estate-wide
-  2026-06-01; do NOT add flake.nix/flake.lock back
+- **Sole primary**: Guix (guix.scm) — guix is deprecated estate-wide
+  2026-06-01; do NOT add flake.guix/flake.lock back
 - **JS deps**: Deno (deno.json imports)
 
 ### Security Requirements
