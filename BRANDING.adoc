@@ -1,58 +1,74 @@
-<!--
-SPDX-License-Identifier: CC-BY-SA-4.0
-Copyright (c) Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
--->
-# echidnabot Branding Guide
+== echidnabot Branding Guide
 
-## Repository Description
+=== Repository Description
 
-**Short (GitHub limit ~350 chars):**
+*Short (GitHub limit ~350 chars):*
 
-> Proof-aware CI bot that automatically verifies mathematical theorems in your codebase. Integrates with GitHub/GitLab/Bitbucket to run formal verification on every push and PR using ECHIDNA's multi-prover backend (Coq, Lean, Agda, Isabelle, Z3, and more). Written in Rust.
+____
+Proof-aware CI bot that automatically verifies mathematical theorems in
+your codebase. Integrates with GitHub/GitLab/Bitbucket to run formal
+verification on every push and PR using ECHIDNA’s multi-prover backend
+(Coq, Lean, Agda, Isabelle, Z3, and more). Written in Rust.
+____
 
-**Extended:**
+*Extended:*
 
-> ECHIDNABOT is an intelligent CI orchestration layer for formal mathematics and verified software. When you push code containing formal proofs—whether in Coq, Lean 4, Agda, Isabelle/HOL, Z3, Metamath, or other theorem provers—echidnabot automatically dispatches verification jobs to ECHIDNA Core and reports results directly in your pull requests. Think of it as "GitHub Actions for mathematical certainty."
->
-> Built entirely in Rust with async Tokio, Axum, and GraphQL, it's designed for correctness, security, and scalability. Multi-platform support (GitHub, GitLab, Bitbucket, Codeberg), multi-prover verification, and ML-powered tactic suggestions make it the definitive CI solution for proof-carrying code.
+____
+ECHIDNABOT is an intelligent CI orchestration layer for formal
+mathematics and verified software. When you push code containing formal
+proofs—whether in Coq, Lean 4, Agda, Isabelle/HOL, Z3, Metamath, or
+other theorem provers—echidnabot automatically dispatches verification
+jobs to ECHIDNA Core and reports results directly in your pull requests.
+Think of it as "`GitHub Actions for mathematical certainty.`"
 
----
+Built entirely in Rust with async Tokio, Axum, and GraphQL, it’s
+designed for correctness, security, and scalability. Multi-platform
+support (GitHub, GitLab, Bitbucket, Codeberg), multi-prover
+verification, and ML-powered tactic suggestions make it the definitive
+CI solution for proof-carrying code.
+____
 
-## Repository Topics/Tags
+'''''
 
-### GitHub Topics (use all that apply)
+=== Repository Topics/Tags
 
-**Primary Tags:**
-```
+==== GitHub Topics (use all that apply)
+
+*Primary Tags:*
+
+....
 theorem-prover
 formal-verification
 ci-cd
 proof-assistant
 rust
-```
+....
 
-**Domain Tags:**
-```
+*Domain Tags:*
+
+....
 formal-methods
 type-theory
 dependent-types
 mathematics
 logic
 computer-science
-```
+....
 
-**Technology Tags:**
-```
+*Technology Tags:*
+
+....
 rust-lang
 tokio
 axum
 graphql
 async-graphql
 octocrab
-```
+....
 
-**Prover Ecosystem Tags:**
-```
+*Prover Ecosystem Tags:*
+
+....
 coq
 lean
 lean4
@@ -62,10 +78,11 @@ z3
 smt
 metamath
 hol
-```
+....
 
-**Integration Tags:**
-```
+*Integration Tags:*
+
+....
 github-app
 github-actions
 gitlab-ci
@@ -73,63 +90,67 @@ webhook
 ci-bot
 devops
 automation
-```
+....
 
-**Quality Tags:**
-```
+*Quality Tags:*
+
+....
 hacktoberfest
 good-first-issue
 help-wanted
-```
+....
 
-### Complete GitHub Topics List (Copy-Paste Ready)
+==== Complete GitHub Topics List (Copy-Paste Ready)
 
-```
+....
 theorem-prover, formal-verification, ci-cd, proof-assistant, rust, formal-methods, dependent-types, coq, lean, lean4, agda, isabelle, z3, smt, metamath, graphql, github-app, webhook, ci-bot, automation, rust-lang, mathematics, logic, tokio, axum
-```
+....
 
-### GitLab Topics
+==== GitLab Topics
 
-```
+....
 theorem-prover, formal-verification, ci-cd, rust, coq, lean, agda, isabelle, z3, graphql, automation
-```
+....
 
-### Crates.io Categories
+==== Crates.io Categories
 
-```toml
+[source,toml]
+----
 categories = ["development-tools", "science", "command-line-utilities", "web-programming"]
 keywords = ["theorem-prover", "formal-verification", "ci", "proof-assistant", "echidna"]
-```
+----
 
----
+'''''
 
-## Visual Branding Assets
+=== Visual Branding Assets
 
-### Color Palette
+==== Color Palette
 
-| Color       | Hex       | Use Case                          |
-|-------------|-----------|-----------------------------------|
-| Deep Indigo | `#1a1a2e` | Primary background                |
-| Royal Blue  | `#4361ee` | Primary accent, verified state    |
-| Electric Cyan | `#00d9ff` | Highlights, active elements      |
-| Pure White  | `#ffffff` | Text on dark, contrast           |
-| Success Green | `#00c853` | Proof verified                  |
-| Error Red   | `#ff1744` | Proof failed                     |
-| Warm Gold   | `#ffd700` | RSR certification badge          |
+[cols=",,",options="header",]
+|===
+|Color |Hex |Use Case
+|Deep Indigo |`+#1a1a2e+` |Primary background
+|Royal Blue |`+#4361ee+` |Primary accent, verified state
+|Electric Cyan |`+#00d9ff+` |Highlights, active elements
+|Pure White |`+#ffffff+` |Text on dark, contrast
+|Success Green |`+#00c853+` |Proof verified
+|Error Red |`+#ff1744+` |Proof failed
+|Warm Gold |`+#ffd700+` |RSR certification badge
+|===
 
-### Typography
+==== Typography
 
-- **Headlines:** JetBrains Mono or Fira Code (monospace, technical)
-- **Body:** Inter or Source Sans Pro (clean, readable)
-- **Math Notation:** Computer Modern or STIX Two Math
+* *Headlines:* JetBrains Mono or Fira Code (monospace, technical)
+* *Body:* Inter or Source Sans Pro (clean, readable)
+* *Math Notation:* Computer Modern or STIX Two Math
 
----
+'''''
 
-## LLM Instructions for Avatar Creation
+=== LLM Instructions for Avatar Creation
 
-### Avatar Prompt (Square, 512x512 or 1024x1024)
+==== Avatar Prompt (Square, 512x512 or 1024x1024)
 
-```
+....
 Create a minimalist, geometric logo for "echidnabot" - a theorem-proving CI bot.
 
 CONCEPT:
@@ -174,15 +195,15 @@ DO NOT:
 REFERENCE STYLES:
 Similar aesthetic to: Rust Foundation logo, Haskell logo,
 OCaml logo, NixOS snowflake - clean, geometric, technical.
-```
+....
 
----
+'''''
 
-## LLM Instructions for Banner Creation
+=== LLM Instructions for Banner Creation
 
-### Banner Prompt (1280x640 for GitHub social preview)
+==== Banner Prompt (1280x640 for GitHub social preview)
 
-```
+....
 Create a GitHub repository banner for "echidnabot" - a proof-aware CI bot
 for formal verification.
 
@@ -256,15 +277,15 @@ REFERENCE:
 Similar aesthetic to: GitHub's own dark theme banners,
 Vercel's marketing materials, Rust project graphics,
 JetBrains IDE promotional art.
-```
+....
 
----
+'''''
 
-## Banner Variants
+=== Banner Variants
 
-### Minimal Banner (for platforms with different aspect ratios)
+==== Minimal Banner (for platforms with different aspect ratios)
 
-```
+....
 Create a minimal banner for echidnabot.
 
 DIMENSIONS: Flexible (provide both 1280x640 and 1500x500)
@@ -277,11 +298,11 @@ CONTENT:
 - Electric cyan accents (#00d9ff)
 
 Keep it extremely clean and simple.
-```
+....
 
-### Terminal/CLI Styled Banner
+==== Terminal/CLI Styled Banner
 
-```
+....
 Create a terminal-styled banner for echidnabot.
 
 CONCEPT:
@@ -303,13 +324,13 @@ ELEMENTS:
 - Dark terminal background
 
 This creates an immediate visual understanding of what the tool does.
-```
+....
 
----
+'''''
 
-## Favicon
+=== Favicon
 
-```
+....
 Create a favicon for echidnabot.
 
 DIMENSIONS: 32x32, 16x16 (provide both)
@@ -325,52 +346,51 @@ COLORS:
 - OR deep indigo background with cyan icon
 
 Keep it VERY simple - almost iconic.
-```
+....
 
----
+'''''
 
-## Usage Notes
+=== Usage Notes
 
-### Where to Apply
+==== Where to Apply
 
-| Asset | Dimensions | Platform |
-|-------|------------|----------|
-| Avatar | 512x512 | GitHub org, GitLab group, npm, crates.io |
-| Social Preview | 1280x640 | GitHub repo settings |
-| Banner | 1500x500 | Twitter/X, LinkedIn |
-| Favicon | 32x32, 16x16 | Docs site, web dashboard |
+[cols=",,",options="header",]
+|===
+|Asset |Dimensions |Platform
+|Avatar |512x512 |GitHub org, GitLab group, npm, crates.io
+|Social Preview |1280x640 |GitHub repo settings
+|Banner |1500x500 |Twitter/X, LinkedIn
+|Favicon |32x32, 16x16 |Docs site, web dashboard
+|===
 
-### File Formats
+==== File Formats
 
-- **Avatar:** PNG with transparency, SVG preferred
-- **Banner:** PNG (no transparency needed)
-- **Favicon:** ICO (multi-size), PNG, SVG
+* *Avatar:* PNG with transparency, SVG preferred
+* *Banner:* PNG (no transparency needed)
+* *Favicon:* ICO (multi-size), PNG, SVG
 
-### Accessibility
+==== Accessibility
 
-- Ensure sufficient contrast ratios (WCAG AA minimum)
-- Provide alt text: "echidnabot logo - geometric echidna with mathematical symbols"
-- Test visibility in both light and dark contexts
+* Ensure sufficient contrast ratios (WCAG AA minimum)
+* Provide alt text: "`echidnabot logo - geometric echidna with
+mathematical symbols`"
+* Test visibility in both light and dark contexts
 
----
+'''''
 
-## Brand Voice
+=== Brand Voice
 
-**Tone:** Technical, precise, confident, slightly witty
+*Tone:* Technical, precise, confident, slightly witty
 
-**Taglines (choose one or rotate):**
-- "Proof-Aware CI"
-- "Verify. Every. Commit."
-- "Mathematical Certainty for Your Codebase"
-- "Where Formal Methods Meet DevOps"
-- "CI for Proof-Carrying Code"
+*Taglines (choose one or rotate):* - "`Proof-Aware CI`" - "`Verify.
+Every. Commit.`" - "`Mathematical Certainty for Your Codebase`" -
+"`Where Formal Methods Meet DevOps`" - "`CI for Proof-Carrying Code`"
 
-**Avoid:**
-- Marketing hyperbole ("revolutionary", "game-changing")
-- Cutesy language or excessive exclamation points
-- Claims we can't back up technically
+*Avoid:* - Marketing hyperbole ("`revolutionary`", "`game-changing`") -
+Cutesy language or excessive exclamation points - Claims we can’t back
+up technically
 
----
+'''''
 
-*This branding guide is part of the echidnabot project.*
+_This branding guide is part of the echidnabot project._
 *SPDX-License-Identifier: CC-BY-SA-4.0

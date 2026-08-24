@@ -1,24 +1,16 @@
-<!--
-SPDX-License-Identifier: CC-BY-SA-4.0
-Copyright (c) Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
--->
----
-title: Configuration Reference
-date: 2025-01-01
-template: default
----
-
-# Configuration Reference
+== Configuration Reference
 
 echidnabot is configured via TOML files and environment variables.
 
-## Configuration Files
+=== Configuration Files
 
-### echidnabot.toml
+==== echidnabot.toml
 
-The main configuration file, located in your repository root or at `~/.config/echidnabot/config.toml`.
+The main configuration file, located in your repository root or at
+`+~/.config/echidnabot/config.toml+`.
 
-```toml
+[source,toml]
+----
 # Server configuration
 [server]
 host = "0.0.0.0"
@@ -62,29 +54,32 @@ webhook_secret = "${GITHUB_WEBHOOK_SECRET}"
 [gitlab]
 token = "${GITLAB_TOKEN}"
 webhook_secret = "${GITLAB_WEBHOOK_SECRET}"
-```
+----
 
-## Environment Variables
+=== Environment Variables
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `ECHIDNABOT_CONFIG` | Path to config file | No |
-| `ECHIDNABOT_DATABASE_URL` | Database connection URL | Yes |
-| `ECHIDNABOT_ECHIDNA_ENDPOINT` | ECHIDNA Core GraphQL endpoint | Yes |
-| `ECHIDNABOT_ECHIDNA_REST_ENDPOINT` | ECHIDNA Core REST endpoint | No |
-| `ECHIDNABOT_ECHIDNA_MODE` | ECHIDNA API mode (auto/graphql/rest) | No |
-| `GITHUB_WEBHOOK_SECRET` | GitHub webhook secret | For GitHub |
-| `GITHUB_APP_ID` | GitHub App ID | For GitHub |
-| `GITHUB_PRIVATE_KEY` | GitHub App private key (PEM) | For GitHub |
-| `GITLAB_TOKEN` | GitLab access token | For GitLab |
-| `GITLAB_WEBHOOK_SECRET` | GitLab webhook secret | For GitLab |
-| `RUST_LOG` | Log level override | No |
+[width="100%",cols="31%,39%,30%",options="header",]
+|===
+|Variable |Description |Required
+|`+ECHIDNABOT_CONFIG+` |Path to config file |No
+|`+ECHIDNABOT_DATABASE_URL+` |Database connection URL |Yes
+|`+ECHIDNABOT_ECHIDNA_ENDPOINT+` |ECHIDNA Core GraphQL endpoint |Yes
+|`+ECHIDNABOT_ECHIDNA_REST_ENDPOINT+` |ECHIDNA Core REST endpoint |No
+|`+ECHIDNABOT_ECHIDNA_MODE+` |ECHIDNA API mode (auto/graphql/rest) |No
+|`+GITHUB_WEBHOOK_SECRET+` |GitHub webhook secret |For GitHub
+|`+GITHUB_APP_ID+` |GitHub App ID |For GitHub
+|`+GITHUB_PRIVATE_KEY+` |GitHub App private key (PEM) |For GitHub
+|`+GITLAB_TOKEN+` |GitLab access token |For GitLab
+|`+GITLAB_WEBHOOK_SECRET+` |GitLab webhook secret |For GitLab
+|`+RUST_LOG+` |Log level override |No
+|===
 
-## Repository Configuration
+=== Repository Configuration
 
-Per-repository configuration in `.echidnabot.toml`:
+Per-repository configuration in `+.echidnabot.toml+`:
 
-```toml
+[source,toml]
+----
 # Enabled provers for this repository
 [provers]
 enabled = ["coq", "lean4", "agda"]
@@ -115,21 +110,23 @@ branches = ["main", "develop"]
 [notify]
 on_failure = true
 on_success = false
-```
+----
 
-## CLI Configuration
+=== CLI Configuration
 
-```bash
+[source,bash]
+----
 # Set config path
 export ECHIDNABOT_CONFIG=/path/to/config.toml
 
 # Or pass directly
 echidnabot --config /path/to/config.toml serve
-```
+----
 
-## Docker Configuration
+=== Docker Configuration
 
-```yaml
+[source,yaml]
+----
 version: "3.8"
 services:
   echidnabot:
@@ -142,4 +139,4 @@ services:
       - "8080:8080"
     volumes:
       - ./config:/etc/echidnabot
-```
+----
