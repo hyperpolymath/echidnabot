@@ -45,6 +45,7 @@ The following files in `.machine_readable/6a2/` contain structured project metad
 | Banned | Replacement |
 |--------|-------------|
 | TypeScript | AffineScript |
+| ReScript | AffineScript |
 | Deno | Bun |
 | Node.js | Bun |
 | npm | Bun |
