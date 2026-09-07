@@ -534,7 +534,8 @@ fn prover_to_echidna_name(prover: &ProverKind) -> String {
         "isabelle" => "Isabelle",
         "hol-light" => "HOLLight",
         _ => prover.display_name(),
-    }.to_string()
+    }
+    .to_string()
 }
 
 // =============================================================================

@@ -1383,8 +1383,11 @@ async fn clone_repo(config: &Config, repo: &RepoId, commit: &str) -> Result<Path
             adapter.clone_repo(repo, commit).await
         }
         Platform::Codeberg => {
-            let base_url = config.codeberg.as_ref()
-                .map(|c| c.url.as_str()).unwrap_or("https://codeberg.org");
+            let base_url = config
+                .codeberg
+                .as_ref()
+                .map(|c| c.url.as_str())
+                .unwrap_or("https://codeberg.org");
             clone_repo_via_git(base_url, repo, commit).await
         }
     }
@@ -1404,7 +1407,10 @@ async fn clone_repo_via_git(base_url: &str, repo: &RepoId, commit: &str) -> Resu
         .status()
         .await?;
     if !clone.success() {
-        return Err(echidnabot::Error::Internal(format!("Failed to clone {}", repo.full_name())));
+        return Err(echidnabot::Error::Internal(format!(
+            "Failed to clone {}",
+            repo.full_name()
+        )));
     }
     let fetch = tokio::process::Command::new("git")
         .current_dir(temp_dir.path())
@@ -1412,7 +1418,10 @@ async fn clone_repo_via_git(base_url: &str, repo: &RepoId, commit: &str) -> Resu
         .status()
         .await?;
     if !fetch.success() {
-        return Err(echidnabot::Error::Internal(format!("Failed to fetch requested revision for {}", repo.full_name())));
+        return Err(echidnabot::Error::Internal(format!(
+            "Failed to fetch requested revision for {}",
+            repo.full_name()
+        )));
     }
     let checkout = tokio::process::Command::new("git")
         .current_dir(temp_dir.path())
@@ -1420,7 +1429,10 @@ async fn clone_repo_via_git(base_url: &str, repo: &RepoId, commit: &str) -> Resu
         .status()
         .await?;
     if !checkout.success() {
-        return Err(echidnabot::Error::Internal(format!("Failed to check out requested revision for {}", repo.full_name())));
+        return Err(echidnabot::Error::Internal(format!(
+            "Failed to check out requested revision for {}",
+            repo.full_name()
+        )));
     }
     Ok(temp_dir.keep())
 }
@@ -1434,8 +1446,13 @@ mod clone_contract_tests {
         let output = std::process::Command::new("git")
             .current_dir(repo)
             .args(args)
-            .output().unwrap();
-        assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
         String::from_utf8(output.stdout).unwrap().trim().to_string()
     }
 
@@ -1445,8 +1462,18 @@ mod clone_contract_tests {
         let repo = forge.path().join("owner/proofs.git");
         std::fs::create_dir_all(&repo).unwrap();
         git(&repo, &["init", "--initial-branch=main"]);
-        let commit_args = ["-c", "user.name=Contract Test", "-c", "user.email=contract@example.invalid",
-            "-c", "commit.gpgsign=false", "commit", "--allow-empty", "-m", "fixture"];
+        let commit_args = [
+            "-c",
+            "user.name=Contract Test",
+            "-c",
+            "user.email=contract@example.invalid",
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "--allow-empty",
+            "-m",
+            "fixture",
+        ];
         git(&repo, &commit_args);
         let first = git(&repo, &["rev-parse", "HEAD"]);
         git(&repo, &commit_args);
@@ -1464,7 +1491,9 @@ mod clone_contract_tests {
         let actual = git(&cloned, &["rev-parse", "HEAD"]);
         std::fs::remove_dir_all(cloned).unwrap();
         assert_eq!(actual, first);
-        assert!(clone_repo(&config, &id, "missing-contract-revision").await.is_err());
+        assert!(clone_repo(&config, &id, "missing-contract-revision")
+            .await
+            .is_err());
         let missing = RepoId::new(Platform::Codeberg, "owner", "missing");
         assert!(clone_repo(&config, &missing, "HEAD").await.is_err());
     }

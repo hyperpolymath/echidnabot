@@ -144,7 +144,7 @@ self-healing cascades.
 === BoJ-only-MCP exception
 
 A documented carve-out from the estate-wide "all MCP through BoJ" rule.
-See `.machine_readable/6a2/AGENTIC.a2ml` `[exceptions.boj-only-mcp]`.
+See `.machine_readable/descriptiles/AGENTIC.a2ml` `[exceptions.boj-only-mcp]`.
 Scope: this repo only. Sunset: when BoJ cartridge supports the
 double-loop feedback protocol.
 

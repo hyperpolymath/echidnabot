@@ -434,6 +434,10 @@ for-roadmap = "Stage 3 (estate-wide service discovery) + Stage 4 (expert API)"
 
 [session-2026-04-25-task-e.documentation-landed]
 file-1 = "Desktop/AI-WORK-todo.md — Task E entry at top with full progress summary"
-file-2 = ".machine_readable/6a2/STATE.a2ml — this block (2026-04-25)"
+file-2 = ".machine_readable/descriptiles/STATE.a2ml — this block (2026-04-25)"
 file-3 = "src/dispatcher/mod.rs — ADR-CART-003 comment block + method documentation"
 file-4 = "Two commits (7052195 + 1b465ba) on main branch with detailed commit messages"
+
+[history.retired-root-state]
+last-updated = "2026-04-26"  # seam test: 7a mode-routing + 7b corpus-bridge end-to-end
+session = "seam test DONE (tests/seam_test.rs, 15 tests); smoke.rs mode_selector bug fixed; lifecycle.rs unused-import cleaned; total 184/184 tests (137 lib + 17 lifecycle + 32 integration + 12 property + 15 seam + 8 smoke)"

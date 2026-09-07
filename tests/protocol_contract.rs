@@ -5,9 +5,45 @@ use axum::{
     Json, Router,
 };
 use echidnabot::config::{EchidnaApiMode, EchidnaConfig};
-use echidnabot::dispatcher::{EchidnaClient, ProofStatus, ProverKind};
 use echidnabot::dispatcher::echidna_client::ProverStatus;
+use echidnabot::dispatcher::{EchidnaClient, ProofStatus, ProverKind};
 use serde_json::{json, Value};
+
+#[test]
+fn checked_in_negative_proofs_are_detected() {
+    use echidnabot::trust::axiom_tracker::{AxiomFlag, AxiomTracker};
+    for (slug, source, expected) in [
+        (
+            "coq",
+            include_str!("../proofs/coq/admitted_stub.v"),
+            AxiomFlag::Admitted,
+        ),
+        (
+            "lean4",
+            include_str!("../proofs/lean/sorry_stub.lean"),
+            AxiomFlag::Sorry,
+        ),
+    ] {
+        // Scan the declaration and body, excluding the explanatory header:
+        // removing the actual hole must fail this control even if its name
+        // remains in a comment.
+        let declaration = source
+            .lines()
+            .skip_while(|line| !line.starts_with("Theorem ") && !line.starts_with("theorem "))
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(!declaration.is_empty());
+        let report = AxiomTracker::scan(&ProverKind::new(slug), &declaration);
+        assert!(report.has_unsound());
+        assert!(report.flags.contains(&expected));
+    }
+    for (slug, source) in [
+        ("coq", include_str!("../proofs/coq/trivial_ok.v")),
+        ("lean4", include_str!("../proofs/lean/trivial_ok.lean")),
+    ] {
+        assert!(!AxiomTracker::scan(&ProverKind::new(slug), source).has_unsound());
+    }
+}
 
 async fn endpoint(router: Router) -> (String, tokio::task::JoinHandle<()>) {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();

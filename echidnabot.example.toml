@@ -41,13 +41,13 @@ queue_size = 100
 # token = "ghp_xxxxxxxxxxxxxxxxxxxx"
 #
 # # Webhook secret for signature verification
-# webhook_secret = "your-webhook-secret"
+# webhook_secret = "" # Supply your webhook signing secret locally.
 
 # GitLab Integration (optional)
 # [gitlab]
 # url = "https://gitlab.com"
-# token = "glpat-xxxxxxxxxxxxxxxxxxxx"
-# webhook_secret = "your-webhook-secret"
+# token = "" # Supply a token from your credential store locally.
+# webhook_secret = "" # Supply your webhook signing secret locally.
 
 # Bot operating mode (daemon-wide default)
 # Per-repo directives (.machine_readable/bot_directives/echidnabot.a2ml) and

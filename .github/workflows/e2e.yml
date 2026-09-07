@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: MPL-2.0
+# This workflow is managed by gh actions-lock.
 # E2E + Point-to-Point + Unit tests for echidnabot.
 #
 # Taxonomy: standards/testing-and-benchmarking/TESTING-TAXONOMY.adoc
@@ -50,7 +51,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@v7.0.1
 
       - name: Prove a standalone clone resolves before building
         run: |
@@ -60,7 +61,7 @@ jobs:
           cargo metadata --format-version 1 >/dev/null
           echo "✅ dependency graph resolves from a standalone checkout"
 
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@v2.9.2
 
       - name: Unit + Point-to-Point + End-to-End
         run: |
