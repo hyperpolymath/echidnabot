@@ -1206,7 +1206,8 @@ async fn process_job(
         .ok_or_else(|| echidnabot::Error::RepoNotFound(job.repo_id.to_string()))?;
 
     let repo_id = RepoId::new(repo.platform, repo.owner.clone(), repo.name.clone());
-    let repo_path = clone_repo(config, &repo_id, &job.commit_sha).await?;
+    let checkout = clone_repo(config, &repo_id, &job.commit_sha).await?;
+    let repo_path = checkout.path().to_path_buf();
 
     let mut file_paths = job.file_paths.clone();
     if file_paths.is_empty() {
@@ -1363,7 +1364,7 @@ async fn process_job(
     })
 }
 
-async fn clone_repo(config: &Config, repo: &RepoId, commit: &str) -> Result<PathBuf> {
+async fn clone_repo(config: &Config, repo: &RepoId, commit: &str) -> Result<tempfile::TempDir> {
     match repo.platform {
         Platform::GitHub => {
             if let Some(ref gh) = config.github {
@@ -1393,48 +1394,18 @@ async fn clone_repo(config: &Config, repo: &RepoId, commit: &str) -> Result<Path
     }
 }
 
-async fn clone_repo_via_git(base_url: &str, repo: &RepoId, commit: &str) -> Result<PathBuf> {
-    let temp_dir = tempfile::tempdir()?;
+async fn clone_repo_via_git(
+    base_url: &str,
+    repo: &RepoId,
+    commit: &str,
+) -> Result<tempfile::TempDir> {
     let url = format!(
         "{}/{}/{}.git",
         base_url.trim_end_matches('/'),
         repo.owner,
         repo.name
     );
-    let clone = tokio::process::Command::new("git")
-        .args(["clone", "--no-checkout", "--depth", "1", "--", &url])
-        .arg(temp_dir.path())
-        .status()
-        .await?;
-    if !clone.success() {
-        return Err(echidnabot::Error::Internal(format!(
-            "Failed to clone {}",
-            repo.full_name()
-        )));
-    }
-    let fetch = tokio::process::Command::new("git")
-        .current_dir(temp_dir.path())
-        .args(["fetch", "--depth", "1", "--", "origin", commit])
-        .status()
-        .await?;
-    if !fetch.success() {
-        return Err(echidnabot::Error::Internal(format!(
-            "Failed to fetch requested revision for {}",
-            repo.full_name()
-        )));
-    }
-    let checkout = tokio::process::Command::new("git")
-        .current_dir(temp_dir.path())
-        .args(["checkout", "--detach", "FETCH_HEAD"])
-        .status()
-        .await?;
-    if !checkout.success() {
-        return Err(echidnabot::Error::Internal(format!(
-            "Failed to check out requested revision for {}",
-            repo.full_name()
-        )));
-    }
-    Ok(temp_dir.keep())
+    echidnabot::adapters::clone_revision(&url, commit).await
 }
 
 const MAX_PROOF_FILES: usize = 10_000;
@@ -1562,8 +1533,13 @@ mod clone_contract_tests {
         };
         let id = RepoId::new(Platform::Codeberg, "owner", "proofs");
         let cloned = clone_repo(&config, &id, &first).await.unwrap();
-        let actual = git(&cloned, &["rev-parse", "HEAD"]);
-        std::fs::remove_dir_all(cloned).unwrap();
+        let path = cloned.path().to_path_buf();
+        let actual = git(&path, &["rev-parse", "HEAD"]);
+        drop(cloned);
+        assert!(
+            !path.exists(),
+            "dropping the checkout must remove the repository"
+        );
         assert_eq!(actual, first);
         assert!(clone_repo(&config, &id, "missing-contract-revision")
             .await

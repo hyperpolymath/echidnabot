@@ -4,7 +4,6 @@
 //! GitHub platform adapter using Octocrab
 
 use async_trait::async_trait;
-use std::path::PathBuf;
 
 use super::{
     CheckConclusion, CheckRun, CheckRunId, CheckStatus, CommentId, IssueId, NewIssue,
@@ -50,80 +49,9 @@ impl GitHubAdapter {
 
 #[async_trait]
 impl PlatformAdapter for GitHubAdapter {
-    async fn clone_repo(&self, repo: &RepoId, commit: &str) -> Result<PathBuf> {
-        // Create a temporary directory for the clone
-        let temp_dir = tempfile::tempdir().map_err(Error::Io)?;
-        let clone_path = temp_dir.keep();
-
-        // Use git to clone (shallow, specific commit)
+    async fn clone_repo(&self, repo: &RepoId, commit: &str) -> Result<tempfile::TempDir> {
         let url = format!("https://github.com/{}/{}.git", repo.owner, repo.name);
-
-        let status = if commit == "HEAD" {
-            tokio::process::Command::new("git")
-                .args([
-                    "clone",
-                    "--depth",
-                    "1",
-                    &url,
-                    &*clone_path.to_string_lossy(),
-                ])
-                .status()
-                .await
-                .map_err(Error::Io)?
-        } else {
-            tokio::process::Command::new("git")
-                .args([
-                    "clone",
-                    "--depth",
-                    "1",
-                    "--branch",
-                    commit,
-                    &url,
-                    &*clone_path.to_string_lossy(),
-                ])
-                .status()
-                .await
-                .map_err(Error::Io)?
-        };
-
-        if !status.success() && commit != "HEAD" {
-            // Try fetching the specific commit instead
-            let status = tokio::process::Command::new("git")
-                .args([
-                    "clone",
-                    "--depth",
-                    "1",
-                    &url,
-                    &*clone_path.to_string_lossy(),
-                ])
-                .status()
-                .await
-                .map_err(Error::Io)?;
-
-            if !status.success() {
-                return Err(Error::GitHub(format!(
-                    "Failed to clone {}",
-                    repo.full_name()
-                )));
-            }
-
-            // Fetch and checkout specific commit
-            tokio::process::Command::new("git")
-                .current_dir(&clone_path)
-                .args(["fetch", "--depth", "1", "origin", commit])
-                .status()
-                .await
-                .map_err(Error::Io)?;
-
-            tokio::process::Command::new("git")
-                .current_dir(&clone_path)
-                .args(["checkout", commit])
-                .status()
-                .await
-                .map_err(Error::Io)?;
-        }
-
-        Ok(clone_path)
+        super::clone_revision(&url, commit).await
     }
 
     async fn create_check_run(&self, repo: &RepoId, check: CheckRun) -> Result<CheckRunId> {

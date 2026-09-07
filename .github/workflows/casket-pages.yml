@@ -43,7 +43,7 @@ jobs:
         working-directory: .casket-ssg
         run: |
           cabal update
-          cabal build
+          cabal build --index-state=2026-09-06T00:00:00Z
       - name: Build site
         run: |
           mkdir -p site _site
@@ -73,7 +73,7 @@ jobs:
               echo "Documentation coming soon." >> site/index.md
             fi
           fi
-          cd .casket-ssg && cabal run casket-ssg -- build ../site ../_site
+          cd .casket-ssg && cabal run --index-state=2026-09-06T00:00:00Z casket-ssg -- build ../site ../_site
       - name: Setup Pages
         uses: actions/configure-pages@v6.0.0
       - name: Upload artifact

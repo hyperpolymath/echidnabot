@@ -53,7 +53,7 @@ jobs:
         working-directory: casket-ssg
         run: |
           cabal update
-          cabal build
+          cabal build --index-state=2026-09-06T00:00:00Z
       - name: Install AsciiDoc conversion tools
         run: |
           sudo apt-get update
@@ -71,7 +71,7 @@ jobs:
       - name: Build documentation with Casket
         working-directory: casket-ssg
         run: |
-          cabal run casket-ssg -- build ../.docs-source ../docs/_site
+          cabal run --index-state=2026-09-06T00:00:00Z casket-ssg -- build ../.docs-source ../docs/_site
           test -s ../docs/_site/index.html
           touch ../docs/_site/.nojekyll
       - name: Upload artifact

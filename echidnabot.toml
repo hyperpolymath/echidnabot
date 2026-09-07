@@ -38,7 +38,7 @@ queue_size = 100
 # private_key_path = "/path/to/private-key.pem"
 #
 # # Option 2: Personal Access Token (simpler for testing)
-# token = "ghp_xxxxxxxxxxxxxxxxxxxx"
+# Load the GitHub token from your local credential store.
 #
 # # Webhook secret for signature verification
 # webhook_secret = "" # Supply your webhook signing secret locally.

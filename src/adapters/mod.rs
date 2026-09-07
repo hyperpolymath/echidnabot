@@ -10,7 +10,6 @@ pub mod github;
 pub mod gitlab;
 
 use async_trait::async_trait;
-use std::path::PathBuf;
 
 use crate::error::Result;
 
@@ -159,7 +158,7 @@ pub fn build_adapter(
 #[async_trait]
 pub trait PlatformAdapter: Send + Sync {
     /// Clone a repository to a local path
-    async fn clone_repo(&self, repo: &RepoId, commit: &str) -> Result<PathBuf>;
+    async fn clone_repo(&self, repo: &RepoId, commit: &str) -> Result<tempfile::TempDir>;
 
     /// Create a check run (GitHub) or pipeline status (GitLab)
     async fn create_check_run(&self, repo: &RepoId, check: CheckRun) -> Result<CheckRunId>;
@@ -204,4 +203,44 @@ pub trait PlatformAdapter: Send + Sync {
         body: &str,
         location: ReviewCommentLocation,
     ) -> Result<CommentId>;
+}
+
+/// Clone and check out the requested revision. The returned owner removes the
+/// checkout on drop, including cancellation and errors during proof processing.
+pub async fn clone_revision(url: &str, commit: &str) -> Result<tempfile::TempDir> {
+    let temp_dir = tempfile::tempdir()?;
+    let clone = tokio::process::Command::new("git")
+        .args(["clone", "--no-checkout", "--depth", "1", "--", url])
+        .arg(temp_dir.path())
+        .status()
+        .await?;
+    if !clone.success() {
+        return Err(crate::Error::Internal(format!(
+            "Failed to clone {}",
+            "requested repository"
+        )));
+    }
+    let fetch = tokio::process::Command::new("git")
+        .current_dir(temp_dir.path())
+        .args(["fetch", "--depth", "1", "--", "origin", commit])
+        .status()
+        .await?;
+    if !fetch.success() {
+        return Err(crate::Error::Internal(format!(
+            "Failed to fetch requested revision for {}",
+            "requested repository"
+        )));
+    }
+    let checkout = tokio::process::Command::new("git")
+        .current_dir(temp_dir.path())
+        .args(["checkout", "--detach", "FETCH_HEAD"])
+        .status()
+        .await?;
+    if !checkout.success() {
+        return Err(crate::Error::Internal(format!(
+            "Failed to check out requested revision for {}",
+            "requested repository"
+        )));
+    }
+    Ok(temp_dir)
 }

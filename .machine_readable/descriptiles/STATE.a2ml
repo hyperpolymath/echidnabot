@@ -440,4 +440,4 @@ file-4 = "Two commits (7052195 + 1b465ba) on main branch with detailed commit me
 
 [history.retired-root-state]
 last-updated = "2026-04-26"  # seam test: 7a mode-routing + 7b corpus-bridge end-to-end
-session = "seam test DONE (tests/seam_test.rs, 15 tests); smoke.rs mode_selector bug fixed; lifecycle.rs unused-import cleaned; total 184/184 tests (137 lib + 17 lifecycle + 32 integration + 12 property + 15 seam + 8 smoke)"
+session = "seam test DONE (tests/seam_test.rs, 15 tests); smoke.rs mode_selector bug fixed; lifecycle.rs unused-import cleaned; historical suite counts recorded as 137 lib + 17 lifecycle + 32 integration + 12 property + 15 seam + 8 smoke (sum 221; the retired 184 aggregate was inconsistent and is not a current test result)"
