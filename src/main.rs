@@ -1437,68 +1437,6 @@ async fn clone_repo_via_git(base_url: &str, repo: &RepoId, commit: &str) -> Resu
     Ok(temp_dir.keep())
 }
 
-#[cfg(test)]
-mod clone_contract_tests {
-    use super::*;
-    use echidnabot::config::CodebergConfig;
-
-    fn git(repo: &Path, args: &[&str]) -> String {
-        let output = std::process::Command::new("git")
-            .current_dir(repo)
-            .args(args)
-            .output()
-            .unwrap();
-        assert!(
-            output.status.success(),
-            "{}",
-            String::from_utf8_lossy(&output.stderr)
-        );
-        String::from_utf8(output.stdout).unwrap().trim().to_string()
-    }
-
-    #[tokio::test]
-    async fn configured_forge_clones_exact_revision_and_rejects_missing_revision() {
-        let forge = tempfile::tempdir().unwrap();
-        let repo = forge.path().join("owner/proofs.git");
-        std::fs::create_dir_all(&repo).unwrap();
-        git(&repo, &["init", "--initial-branch=main"]);
-        let commit_args = [
-            "-c",
-            "user.name=Contract Test",
-            "-c",
-            "user.email=contract@example.invalid",
-            "-c",
-            "commit.gpgsign=false",
-            "commit",
-            "--allow-empty",
-            "-m",
-            "fixture",
-        ];
-        git(&repo, &commit_args);
-        let first = git(&repo, &["rev-parse", "HEAD"]);
-        git(&repo, &commit_args);
-        assert_ne!(first, git(&repo, &["rev-parse", "HEAD"]));
-        let config = Config {
-            codeberg: Some(CodebergConfig {
-                url: format!("file://{}", forge.path().display()),
-                token: None,
-                webhook_secret: None,
-            }),
-            ..Default::default()
-        };
-        let id = RepoId::new(Platform::Codeberg, "owner", "proofs");
-        let cloned = clone_repo(&config, &id, &first).await.unwrap();
-        let actual = git(&cloned, &["rev-parse", "HEAD"]);
-        std::fs::remove_dir_all(cloned).unwrap();
-        assert_eq!(actual, first);
-        assert!(clone_repo(&config, &id, "missing-contract-revision")
-            .await
-            .is_err());
-        let missing = RepoId::new(Platform::Codeberg, "owner", "missing");
-        assert!(clone_repo(&config, &missing, "HEAD").await.is_err());
-    }
-}
-
 const MAX_PROOF_FILES: usize = 10_000;
 
 fn collect_files_by_extension(root: &Path, extensions: &[String]) -> Vec<PathBuf> {
@@ -1570,5 +1508,67 @@ fn collect_files_inner(root: &Path, extensions: &[String], results: &mut Vec<Pat
                 results.push(path);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod clone_contract_tests {
+    use super::*;
+    use echidnabot::config::CodebergConfig;
+
+    fn git(repo: &Path, args: &[&str]) -> String {
+        let output = std::process::Command::new("git")
+            .current_dir(repo)
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        String::from_utf8(output.stdout).unwrap().trim().to_string()
+    }
+
+    #[tokio::test]
+    async fn configured_forge_clones_exact_revision_and_rejects_missing_revision() {
+        let forge = tempfile::tempdir().unwrap();
+        let repo = forge.path().join("owner/proofs.git");
+        std::fs::create_dir_all(&repo).unwrap();
+        git(&repo, &["init", "--initial-branch=main"]);
+        let commit_args = [
+            "-c",
+            "user.name=Contract Test",
+            "-c",
+            "user.email=contract@example.invalid",
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "--allow-empty",
+            "-m",
+            "fixture",
+        ];
+        git(&repo, &commit_args);
+        let first = git(&repo, &["rev-parse", "HEAD"]);
+        git(&repo, &commit_args);
+        assert_ne!(first, git(&repo, &["rev-parse", "HEAD"]));
+        let config = Config {
+            codeberg: Some(CodebergConfig {
+                url: format!("file://{}", forge.path().display()),
+                token: None,
+                webhook_secret: None,
+            }),
+            ..Default::default()
+        };
+        let id = RepoId::new(Platform::Codeberg, "owner", "proofs");
+        let cloned = clone_repo(&config, &id, &first).await.unwrap();
+        let actual = git(&cloned, &["rev-parse", "HEAD"]);
+        std::fs::remove_dir_all(cloned).unwrap();
+        assert_eq!(actual, first);
+        assert!(clone_repo(&config, &id, "missing-contract-revision")
+            .await
+            .is_err());
+        let missing = RepoId::new(Platform::Codeberg, "owner", "missing");
+        assert!(clone_repo(&config, &missing, "HEAD").await.is_err());
     }
 }
