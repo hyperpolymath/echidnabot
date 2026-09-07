@@ -61,7 +61,7 @@ jobs:
           cargo metadata --format-version 1 >/dev/null
           echo "✅ dependency graph resolves from a standalone checkout"
 
-      - uses: Swatinem/rust-cache@v2.9.2
+      - uses: swatinem/rust-cache@v2.9.2
 
       - name: Unit + Point-to-Point + End-to-End
         run: |
