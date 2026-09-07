@@ -207,35 +207,47 @@ pub trait PlatformAdapter: Send + Sync {
 
 /// Clone and check out the requested revision. The returned owner removes the
 /// checkout on drop, including cancellation and errors during proof processing.
+/// All Git operations share a two-minute deadline and run without terminal
+/// prompts. Dropping an in-flight operation also terminates its Git child.
 pub async fn clone_revision(url: &str, commit: &str) -> Result<tempfile::TempDir> {
+    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(120);
     let temp_dir = tempfile::tempdir()?;
-    let clone = tokio::process::Command::new("git")
-        .args(["clone", "--no-checkout", "--depth", "1", "--", url])
-        .arg(temp_dir.path())
-        .status()
-        .await?;
+    let clone = git_status(
+        tokio::process::Command::new("git")
+            .args(["clone", "--no-checkout", "--depth", "1", "--", url])
+            .arg(temp_dir.path()),
+        "clone",
+        deadline,
+    )
+    .await?;
     if !clone.success() {
         return Err(crate::Error::Internal(format!(
             "Failed to clone {}",
             "requested repository"
         )));
     }
-    let fetch = tokio::process::Command::new("git")
-        .current_dir(temp_dir.path())
-        .args(["fetch", "--depth", "1", "--", "origin", commit])
-        .status()
-        .await?;
+    let fetch = git_status(
+        tokio::process::Command::new("git")
+            .current_dir(temp_dir.path())
+            .args(["fetch", "--depth", "1", "--", "origin", commit]),
+        "fetch",
+        deadline,
+    )
+    .await?;
     if !fetch.success() {
         return Err(crate::Error::Internal(format!(
             "Failed to fetch requested revision for {}",
             "requested repository"
         )));
     }
-    let checkout = tokio::process::Command::new("git")
-        .current_dir(temp_dir.path())
-        .args(["checkout", "--detach", "FETCH_HEAD"])
-        .status()
-        .await?;
+    let checkout = git_status(
+        tokio::process::Command::new("git")
+            .current_dir(temp_dir.path())
+            .args(["checkout", "--detach", "FETCH_HEAD"]),
+        "checkout",
+        deadline,
+    )
+    .await?;
     if !checkout.success() {
         return Err(crate::Error::Internal(format!(
             "Failed to check out requested revision for {}",
@@ -243,4 +255,99 @@ pub async fn clone_revision(url: &str, commit: &str) -> Result<tempfile::TempDir
         )));
     }
     Ok(temp_dir)
+}
+
+/// Wait for a Git child within the checkout's shared deadline. A timeout kills
+/// and reaps the direct child before the checkout owner can clean up its files.
+async fn git_status(
+    command: &mut tokio::process::Command,
+    operation: &str,
+    deadline: tokio::time::Instant,
+) -> Result<std::process::ExitStatus> {
+    let mut child = command
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .stdin(std::process::Stdio::null())
+        .kill_on_drop(true)
+        .spawn()?;
+    match tokio::time::timeout_at(deadline, child.wait()).await {
+        Ok(status) => Ok(status?),
+        Err(_) => {
+            child.kill().await?;
+            Err(crate::Error::Internal(format!("Git {operation} timed out")))
+        }
+    }
+}
+
+#[cfg(all(test, target_os = "linux"))]
+mod git_process_tests {
+    use super::*;
+    use std::path::Path;
+    use std::time::Duration;
+    use tokio::time::{sleep, Instant};
+
+    async fn assert_child_reaped(pid_file: &Path) {
+        let pid: u32 = std::fs::read_to_string(pid_file)
+            .unwrap()
+            .trim()
+            .parse()
+            .unwrap();
+        let proc_path = std::path::PathBuf::from(format!("/proc/{pid}"));
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while proc_path.exists() && Instant::now() < deadline {
+            sleep(Duration::from_millis(10)).await;
+        }
+        assert!(
+            !proc_path.exists(),
+            "Git child {pid} survived its operation"
+        );
+    }
+
+    #[tokio::test]
+    async fn git_deadline_kills_and_reaps_the_child_without_prompts() {
+        let dir = tempfile::tempdir().unwrap();
+        let pid = dir.path().join("pid");
+        let prompt = dir.path().join("prompt");
+        let result = git_status(
+            tokio::process::Command::new("/bin/sh")
+                .args([
+                    "-c",
+                    "echo \"$GIT_TERMINAL_PROMPT\" > \"$1\"; echo $$ > \"$2\"; exec sleep 30",
+                    "contract",
+                ])
+                .arg(&prompt)
+                .arg(&pid),
+            "contract",
+            Instant::now() + Duration::from_millis(200),
+        )
+        .await;
+        assert!(
+            matches!(result, Err(crate::Error::Internal(message)) if message.contains("timed out"))
+        );
+        assert_eq!(std::fs::read_to_string(prompt).unwrap().trim(), "0");
+        assert_child_reaped(&pid).await;
+    }
+
+    #[tokio::test]
+    async fn cancelling_checkout_terminates_its_child() {
+        let dir = tempfile::tempdir().unwrap();
+        let pid = dir.path().join("pid");
+        let child_pid = pid.clone();
+        let task = tokio::spawn(async move {
+            git_status(
+                tokio::process::Command::new("/bin/sh")
+                    .args(["-c", "echo $$ > \"$1\"; exec sleep 30", "contract"])
+                    .arg(child_pid),
+                "contract",
+                Instant::now() + Duration::from_secs(10),
+            )
+            .await
+        });
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while !pid.exists() && Instant::now() < deadline {
+            sleep(Duration::from_millis(10)).await;
+        }
+        task.abort();
+        assert!(task.await.unwrap_err().is_cancelled());
+        assert_child_reaped(&pid).await;
+    }
 }

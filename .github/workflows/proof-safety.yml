@@ -24,3 +24,4 @@ jobs:
         run: |
           cargo test --locked --test protocol_contract
           cargo test --locked --bin echidnabot clone_contract_tests
+          cargo test --locked --lib git_process_tests
