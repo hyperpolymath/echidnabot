@@ -175,13 +175,13 @@ Per the estate boundary convention:
 |`RSR_OUTLINE.adoc` |✓ |This file
 |`0-AI-MANIFEST.a2ml` |✓ |AI first-read pointer
 |`.claude/CLAUDE.md` |✓ |AI agent operating rules
-|`.machine_readable/6a2/` |✓ |A2ML descriptors
+|`.machine_readable/descriptiles/` |✓ |A2ML descriptors
 |===
 
 == STATE.a2ml Shape
 
 The canonical project-state file
-(`.machine_readable/6a2/STATE.a2ml`) carries:
+(`.machine_readable/descriptiles/STATE.a2ml`) carries:
 
 * `[metadata]` — project / version / last-updated / session
 * `[project-context]` — purpose / completion-percentage

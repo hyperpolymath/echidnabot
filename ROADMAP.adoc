@@ -17,7 +17,7 @@ toc::[]
 
 NOTE: Older sections of this document (and the README) cite 129 tests.
 That figure was pre-Package-7b; the canonical current count is 184 per
-`.machine_readable/6a2/STATE.a2ml` (last-updated `2026-04-26`). Treat 184
+`.machine_readable/descriptiles/STATE.a2ml` (last-updated `2026-04-26`). Treat 184
 as authoritative.
 
 == Completed (v0.1.0 -- February 2026)

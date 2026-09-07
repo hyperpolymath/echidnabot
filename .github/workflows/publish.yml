@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: MPL-2.0
+# This workflow is managed by gh actions-lock.
 # SPDX-FileCopyrightText: 2025 hyperpolymath
 #
 # Publish to crates.io on release tags
@@ -31,13 +32,13 @@ jobs:
       attestations: write
     steps:
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        uses: actions/checkout@v7.0.1
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561 # stable
+        uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
       - name: Cache cargo
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        uses: Swatinem/rust-cache@v2.9.2
       - name: Install dependencies
         run: |
           sudo apt-get update
@@ -74,7 +75,7 @@ jobs:
       - name: Package crate
         run: cargo package
       - name: Attest crate provenance
-        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        uses: actions/attest-build-provenance@v4.2.2
         with:
           subject-path: 'target/package/*.crate'
       - name: Publish to crates.io (dry run)
@@ -87,7 +88,7 @@ jobs:
         run: cargo publish
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v2
+        uses: softprops/action-gh-release@v3.0.3
         with:
           generate_release_notes: true
           draft: false
