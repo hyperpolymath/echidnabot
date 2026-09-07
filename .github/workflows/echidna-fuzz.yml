@@ -182,6 +182,9 @@ jobs:
       - name: Run Echidna property tests
         id: echidna
         run: |
+          # The adapter installs a solc-select shim; prefer the checksum-pinned compiler.
+          export PATH="${RUNNER_TEMP}/solidity-fuzz-tools:$PATH"
+          test "$(command -v solc)" = "${RUNNER_TEMP}/solidity-fuzz-tools/solc"
           echo "::group::Echidna Property Testing - ${{ matrix.contract }}"
 
           CONTRACT_FILE="contracts/${{ matrix.contract }}.sol"
@@ -277,7 +280,7 @@ jobs:
               echo "::notice::All property tests passed!"
             else
               echo "result=failure" >> $GITHUB_OUTPUT
-              echo "::error::Echidna found property violations"
+              echo "::error::Echidna run failed; inspect output for compiler errors or counterexamples"
               exit $ECHIDNA_EXIT
             fi
           fi
@@ -339,6 +342,8 @@ jobs:
       - name: Run Echidna assertion tests
         id: echidna
         run: |
+          export PATH="${RUNNER_TEMP}/solidity-fuzz-tools:$PATH"
+          test "$(command -v solc)" = "${RUNNER_TEMP}/solidity-fuzz-tools/solc"
           echo "::group::Echidna Assertion Testing - ${{ matrix.contract }}"
 
           CONTRACT_FILE="contracts/${{ matrix.contract }}.sol"
@@ -370,7 +375,7 @@ jobs:
           elif [ $ECHIDNA_EXIT -eq 0 ]; then
             echo "::notice::All assertion tests passed!"
           else
-            echo "::error::Echidna found assertion violations"
+            echo "::error::Echidna assertion run failed; inspect output for compiler errors or counterexamples"
             exit "$ECHIDNA_EXIT"
           fi
       - name: Upload Echidna results
