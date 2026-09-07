@@ -1382,79 +1382,92 @@ async fn clone_repo(config: &Config, repo: &RepoId, commit: &str) -> Result<Path
             let adapter = BitbucketAdapter::new(None);
             adapter.clone_repo(repo, commit).await
         }
-        Platform::Codeberg => clone_repo_via_git("https://codeberg.org", repo, commit).await,
+        Platform::Codeberg => {
+            let base_url = config.codeberg.as_ref()
+                .map(|c| c.url.as_str()).unwrap_or("https://codeberg.org");
+            clone_repo_via_git(base_url, repo, commit).await
+        }
     }
 }
 
 async fn clone_repo_via_git(base_url: &str, repo: &RepoId, commit: &str) -> Result<PathBuf> {
     let temp_dir = tempfile::tempdir()?;
-    let clone_path = temp_dir.keep();
     let url = format!(
         "{}/{}/{}.git",
         base_url.trim_end_matches('/'),
         repo.owner,
         repo.name
     );
+    let clone = tokio::process::Command::new("git")
+        .args(["clone", "--no-checkout", "--depth", "1", "--", &url])
+        .arg(temp_dir.path())
+        .status()
+        .await?;
+    if !clone.success() {
+        return Err(echidnabot::Error::Internal(format!("Failed to clone {}", repo.full_name())));
+    }
+    let fetch = tokio::process::Command::new("git")
+        .current_dir(temp_dir.path())
+        .args(["fetch", "--depth", "1", "--", "origin", commit])
+        .status()
+        .await?;
+    if !fetch.success() {
+        return Err(echidnabot::Error::Internal(format!("Failed to fetch requested revision for {}", repo.full_name())));
+    }
+    let checkout = tokio::process::Command::new("git")
+        .current_dir(temp_dir.path())
+        .args(["checkout", "--detach", "FETCH_HEAD"])
+        .status()
+        .await?;
+    if !checkout.success() {
+        return Err(echidnabot::Error::Internal(format!("Failed to check out requested revision for {}", repo.full_name())));
+    }
+    Ok(temp_dir.keep())
+}
 
-    let status = if commit == "HEAD" {
-        tokio::process::Command::new("git")
-            .args([
-                "clone",
-                "--depth",
-                "1",
-                &url,
-                &*clone_path.to_string_lossy(),
-            ])
-            .status()
-            .await?
-    } else {
-        tokio::process::Command::new("git")
-            .args([
-                "clone",
-                "--depth",
-                "1",
-                "--branch",
-                commit,
-                &url,
-                &*clone_path.to_string_lossy(),
-            ])
-            .status()
-            .await?
-    };
+#[cfg(test)]
+mod clone_contract_tests {
+    use super::*;
+    use echidnabot::config::CodebergConfig;
 
-    if !status.success() && commit != "HEAD" {
-        let status = tokio::process::Command::new("git")
-            .args([
-                "clone",
-                "--depth",
-                "1",
-                &url,
-                &*clone_path.to_string_lossy(),
-            ])
-            .status()
-            .await?;
-
-        if !status.success() {
-            return Err(echidnabot::Error::Internal(format!(
-                "Failed to clone {}",
-                repo.full_name()
-            )));
-        }
-
-        tokio::process::Command::new("git")
-            .current_dir(&clone_path)
-            .args(["fetch", "--depth", "1", "origin", commit])
-            .status()
-            .await?;
-
-        tokio::process::Command::new("git")
-            .current_dir(&clone_path)
-            .args(["checkout", commit])
-            .status()
-            .await?;
+    fn git(repo: &Path, args: &[&str]) -> String {
+        let output = std::process::Command::new("git")
+            .current_dir(repo)
+            .args(args)
+            .output().unwrap();
+        assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+        String::from_utf8(output.stdout).unwrap().trim().to_string()
     }
 
-    Ok(clone_path)
+    #[tokio::test]
+    async fn configured_forge_clones_exact_revision_and_rejects_missing_revision() {
+        let forge = tempfile::tempdir().unwrap();
+        let repo = forge.path().join("owner/proofs.git");
+        std::fs::create_dir_all(&repo).unwrap();
+        git(&repo, &["init", "--initial-branch=main"]);
+        let commit_args = ["-c", "user.name=Contract Test", "-c", "user.email=contract@example.invalid",
+            "-c", "commit.gpgsign=false", "commit", "--allow-empty", "-m", "fixture"];
+        git(&repo, &commit_args);
+        let first = git(&repo, &["rev-parse", "HEAD"]);
+        git(&repo, &commit_args);
+        assert_ne!(first, git(&repo, &["rev-parse", "HEAD"]));
+        let config = Config {
+            codeberg: Some(CodebergConfig {
+                url: format!("file://{}", forge.path().display()),
+                token: None,
+                webhook_secret: None,
+            }),
+            ..Default::default()
+        };
+        let id = RepoId::new(Platform::Codeberg, "owner", "proofs");
+        let cloned = clone_repo(&config, &id, &first).await.unwrap();
+        let actual = git(&cloned, &["rev-parse", "HEAD"]);
+        std::fs::remove_dir_all(cloned).unwrap();
+        assert_eq!(actual, first);
+        assert!(clone_repo(&config, &id, "missing-contract-revision").await.is_err());
+        let missing = RepoId::new(Platform::Codeberg, "owner", "missing");
+        assert!(clone_repo(&config, &missing, "HEAD").await.is_err());
+    }
 }
 
 const MAX_PROOF_FILES: usize = 10_000;

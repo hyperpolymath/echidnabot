@@ -1,0 +1,26 @@
+# This workflow is managed by gh actions-lock.
+# SPDX-License-Identifier: MPL-2.0
+name: Proof Safety
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: proof-safety-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  protocol:
+    name: Proof protocol contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: Swatinem/rust-cache@v2.9.2
+      - name: Test REST and GraphQL wire contracts
+        run: |
+          cargo test --locked --test protocol_contract
+          cargo test --locked --bin echidnabot clone_contract_tests
