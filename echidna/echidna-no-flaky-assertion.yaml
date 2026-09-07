@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MPL-2.0
-// Owner: Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+# Owner: Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 # Echidna No-Flaky Assertion Mode Configuration
 # Deterministic settings for stable assertion-based testing
 
@@ -24,7 +24,7 @@ sender:
 deployer: "0x30000"
 
 # No prefix filter in assertion mode
-prefix: ""
+prefix: "echidna_"
 
 # Enable coverage
 coverage: true

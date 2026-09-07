@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MPL-2.0
-// Owner: Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+# Owner: Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 # Echidna Assertion Mode Configuration
 # Tests functions with assert() statements
 
@@ -23,8 +23,9 @@ sender:
 
 deployer: "0x30000"
 
-# No prefix filter in assertion mode - tests all functions with assert()
-prefix: ""
+# Keep property names distinct from argument-taking transaction functions.
+# Assertion mode still exercises assertions in all transaction functions.
+prefix: "echidna_"
 
 # Enable coverage
 coverage: true
