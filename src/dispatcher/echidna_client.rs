@@ -160,7 +160,7 @@ impl EchidnaClient {
             "#
             .to_string(),
             variables: serde_json::json!({
-                "prover": format!("{:?}", prover).to_lowercase(),
+                "prover": prover.as_str(),
                 "content": content
             }),
         };
@@ -238,7 +238,7 @@ impl EchidnaClient {
             "#
             .to_string(),
             variables: serde_json::json!({
-                "prover": format!("{:?}", prover).to_lowercase(),
+                "prover": prover.as_str(),
                 "context": context,
                 "goalState": goal_state
             }),
@@ -320,7 +320,7 @@ impl EchidnaClient {
             "#
             .to_string(),
             variables: serde_json::json!({
-                "prover": format!("{:?}", prover).to_lowercase()
+                "prover": prover.as_str()
             }),
         };
 
@@ -528,7 +528,14 @@ struct RestProverInfo {
 }
 
 fn prover_to_echidna_name(prover: &ProverKind) -> String {
-    prover.display_name().to_string()
+    // These are ECHIDNA's serde enum names, not presentation labels.
+    match prover.as_str() {
+        "lean" => "Lean",
+        "isabelle" => "Isabelle",
+        "hol-light" => "HOLLight",
+        _ => prover.display_name(),
+    }
+    .to_string()
 }
 
 // =============================================================================

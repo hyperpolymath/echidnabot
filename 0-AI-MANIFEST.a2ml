@@ -16,18 +16,18 @@ fleet   = "gitbot-fleet (Tier-1 Verifier role)"
 human-readable     = ["README.adoc", "EXPLAINME.adoc", "ROADMAP.adoc"]
 ai-instructions    = [".claude/CLAUDE.md"]
 ai-state           = [
-    ".machine_readable/6a2/STATE.a2ml",
-    ".machine_readable/6a2/META.a2ml",
-    ".machine_readable/6a2/AGENTIC.a2ml",
-    ".machine_readable/6a2/ECOSYSTEM.a2ml",
+    ".machine_readable/descriptiles/STATE.a2ml",
+    ".machine_readable/descriptiles/META.a2ml",
+    ".machine_readable/descriptiles/AGENTIC.a2ml",
+    ".machine_readable/descriptiles/ECOSYSTEM.a2ml",
 ]
 bot-directives     = [".machine_readable/bot_directives/echidnabot.a2ml"]
 abi-ffi-surface    = ["ABI-FFI-README.md", "src/abi/", "ffi/zig/"]
 
 # ─── Operating rules ────────────────────────────────────────────────────────
 [workflow]
-inspect-first   = ".machine_readable/6a2/STATE.a2ml"   # blockers + next actions
-respect         = ".machine_readable/6a2/AGENTIC.a2ml" # tooling constraints + [exceptions.*]
+inspect-first   = ".machine_readable/descriptiles/STATE.a2ml"   # blockers + next actions
+respect         = ".machine_readable/descriptiles/AGENTIC.a2ml" # tooling constraints + [exceptions.*]
 self-directive  = ".machine_readable/bot_directives/echidnabot.a2ml"  # current mode = advisor
 
 # ─── Delivery promises ──────────────────────────────────────────────────────
@@ -38,7 +38,7 @@ respect-claude-md      = true   # .claude/CLAUDE.md is binding for AI assistants
 
 # ─── Format migration history ───────────────────────────────────────────────
 [history]
-2026-04-17 = "migrated from Guile Scheme (`.machine_readable/6scm/*.scm`) to TOML-flavoured A2ML (`.machine_readable/6a2/*.a2ml`)"
+2026-04-17 = "migrated from Guile Scheme (`.machine_readable/6scm/*.scm`) to TOML-flavoured A2ML (`.machine_readable/descriptiles/*.a2ml`)"
 2026-04-25 = "bot_directives extended with [bot] mode-resolver block"
 2026-04-26 = "test suite reached 184/184 passing"
 2026-05-30 = ".claude/CLAUDE.md flipped AffineScript→AffineScript per estate policy"

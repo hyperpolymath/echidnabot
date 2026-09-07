@@ -74,7 +74,7 @@ packaging primary going forward.
 |`CODE_OF_CONDUCT.md` present |✓ |
 |`CONTRIBUTING.md` present |✓ |
 |`SECURITY.md` present |✓ |
-|`.machine_readable/6a2/` present |✓ |TOML-flavoured A2ML (migrated from Guile in `bdbc5a4`)
+|`.machine_readable/descriptiles/` present |✓ |TOML-flavoured A2ML (migrated from Guile in `bdbc5a4`)
 |`0-AI-MANIFEST.a2ml` present |✓ |AI first-read pointer
 |`.claude/CLAUDE.md` present |✓ |AI agent operating rules
 |Conventional commits enforced |✓ |CI lints via `standards/changelog-reusable.yml`
@@ -107,7 +107,7 @@ packaging primary going forward.
 |Exemption |Justification
 
 |`echidnabot-mcp` outside BoJ
-|Documented carve-out in `.machine_readable/6a2/AGENTIC.a2ml`
+|Documented carve-out in `.machine_readable/descriptiles/AGENTIC.a2ml`
  `[exceptions.boj-only-mcp]`. Sunset: when BoJ cartridge supports the
  double-loop feedback protocol.
 

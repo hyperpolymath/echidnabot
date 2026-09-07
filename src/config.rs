@@ -427,7 +427,7 @@ pub struct GitLabConfig {
 /// [codeberg]
 /// url = "https://forgejo.example.org"
 /// token = "..."
-/// webhook_secret = "..."
+/// # Set webhook_secret from your credential store locally.
 /// ```
 ///
 /// `token` is optional — read-only endpoints (file fetch, default

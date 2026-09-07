@@ -274,7 +274,7 @@ ClusterFuzzLite runs continuous fuzzing in CI; see
 `+ABI-FFI-README.md+`
 
 |Roadmap item closed |`+ROADMAP.adoc+` +
-`+.machine_readable/6a2/STATE.a2ml+`
+`+.machine_readable/descriptiles/STATE.a2ml+`
 |===
 
 ==== Wiki
@@ -287,7 +287,7 @@ procedure.
 
 ==== Machine-readable state
 
-`+.machine_readable/6a2/+` holds A2ML descriptors consumed by Hypatia
+`+.machine_readable/descriptiles/+` holds A2ML descriptors consumed by Hypatia
 and sibling bots. When a contribution lands a substantive change (new
 external target, closed-issue feedback loop, completion-percentage
 shift), update `+STATE.a2ml+` in the same commit.

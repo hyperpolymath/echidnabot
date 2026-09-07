@@ -106,7 +106,9 @@ query {
 
 ==== registerRepository
 
-Register a new repository for proof verification.
+Register a new repository for proof verification. This example omits the
+optional webhook secret; configure a secret from your credential store before
+accepting authenticated webhook events.
 
 [source,graphql]
 ----
@@ -116,7 +118,6 @@ mutation {
     owner: "org"
     name: "repo"
     enabledProvers: [COQ, LEAN4]
-    webhookSecret: "optional-secret"
   }) {
     id
     webhookUrl

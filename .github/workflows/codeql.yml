@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: MPL-2.0
+# This workflow is managed by gh actions-lock.
 # Thin wrapper around hyperpolymath/standards codeql-reusable.yml.
 # Matches the echidna sibling-repo pattern (estate-wide consolidation:
 # 263 deployments, 69 unique SHAs, 26% structural drift). Default

@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: MPL-2.0
+# This workflow is managed by gh actions-lock.
 # Prevention workflow - validates all workflows have proper security config
 name: Workflow Security Linter
 on:
@@ -14,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/checkout@v7.0.1
       - name: Check SPDX headers
         run: |
           errors=0
@@ -37,13 +38,11 @@ jobs:
             fi
           done
           exit $errors
-      - name: Check pinned actions
+      - name: Verify immutable action lockfile with the authoritative tool
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          errors=0
-          for f in .github/workflows/*.yml .github/workflows/*.yaml; do
-            [ -f "$f" ] || continue
-            # Look for uses: without SHA
-            if grep -E "uses:.*@v[0-9]" "$f" | grep -v "#"; then
-              echo "WARNING: $f has unpinned actions (missing SHA comment)"
-            fi
-          done
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/gh-actions-lock" https://github.com/github/gh-actions-lock/releases/download/v0.1.6/linux-amd64
+          echo "4181ec1da5408b34b9a542a7ee5c6ce3a4d6ac815c7d0206a00ceca8a817f4e3  $RUNNER_TEMP/gh-actions-lock" | sha256sum --check
+          chmod u+x "$RUNNER_TEMP/gh-actions-lock"
+          "$RUNNER_TEMP/gh-actions-lock" --rescan --no-fix

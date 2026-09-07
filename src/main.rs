@@ -1206,7 +1206,8 @@ async fn process_job(
         .ok_or_else(|| echidnabot::Error::RepoNotFound(job.repo_id.to_string()))?;
 
     let repo_id = RepoId::new(repo.platform, repo.owner.clone(), repo.name.clone());
-    let repo_path = clone_repo(config, &repo_id, &job.commit_sha).await?;
+    let checkout = clone_repo(config, &repo_id, &job.commit_sha).await?;
+    let repo_path = checkout.path().to_path_buf();
 
     let mut file_paths = job.file_paths.clone();
     if file_paths.is_empty() {
@@ -1363,7 +1364,7 @@ async fn process_job(
     })
 }
 
-async fn clone_repo(config: &Config, repo: &RepoId, commit: &str) -> Result<PathBuf> {
+async fn clone_repo(config: &Config, repo: &RepoId, commit: &str) -> Result<tempfile::TempDir> {
     match repo.platform {
         Platform::GitHub => {
             if let Some(ref gh) = config.github {
@@ -1382,79 +1383,29 @@ async fn clone_repo(config: &Config, repo: &RepoId, commit: &str) -> Result<Path
             let adapter = BitbucketAdapter::new(None);
             adapter.clone_repo(repo, commit).await
         }
-        Platform::Codeberg => clone_repo_via_git("https://codeberg.org", repo, commit).await,
+        Platform::Codeberg => {
+            let base_url = config
+                .codeberg
+                .as_ref()
+                .map(|c| c.url.as_str())
+                .unwrap_or("https://codeberg.org");
+            clone_repo_via_git(base_url, repo, commit).await
+        }
     }
 }
 
-async fn clone_repo_via_git(base_url: &str, repo: &RepoId, commit: &str) -> Result<PathBuf> {
-    let temp_dir = tempfile::tempdir()?;
-    let clone_path = temp_dir.keep();
+async fn clone_repo_via_git(
+    base_url: &str,
+    repo: &RepoId,
+    commit: &str,
+) -> Result<tempfile::TempDir> {
     let url = format!(
         "{}/{}/{}.git",
         base_url.trim_end_matches('/'),
         repo.owner,
         repo.name
     );
-
-    let status = if commit == "HEAD" {
-        tokio::process::Command::new("git")
-            .args([
-                "clone",
-                "--depth",
-                "1",
-                &url,
-                &*clone_path.to_string_lossy(),
-            ])
-            .status()
-            .await?
-    } else {
-        tokio::process::Command::new("git")
-            .args([
-                "clone",
-                "--depth",
-                "1",
-                "--branch",
-                commit,
-                &url,
-                &*clone_path.to_string_lossy(),
-            ])
-            .status()
-            .await?
-    };
-
-    if !status.success() && commit != "HEAD" {
-        let status = tokio::process::Command::new("git")
-            .args([
-                "clone",
-                "--depth",
-                "1",
-                &url,
-                &*clone_path.to_string_lossy(),
-            ])
-            .status()
-            .await?;
-
-        if !status.success() {
-            return Err(echidnabot::Error::Internal(format!(
-                "Failed to clone {}",
-                repo.full_name()
-            )));
-        }
-
-        tokio::process::Command::new("git")
-            .current_dir(&clone_path)
-            .args(["fetch", "--depth", "1", "origin", commit])
-            .status()
-            .await?;
-
-        tokio::process::Command::new("git")
-            .current_dir(&clone_path)
-            .args(["checkout", commit])
-            .status()
-            .await?;
-    }
-
-    Ok(clone_path)
+    echidnabot::adapters::clone_revision(&url, commit).await
 }
 
 const MAX_PROOF_FILES: usize = 10_000;
@@ -1528,5 +1479,72 @@ fn collect_files_inner(root: &Path, extensions: &[String], results: &mut Vec<Pat
                 results.push(path);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod clone_contract_tests {
+    use super::*;
+    use echidnabot::config::CodebergConfig;
+
+    fn git(repo: &Path, args: &[&str]) -> String {
+        let output = std::process::Command::new("git")
+            .current_dir(repo)
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        String::from_utf8(output.stdout).unwrap().trim().to_string()
+    }
+
+    #[tokio::test]
+    async fn configured_forge_clones_exact_revision_and_rejects_missing_revision() {
+        let forge = tempfile::tempdir().unwrap();
+        let repo = forge.path().join("owner/proofs.git");
+        std::fs::create_dir_all(&repo).unwrap();
+        git(&repo, &["init", "--initial-branch=main"]);
+        let commit_args = [
+            "-c",
+            "user.name=Contract Test",
+            "-c",
+            "user.email=contract@example.invalid",
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "--allow-empty",
+            "-m",
+            "fixture",
+        ];
+        git(&repo, &commit_args);
+        let first = git(&repo, &["rev-parse", "HEAD"]);
+        git(&repo, &commit_args);
+        assert_ne!(first, git(&repo, &["rev-parse", "HEAD"]));
+        let config = Config {
+            codeberg: Some(CodebergConfig {
+                url: format!("file://{}", forge.path().display()),
+                token: None,
+                webhook_secret: None,
+            }),
+            ..Default::default()
+        };
+        let id = RepoId::new(Platform::Codeberg, "owner", "proofs");
+        let cloned = clone_repo(&config, &id, &first).await.unwrap();
+        let path = cloned.path().to_path_buf();
+        let actual = git(&path, &["rev-parse", "HEAD"]);
+        drop(cloned);
+        assert!(
+            !path.exists(),
+            "dropping the checkout must remove the repository"
+        );
+        assert_eq!(actual, first);
+        assert!(clone_repo(&config, &id, "missing-contract-revision")
+            .await
+            .is_err());
+        let missing = RepoId::new(Platform::Codeberg, "owner", "missing");
+        assert!(clone_repo(&config, &missing, "HEAD").await.is_err());
     }
 }

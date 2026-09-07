@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MPL-2.0
-# SPDX-License-Identifier: MPL-2.0
+# This workflow is managed by gh actions-lock.
 name: Echidna Smart Contract Fuzzing
 permissions:
   contents: read
@@ -111,7 +111,7 @@ jobs:
       contracts: ${{ steps.detect.outputs.contracts }}
       contract_count: ${{ steps.detect.outputs.contract_count }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@v7.0.1
       - name: Detect contract files
         id: detect
         run: |
@@ -132,7 +132,8 @@ jobs:
 
           echo "has_contracts=$([[ $contract_count -gt 0 ]] && echo true || echo false)" >> $GITHUB_OUTPUT
           echo "has_echidna_tests=$([[ -n "$echidna_tests" ]] && echo true || echo false)" >> $GITHUB_OUTPUT
-          echo "contracts=$echidna_tests" >> $GITHUB_OUTPUT
+          contracts_json=$(printf '%s' "$echidna_tests" | jq -Rc 'split(",") | map(select(length > 0))')
+          echo "contracts=$contracts_json" >> "$GITHUB_OUTPUT"
           echo "contract_count=$test_count" >> $GITHUB_OUTPUT
 
           echo "::notice::Found $contract_count Solidity files, Echidna tests: $echidna_tests (limited to ${{ env.MAX_PARALLEL_CONTRACTS }} max)"
@@ -149,31 +150,41 @@ jobs:
       fail-fast: false
       max-parallel: 2 # Rate limit: max 2 concurrent test jobs
       matrix:
-        contract: ${{ fromJson(format('["{0}"]', needs.detect-contracts.outputs.contracts)) }}
+        contract: ${{ fromJson(needs.detect-contracts.outputs.contracts) }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@v7.0.1
       - name: Restore Echidna corpus cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/cache@v6.1.0
         with:
           path: echidna-corpus
           key: echidna-corpus-${{ matrix.contract }}-${{ hashFiles(format('contracts/{0}.sol', matrix.contract)) }}
           restore-keys: |
             echidna-corpus-${{ matrix.contract }}-
-      - name: Install solc
+      - name: Install pinned Solidity and Echidna binaries
         run: |
-          wget -q "https://github.com/ethereum/solidity/releases/download/v${{ env.SOLC_VERSION }}/solc-static-linux"
-          chmod +x solc-static-linux
-          sudo mv solc-static-linux /usr/local/bin/solc
-          solc --version
-      - name: Install Echidna
+          set -euo pipefail
+          install_dir="${RUNNER_TEMP}/solidity-fuzz-tools"
+          mkdir -p "$install_dir"
+          curl -fL --retry 3 -o "$install_dir/solc" "https://github.com/ethereum/solidity/releases/download/v${SOLC_VERSION}/solc-static-linux"
+          echo "7a5c1d3dc9a8eba62bb2ec37192c9178ae5fe8a54a56e5573fd3c9c17cd9eb48  $install_dir/solc" | sha256sum --check
+          curl -fL --retry 3 -o "$install_dir/echidna.tar.gz" "https://github.com/crytic/echidna/releases/download/v${ECHIDNA_VERSION}/echidna-${ECHIDNA_VERSION}-x86_64-linux.tar.gz"
+          echo "d33c0451bb3bb65c76445d2dbfcd1102dab7a27a8d450197dabd3f06bed76067  $install_dir/echidna.tar.gz" | sha256sum --check
+          tar -xzf "$install_dir/echidna.tar.gz" -C "$install_dir" echidna
+          chmod +x "$install_dir/solc" "$install_dir/echidna"
+          echo "$install_dir" >> "$GITHUB_PATH"
+          "$install_dir/solc" --version
+          "$install_dir/echidna" --version
+      - name: Install pinned Solidity compiler adapter
         run: |
-          wget -q "https://github.com/crytic/echidna/releases/download/v${{ env.ECHIDNA_VERSION }}/echidna-${{ env.ECHIDNA_VERSION }}-x86_64-linux.tar.gz"
-          tar -xzf "echidna-${{ env.ECHIDNA_VERSION }}-x86_64-linux.tar.gz"
-          sudo mv echidna /usr/local/bin/
-          echidna --version
+          python3 -m venv "${RUNNER_TEMP}/crytic-compile"
+          "${RUNNER_TEMP}/crytic-compile/bin/pip" install 'crytic-compile==0.4.2'
+          echo "${RUNNER_TEMP}/crytic-compile/bin" >> "$GITHUB_PATH"
       - name: Run Echidna property tests
         id: echidna
         run: |
+          # The adapter installs a solc-select shim; prefer the checksum-pinned compiler.
+          export PATH="${RUNNER_TEMP}/solidity-fuzz-tools:$PATH"
+          test "$(command -v solc)" = "${RUNNER_TEMP}/solidity-fuzz-tools/solc"
           echo "::group::Echidna Property Testing - ${{ matrix.contract }}"
 
           CONTRACT_FILE="contracts/${{ matrix.contract }}.sol"
@@ -221,8 +232,10 @@ jobs:
                 PASS_CMD="$ECHIDNA_CMD"
               fi
 
-              timeout ${{ env.TEST_TIMEOUT }} $PASS_CMD 2>&1 | tee "echidna-results/pass-$i.json" || true
+              set +e
+              timeout ${{ env.TEST_TIMEOUT }} $PASS_CMD 2>&1 | tee "echidna-results/pass-$i.json"
               PASS_EXIT=${PIPESTATUS[0]}
+              set -e
 
               if [ $PASS_EXIT -eq 0 ]; then
                 PASS_COUNT=$((PASS_COUNT + 1))
@@ -267,19 +280,19 @@ jobs:
               echo "::notice::All property tests passed!"
             else
               echo "result=failure" >> $GITHUB_OUTPUT
-              echo "::error::Echidna found property violations"
+              echo "::error::Echidna run failed; inspect output for compiler errors or counterexamples"
               exit $ECHIDNA_EXIT
             fi
           fi
       - name: Save corpus cache
         if: always()
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/cache/save@v6.1.0
         with:
           path: echidna-corpus
           key: echidna-corpus-${{ matrix.contract }}-${{ hashFiles(format('contracts/{0}.sol', matrix.contract)) }}
       - name: Upload Echidna results
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: echidna-property-results-${{ matrix.contract }}
           path: echidna-results/
@@ -297,29 +310,40 @@ jobs:
       fail-fast: false
       max-parallel: 2
       matrix:
-        contract: ${{ fromJson(format('["{0}"]', needs.detect-contracts.outputs.contracts)) }}
+        contract: ${{ fromJson(needs.detect-contracts.outputs.contracts) }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@v7.0.1
       - name: Restore Echidna corpus cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/cache@v6.1.0
         with:
           path: echidna-corpus-assertion
           key: echidna-corpus-assertion-${{ matrix.contract }}-${{ hashFiles(format('contracts/{0}.sol', matrix.contract)) }}
           restore-keys: |
             echidna-corpus-assertion-${{ matrix.contract }}-
-      - name: Install solc
+      - name: Install pinned Solidity and Echidna binaries
         run: |
-          wget -q "https://github.com/ethereum/solidity/releases/download/v${{ env.SOLC_VERSION }}/solc-static-linux"
-          chmod +x solc-static-linux
-          sudo mv solc-static-linux /usr/local/bin/solc
-      - name: Install Echidna
+          set -euo pipefail
+          install_dir="${RUNNER_TEMP}/solidity-fuzz-tools"
+          mkdir -p "$install_dir"
+          curl -fL --retry 3 -o "$install_dir/solc" "https://github.com/ethereum/solidity/releases/download/v${SOLC_VERSION}/solc-static-linux"
+          echo "7a5c1d3dc9a8eba62bb2ec37192c9178ae5fe8a54a56e5573fd3c9c17cd9eb48  $install_dir/solc" | sha256sum --check
+          curl -fL --retry 3 -o "$install_dir/echidna.tar.gz" "https://github.com/crytic/echidna/releases/download/v${ECHIDNA_VERSION}/echidna-${ECHIDNA_VERSION}-x86_64-linux.tar.gz"
+          echo "d33c0451bb3bb65c76445d2dbfcd1102dab7a27a8d450197dabd3f06bed76067  $install_dir/echidna.tar.gz" | sha256sum --check
+          tar -xzf "$install_dir/echidna.tar.gz" -C "$install_dir" echidna
+          chmod +x "$install_dir/solc" "$install_dir/echidna"
+          echo "$install_dir" >> "$GITHUB_PATH"
+          "$install_dir/solc" --version
+          "$install_dir/echidna" --version
+      - name: Install pinned Solidity compiler adapter
         run: |
-          wget -q "https://github.com/crytic/echidna/releases/download/v${{ env.ECHIDNA_VERSION }}/echidna-${{ env.ECHIDNA_VERSION }}-x86_64-linux.tar.gz"
-          tar -xzf "echidna-${{ env.ECHIDNA_VERSION }}-x86_64-linux.tar.gz"
-          sudo mv echidna /usr/local/bin/
+          python3 -m venv "${RUNNER_TEMP}/crytic-compile"
+          "${RUNNER_TEMP}/crytic-compile/bin/pip" install 'crytic-compile==0.4.2'
+          echo "${RUNNER_TEMP}/crytic-compile/bin" >> "$GITHUB_PATH"
       - name: Run Echidna assertion tests
         id: echidna
         run: |
+          export PATH="${RUNNER_TEMP}/solidity-fuzz-tools:$PATH"
+          test "$(command -v solc)" = "${RUNNER_TEMP}/solidity-fuzz-tools/solc"
           echo "::group::Echidna Assertion Testing - ${{ matrix.contract }}"
 
           CONTRACT_FILE="contracts/${{ matrix.contract }}.sol"
@@ -351,11 +375,12 @@ jobs:
           elif [ $ECHIDNA_EXIT -eq 0 ]; then
             echo "::notice::All assertion tests passed!"
           else
-            echo "::warning::Echidna found assertion violations"
+            echo "::error::Echidna assertion run failed; inspect output for compiler errors or counterexamples"
+            exit "$ECHIDNA_EXIT"
           fi
       - name: Upload Echidna results
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: echidna-assertion-results-${{ matrix.contract }}
           path: echidna-results/

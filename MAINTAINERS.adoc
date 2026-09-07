@@ -36,7 +36,7 @@ Maintainers are responsible for:
   link:CODE_OF_CONDUCT.md[Code of Conduct]
 * Coordinating with sibling bots in the
   https://github.com/hyperpolymath/gitbot-fleet[gitbot-fleet]
-* Keeping `.machine_readable/6a2/STATE.a2ml` in sync with reality
+* Keeping `.machine_readable/descriptiles/STATE.a2ml` in sync with reality
 
 == Becoming a Maintainer
 

@@ -4,7 +4,7 @@ Copyright (c) Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 -->
 ## Machine-Readable Artefacts
 
-The following files in `.machine_readable/6a2/` contain structured project metadata
+The following files in `.machine_readable/descriptiles/` contain structured project metadata
 (TOML-flavoured A2ML, migrated from Guile Scheme in `bdbc5a4`):
 
 - `STATE.a2ml` - Current project state and progress
@@ -35,7 +35,7 @@ The following files in `.machine_readable/6a2/` contain structured project metad
 | **JavaScript** | Only where AffineScript cannot | MCP protocol glue, Bun APIs |
 | **Nickel** | Configuration language | For complex configs |
 | **Guile Scheme** | Guix packages | guix.scm, manifests/*.scm |
-| **A2ML (TOML)** | State/meta files | .machine_readable/6a2/*.a2ml |
+| **A2ML (TOML)** | State/meta files | .machine_readable/descriptiles/*.a2ml |
 | **Julia** | Batch scripts, data processing | Per RSR |
 | **OCaml** | AffineScript compiler | Language-specific |
 | **Ada** | Safety-critical systems | Where required |
@@ -108,8 +108,8 @@ Both are FOSS with independent governance (no Big Tech).
 
 ### First-read order (when entering this repo)
 
-1. `.machine_readable/6a2/STATE.a2ml` — blockers + completion-percentage + session notes
-2. `.machine_readable/6a2/AGENTIC.a2ml` — tooling constraints; check `[exceptions.*]`
+1. `.machine_readable/descriptiles/STATE.a2ml` — blockers + completion-percentage + session notes
+2. `.machine_readable/descriptiles/AGENTIC.a2ml` — tooling constraints; check `[exceptions.*]`
 3. `.machine_readable/bot_directives/echidnabot.a2ml` — self-mode + future-direction notes
 4. `EXPLAINME.adoc` — caveats on README claims (test counts, mode wiring, prover surface drift)
 5. `ROADMAP.adoc` — what's actually done vs aspirational
@@ -141,7 +141,7 @@ and the eventual fix path (promote to real submodule or delete
 `list_outcome_history`, `corpus_refresh`) is a documented carve-out
 from the estate-wide "all MCP through BoJ" rule. Scope: this repo
 only. Sunset: when the BoJ cartridge supports the double-loop
-feedback protocol. See `.machine_readable/6a2/AGENTIC.a2ml`
+feedback protocol. See `.machine_readable/descriptiles/AGENTIC.a2ml`
 `[exceptions.boj-only-mcp]` for the canonical record.
 
 ### Upstream-drift warning (12 vs 113 provers)
@@ -175,8 +175,8 @@ provers can land without touching the type. Use
 | New prover support              | `wiki/Supported-Provers.md` + `src/dispatcher/`         |
 | New bot-mode behaviour          | `wiki/FAQ.md` + `.machine_readable/bot_directives/echidnabot.a2ml` |
 | ABI/FFI surface change          | `src/abi/*.idr` + `ffi/zig/src/main.zig` + `ABI-FFI-README.md` |
-| Roadmap item closed             | `ROADMAP.adoc` + `.machine_readable/6a2/STATE.a2ml`     |
-| New external target / consumer  | `.machine_readable/6a2/STATE.a2ml` `[external-targets]` |
+| Roadmap item closed             | `ROADMAP.adoc` + `.machine_readable/descriptiles/STATE.a2ml`     |
+| New external target / consumer  | `.machine_readable/descriptiles/STATE.a2ml` `[external-targets]` |
 
 ### Tests — full suite is 184
 

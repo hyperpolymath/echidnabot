@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: MPL-2.0
+# This workflow is managed by gh actions-lock.
 name: Stress Testing
 on:
   schedule:
@@ -10,13 +11,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/checkout@v7.0.1
       - name: Install Rust toolchain
         # `toolchain:` is mandatory when this action is pinned to a SHA: it
         # normally infers the toolchain from the ref that called it (@stable ->
         # "stable"), and a SHA carries no such name. Without it the action fails
         # with `error: invalid toolchain name ''`.
-        uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b # stable 1.91
+        uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
 

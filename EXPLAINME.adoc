@@ -143,10 +143,10 @@ self-healing cascades.
 
 === BoJ-only-MCP exception
 
-A documented carve-out from the estate-wide "all MCP through BoJ" rule.
-See `.machine_readable/6a2/AGENTIC.a2ml` `[exceptions.boj-only-mcp]`.
-Scope: this repo only. Sunset: when BoJ cartridge supports the
-double-loop feedback protocol.
+This historical carve-out is inactive: it was superseded and its sunset
+fulfilled on 2026-04-25. MCP integrations must now go through BoJ.
+See `.machine_readable/descriptiles/AGENTIC.a2ml` `[exceptions.boj-only-mcp]`
+for the retained history.
 
 === Dual-truth: monorepo + standalone
 

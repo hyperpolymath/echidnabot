@@ -40,9 +40,12 @@ contract TokenEchidnaTest is Token {
 
     /// @notice Transfer should not create tokens (conservation of value)
     /// @dev Sum of balances should remain constant after transfers
-    function echidna_transfer_preserves_total() public view returns (bool) {
-        // This is a simplified check - in production you'd track all addresses
-        return totalSupply >= 0;
+    function echidna_transfer_preserves_total() public returns (bool) {
+        if (paused) return true;
+        uint256 supplyBefore = totalSupply;
+        address recipient = msg.sender == ECHIDNA_RECEIVER ? ECHIDNA_SENDER : ECHIDNA_RECEIVER;
+        transfer(recipient, balanceOf[msg.sender] / 2);
+        return totalSupply == supplyBefore;
     }
 
     /// @notice Zero address should never have a balance
@@ -56,11 +59,8 @@ contract TokenEchidnaTest is Token {
     function echidna_self_transfer_neutral() public returns (bool) {
         uint256 balanceBefore = balanceOf[msg.sender];
         if (balanceBefore > 0 && !paused) {
-            try this.transfer(msg.sender, balanceBefore / 2) {
-                return balanceOf[msg.sender] == balanceBefore;
-            } catch {
-                return true; // Failed transfer is acceptable
-            }
+            transfer(msg.sender, balanceBefore / 2);
+            return balanceOf[msg.sender] == balanceBefore;
         }
         return true;
     }
@@ -129,14 +129,14 @@ contract TokenEchidnaTest is Token {
     // ========== HELPER FUNCTIONS FOR ECHIDNA ==========
 
     /// @notice Allow Echidna to trigger pause (simulating owner action)
-    function echidna_try_pause() public {
+    function try_pause() public {
         if (msg.sender == owner) {
             pause();
         }
     }
 
     /// @notice Allow Echidna to trigger unpause
-    function echidna_try_unpause() public {
+    function try_unpause() public {
         if (msg.sender == owner) {
             unpause();
         }

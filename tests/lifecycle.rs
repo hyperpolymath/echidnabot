@@ -326,21 +326,34 @@ async fn lifecycle_store_close_is_idempotent() {
 // Graceful-shutdown lifecycle
 // ──────────────────────────────────────────────────────────────────────────────
 
-#[tokio::test]
-async fn lifecycle_shutdown_default_timeout_is_30s() {
-    assert_eq!(DEFAULT_SHUTDOWN_TIMEOUT_SECS, 30);
-    let t = resolve_shutdown_timeout(DEFAULT_SHUTDOWN_TIMEOUT_SECS);
-    assert_eq!(t, Duration::from_secs(30));
-}
-
-#[tokio::test]
-async fn lifecycle_shutdown_env_var_overrides_config() {
-    // Use a unique value (47) that nothing else in the test set uses,
-    // so we can confirm the env source rather than coincidental default.
-    std::env::set_var(ENV_SHUTDOWN_TIMEOUT, "47");
-    let t = resolve_shutdown_timeout(30);
-    assert_eq!(t, Duration::from_secs(47));
-    std::env::remove_var(ENV_SHUTDOWN_TIMEOUT);
+// Exercise environment overrides in child processes so concurrent tests never
+// share process-global environment mutations.
+#[test]
+fn lifecycle_shutdown_timeout_environment_contract() {
+    const CHILD: &str = "ECHIDNABOT_TIMEOUT_CONTRACT_CHILD";
+    if let Ok(expected) = std::env::var(CHILD) {
+        assert_eq!(DEFAULT_SHUTDOWN_TIMEOUT_SECS, 30);
+        assert_eq!(
+            resolve_shutdown_timeout(30),
+            Duration::from_secs(expected.parse().unwrap())
+        );
+        return;
+    }
+    for (value, expected) in [(None, "30"), (Some("47"), "47"), (Some("invalid"), "30")] {
+        let mut command = std::process::Command::new(std::env::current_exe().unwrap());
+        command.args([
+            "--exact",
+            "lifecycle_shutdown_timeout_environment_contract",
+            "--nocapture",
+        ]);
+        command
+            .env(CHILD, expected)
+            .env_remove(ENV_SHUTDOWN_TIMEOUT);
+        if let Some(value) = value {
+            command.env(ENV_SHUTDOWN_TIMEOUT, value);
+        }
+        assert!(command.status().unwrap().success());
+    }
 }
 
 #[tokio::test]
