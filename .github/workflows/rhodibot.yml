@@ -19,10 +19,13 @@ on:
     workflows: ["Hypatia Neurosymbolic Analysis"]
     types: [completed]
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
+  pull-requests: read
 jobs:
   rhodibot:
+    permissions:
+      contents: write
+      pull-requests: write
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

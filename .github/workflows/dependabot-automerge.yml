@@ -39,11 +39,14 @@ on:
   pull_request:
     types: [opened, reopened, synchronize]
 permissions:
-  contents: write # needed to enable auto-merge
-  pull-requests: write # needed to approve
+  contents: read
+  pull-requests: read
   # NB: keep narrow — do NOT add secrets: read or id-token: write here.
 jobs:
   automerge:
+    permissions:
+      contents: write # needed to enable auto-merge
+      pull-requests: write # needed to approve
     # Only run for PRs actually authored by Dependabot.
     if: github.actor == 'dependabot[bot]' && github.event.pull_request.user.login == 'dependabot[bot]'
     runs-on: ubuntu-latest
