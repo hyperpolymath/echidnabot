@@ -65,7 +65,7 @@ checks:
   - name: M008-guix-scm-present
     description: "guix.scm or .guix-channel exists (guix is the sole reproducible-dev vehicle)."
     severity: warning
-    run: "test -f guix.scm || test -f .guix-channel"
+    run: "test -f build/guix.scm || test -f .guix-channel"
     recovery: "Add guix.scm or .guix-channel; owner input on channel URL if missing."
 
   - name: M009-no-secrets-committed
