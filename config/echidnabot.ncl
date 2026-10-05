@@ -91,7 +91,7 @@ let Config = {
     max_connections = 5,
   },
   echidna = {
-    endpoint = "http://127.0.0.1:8081/graphql",
+    endpoint = "http://127.0.0.1:8081/",
     rest_endpoint = "http://127.0.0.1:8081",
     mode = 'auto,
     timeout_seconds = 120,

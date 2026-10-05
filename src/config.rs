@@ -374,9 +374,11 @@ impl Default for EchidnaConfig {
     }
 }
 
-/// Default ECHIDNA GraphQL endpoint: `echidna server` listens on 127.0.0.1:8081.
+/// Default ECHIDNA GraphQL endpoint: the separate `echidna-graphql` binary,
+/// which serves GraphQL at `/` on 127.0.0.1:8081 (`echidna server` has no
+/// GraphQL route; in `auto` mode the REST fallback reaches it instead).
 fn default_echidna_endpoint() -> String {
-    "http://127.0.0.1:8081/graphql".to_string()
+    "http://127.0.0.1:8081/".to_string()
 }
 
 /// Default ECHIDNA REST base URL (same `echidna server`, port 8081).

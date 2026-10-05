@@ -5,7 +5,7 @@ echidnabot orchestrates; [ECHIDNA](https://github.com/hyperpolymath/echidna) pro
 
 ## Connecting
 
-- Default endpoints: `http://127.0.0.1:8081` (REST) and `http://127.0.0.1:8081/graphql`, the address `echidna server` listens on.
+- Default endpoints: `http://127.0.0.1:8081` (REST, `echidna server`) and `http://127.0.0.1:8081/` (GraphQL, the separate `echidna-graphql` binary, which serves at `/`). Both ECHIDNA binaries default to port 8081, so run one or the other; `auto` mode tries GraphQL and falls back to REST.
 - **Version handshake:** on start-up echidnabot reads `GET /api/provers` (and `/api/health` if needed). It refuses to run against an ECHIDNA older than **2.3.0**, or one that reports no version. An unreachable or warming-up (5xx) ECHIDNA only logs a warning, and every job retries the handshake before dispatching. GraphQL-only mode skips this REST check.
 - Prover names are taken from ECHIDNA's own `/api/provers` list, so new ECHIDNA backends need no echidnabot change.
 

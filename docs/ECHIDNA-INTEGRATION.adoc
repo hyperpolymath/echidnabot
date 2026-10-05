@@ -76,10 +76,20 @@ ECHIDNA was run.
 
 == Default endpoint
 
-`echidna server` listens on `127.0.0.1:8081`. The defaults are now
-`http://127.0.0.1:8081` (REST) and `http://127.0.0.1:8081/graphql`, in
-`src/config.rs`, `echidnabot.toml`, `echidnabot.example.toml` and
-`config/echidnabot.ncl`.
+`echidna server` listens on `127.0.0.1:8081` and serves REST only. GraphQL
+is the separate `echidna-graphql` binary, which serves at `/` and is also
+hard-coded to `127.0.0.1:8081`, so only one of the two can run on a host at
+a time. The defaults are `http://127.0.0.1:8081` (REST) and
+`http://127.0.0.1:8081/` (GraphQL), in `src/config.rs`, `echidnabot.toml`,
+`echidnabot.example.toml` and `config/echidnabot.ncl`. In `auto` mode
+echidnabot tries GraphQL first and falls back to REST, so either binary
+works with the defaults.
+
+Traced live on 2026-10-05 against echidna `a71aa2c` (z3 and coqc on
+PATH): REST through `echidna server`, and GraphQL through
+`echidna-graphql`, each with a planted false goal that must not verify.
+Before this change the GraphQL default was `/graphql`, which returns 404
+from `echidna-graphql`. See `tests/live_echidna.rs`.
 
 == `echidna.prove.result/1`
 
