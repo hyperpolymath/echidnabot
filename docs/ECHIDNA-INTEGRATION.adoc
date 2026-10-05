@@ -60,11 +60,15 @@ that the REST surface is up. It reads the server version from the
 `/api/health` if neither is present. It then enforces `MIN_ECHIDNA_VERSION`
 (`2.3.0`).
 
-* At `serve` start-up, an ECHIDNA that is reachable but too old (or reports
-  a non-semver version) stops the process. An unreachable ECHIDNA only
-  logs a warning.
+* At `serve` start-up, an ECHIDNA that answers but is incompatible stops
+  the process (`Error::EchidnaIncompatible`). Incompatible means one of:
+  too old, no version reported, a non-semver version, a 4xx on the
+  handshake paths, or a body that cannot be parsed. An unreachable ECHIDNA,
+  or one returning 5xx while it warms up, only logs a warning.
 * Every job runs `ensure_handshake` before it dispatches, unless local
   isolation is on.
+* With `mode = "graphql"` there is no REST surface, so the handshake is
+  skipped. A GraphQL version query is a follow-up.
 
 Status: implemented and unit-tested (version gate, name resolution). It is
 wired into `serve` and `process_job`. No end-to-end test against a live
@@ -98,6 +102,12 @@ shape. Any other body goes through the legacy path (`valid`, plus the typed
   still accepted, because echidnabot is a consumer.
 
 === Receipt vs warrant (pattern from epistemic-types)
+
+Axiom names that ECHIDNA reports are mapped with `AxiomFlag::from_name`.
+Kernel names such as Lean's `sorryAx` and Idris's `believe_me` are
+included. A hole that ECHIDNA names therefore caps the level at 1, even
+when the local source looks clean (for example, a hole in an imported
+module).
 
 `ProofResult.trust_source` / `JobResult.trust_source` record where the trust
 data came from:

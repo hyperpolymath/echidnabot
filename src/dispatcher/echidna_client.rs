@@ -77,13 +77,10 @@ impl EchidnaClient {
             .send()
             .await
             .map_err(Error::Http)?;
-        if !response.status().is_success() {
-            return Err(Error::Echidna(format!(
-                "ECHIDNA /api/provers returned status {}",
-                response.status()
-            )));
-        }
-        let provers: RestProversResponse = response.json().await.map_err(Error::Http)?;
+        check_handshake_status("/api/provers", response.status())?;
+        let provers: RestProversResponse = response.json().await.map_err(|e| {
+            Error::EchidnaIncompatible(format!("/api/provers body not understood: {e}"))
+        })?;
 
         let raw_version = match provers.version.clone().or(provers.echidna_version.clone()) {
             Some(v) => v,
@@ -95,14 +92,15 @@ impl EchidnaClient {
                     .send()
                     .await
                     .map_err(Error::Http)?;
-                if !health.status().is_success() {
-                    return Err(Error::Echidna(format!(
-                        "ECHIDNA /api/health returned status {}",
-                        health.status()
-                    )));
-                }
-                let health: RestHealthResponse = health.json().await.map_err(Error::Http)?;
-                health.version
+                check_handshake_status("/api/health", health.status())?;
+                let health: RestHealthResponse = health.json().await.map_err(|e| {
+                    Error::EchidnaIncompatible(format!("/api/health body not understood: {e}"))
+                })?;
+                health.version.ok_or_else(|| {
+                    Error::EchidnaIncompatible(format!(
+                        "ECHIDNA did not report a version; {MIN_ECHIDNA_VERSION} or newer is required"
+                    ))
+                })?
             }
         };
 
@@ -115,6 +113,13 @@ impl EchidnaClient {
             *slot = Some(handshake.clone());
         }
         Ok(handshake)
+    }
+
+    /// Whether this client talks REST at all (and so can run the handshake).
+    ///
+    /// GraphQL-only deployments have no `/api/provers`; they skip it.
+    pub fn uses_rest(&self) -> bool {
+        !matches!(self.mode, EchidnaApiMode::Graphql)
     }
 
     /// Run [`EchidnaClient::handshake`] unless one has already succeeded.
@@ -607,14 +612,12 @@ fn rest_verify_result(
         let status = ProofStatus::from(result.status);
         let reported = AxiomReport::from_reported(
             prover.clone(),
-            result
-                .trust
-                .axioms
-                .iter()
-                .map(|a| AxiomFlag::Other(a.clone())),
+            result.trust.axioms.iter().map(|a| AxiomFlag::from_name(a)),
         );
-        // ECHIDNA's list is the receipt; the canonical source scan still runs
-        // so a hole ECHIDNA did not name cannot raise the level.
+        // ECHIDNA's list is the receipt and counts at full severity (a named
+        // `sorry` caps the level even if the source looks clean, e.g. a hole
+        // in an imported module). The source scan is merged in as well, so a
+        // hole ECHIDNA did not name still counts.
         let axioms = reported.merge(AxiomTracker::scan_source(prover, content));
         let confidence =
             assess_confidence_with_axioms(prover, status, false, 1, axioms.worst_danger);
@@ -671,19 +674,41 @@ fn parse_rest_outcome(outcome: &str, valid: bool) -> ProofStatus {
 
 #[derive(Deserialize)]
 struct RestHealthResponse {
-    version: String,
+    /// Absent on servers older than 2.3.0.
+    #[serde(default)]
+    version: Option<String>,
+}
+
+/// Classify a non-success handshake status.
+///
+/// 5xx means the server is up but not ready (transient: the message says
+/// "unavailable", which [`crate::scheduler::retry::is_transient_error`]
+/// retries). Any other non-success status means this is not an ECHIDNA
+/// echidnabot can use.
+fn check_handshake_status(path: &str, status: reqwest::StatusCode) -> Result<()> {
+    if status.is_success() {
+        Ok(())
+    } else if status.is_server_error() {
+        Err(Error::Echidna(format!(
+            "ECHIDNA {path} unavailable (status {status})"
+        )))
+    } else {
+        Err(Error::EchidnaIncompatible(format!(
+            "ECHIDNA {path} returned status {status}"
+        )))
+    }
 }
 
 /// Parse a reported ECHIDNA version and enforce [`MIN_ECHIDNA_VERSION`].
 pub fn check_min_version(raw: &str) -> Result<semver::Version> {
     let trimmed = raw.trim().trim_start_matches('v');
     let version = semver::Version::parse(trimmed).map_err(|e| {
-        Error::Echidna(format!("ECHIDNA reported unparseable version {raw:?}: {e}"))
+        Error::EchidnaIncompatible(format!("ECHIDNA reported unparseable version {raw:?}: {e}"))
     })?;
     let minimum = semver::Version::parse(MIN_ECHIDNA_VERSION)
         .map_err(|e| Error::Internal(format!("MIN_ECHIDNA_VERSION is not semver: {e}")))?;
     if version < minimum {
-        return Err(Error::Echidna(format!(
+        return Err(Error::EchidnaIncompatible(format!(
             "ECHIDNA {version} is older than the minimum supported {minimum}"
         )));
     }
@@ -912,11 +937,51 @@ mod tests {
         assert_eq!(r.status, ProofStatus::Verified);
         assert_eq!(r.trust_source, TrustSource::Echidna);
         assert_eq!(r.duration_ms, 7);
-        assert!(r
-            .axioms
-            .unwrap()
-            .flags
-            .contains(&AxiomFlag::Other("propext".to_string())));
+        assert!(r.axioms.unwrap().flags.contains(&AxiomFlag::ClassicalAxiom));
+    }
+
+    #[test]
+    fn test_reported_sorry_caps_level_even_with_clean_source() {
+        let body = serde_json::json!({
+            "schema": "echidna.prove.result/1",
+            "status": "verified",
+            "prover": "Lean",
+            "goal": "t",
+            "duration_ms": 1,
+            "message": "ok",
+            "trust": {"confidence": null, "axioms": ["sorryAx"]},
+            "echidna_version": "2.4.0"
+        });
+        let r = rest_verify_result(
+            &ProverKind::new("lean"),
+            "theorem t : True := trivial",
+            body,
+        )
+        .unwrap();
+        assert!(r.axioms.as_ref().unwrap().has_unsound());
+        assert_eq!(
+            r.confidence.unwrap().level,
+            crate::trust::confidence::ConfidenceLevel::Level1
+        );
+    }
+
+    #[test]
+    fn test_handshake_status_classification() {
+        use reqwest::StatusCode;
+        assert!(check_handshake_status("/api/provers", StatusCode::OK).is_ok());
+        let warmup = check_handshake_status("/api/provers", StatusCode::SERVICE_UNAVAILABLE);
+        assert!(matches!(warmup, Err(Error::Echidna(_))));
+        assert!(crate::scheduler::retry::is_transient_error(
+            &warmup.unwrap_err()
+        ));
+        assert!(matches!(
+            check_handshake_status("/api/provers", StatusCode::NOT_FOUND),
+            Err(Error::EchidnaIncompatible(_))
+        ));
+        assert!(matches!(
+            check_min_version("2.2.0"),
+            Err(Error::EchidnaIncompatible(_))
+        ));
     }
 
     #[test]

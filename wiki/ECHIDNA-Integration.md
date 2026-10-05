@@ -6,12 +6,14 @@ echidnabot orchestrates; [ECHIDNA](https://github.com/hyperpolymath/echidna) pro
 ## Connecting
 
 - Default endpoints: `http://127.0.0.1:8081` (REST) and `http://127.0.0.1:8081/graphql`, the address `echidna server` listens on.
-- **Version handshake:** on start-up echidnabot reads `GET /api/provers` (and `/api/health` if needed) and refuses to run against an ECHIDNA older than **2.3.0**. An unreachable ECHIDNA only logs a warning; every job retries the handshake before dispatching.
+- **Version handshake:** on start-up echidnabot reads `GET /api/provers` (and `/api/health` if needed). It refuses to run against an ECHIDNA older than **2.3.0**, or one that reports no version. An unreachable or warming-up (5xx) ECHIDNA only logs a warning, and every job retries the handshake before dispatching. GraphQL-only mode skips this REST check.
 - Prover names are taken from ECHIDNA's own `/api/provers` list, so new ECHIDNA backends need no echidnabot change.
 
 ## Trust levels
 
 The 5-level confidence shown in check runs and PR comments is computed by **ECHIDNA's trust kernel** (linked as a library), not by an echidnabot copy. Axioms and holes (`sorry`, `Admitted`, `postulate`, `believe_me`, ...) are found by ECHIDNA's source scanner, plus a scan of the prover's output text.
+
+An axiom that ECHIDNA names (for example `sorryAx`) counts at full severity, even if echidnabot's own scan of the source finds nothing.
 
 echidnabot never verifies proof certificates itself, so a certificate artefact on its own does not raise a single result above Level 2.
 
@@ -34,4 +36,4 @@ When ECHIDNA answers in the shared contract shape, echidnabot reads it directly:
 
 ## Identifiers
 
-echidnabot mints UUIDv7 ids for jobs and records. For content (proof goals, prove results) it uses UUIDv8 content ids: SHA-256 over the RFC 8785 canonical JSON, the same construction ECHIDNA and proof-burrower use.
+echidnabot mints UUIDv7 ids for jobs and records. A UUIDv8 content-id helper (SHA-256 over RFC 8785 canonical JSON, the same construction ECHIDNA and proof-burrower use) is available in `src/ids.rs`. Nothing uses it yet for proof goals or results.

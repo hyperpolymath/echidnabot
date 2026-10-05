@@ -108,14 +108,26 @@ impl AxiomFlag {
 
     /// Map one ECHIDNA source-scan finding onto the local flag vocabulary.
     fn from_usage(usage: &AxiomUsage) -> Self {
-        match usage.construct.trim() {
-            "sorry" => Self::Sorry,
-            "Admitted" | "admit" => Self::Admitted,
+        Self::from_name(&usage.construct)
+    }
+
+    /// Map an axiom / construct name onto the local flag vocabulary.
+    ///
+    /// Used for both ECHIDNA source-scan findings and the names ECHIDNA
+    /// reports in `echidna.prove.result/1` `trust.axioms` (which may use the
+    /// kernel names, e.g. Lean's `sorryAx` from `#print axioms`).
+    pub fn from_name(name: &str) -> Self {
+        match name.trim() {
+            "sorry" | "sorryAx" => Self::Sorry,
+            "Admitted" | "admit" | "admitted" => Self::Admitted,
             "postulate" | "{!!}" => Self::Postulate,
-            "--type-in-type" | "OPTIONS --type-in-type" => Self::TypeInType,
+            "believe_me" | "assert_total" | "idris_crash" => Self::Postulate,
+            "--type-in-type" | "OPTIONS --type-in-type" | "type-in-type" => Self::TypeInType,
             "oops" => Self::Oops,
             "axiom" | "Axiom" => Self::UserAxiom,
             "assume" => Self::UndischargedAssumption,
+            "Classical.choice" | "choice" => Self::AxiomOfChoice,
+            "Classical.em" | "propext" | "Quot.sound" | "excluded_middle" => Self::ClassicalAxiom,
             other => Self::Other(other.to_string()),
         }
     }
@@ -183,7 +195,13 @@ impl AxiomReport {
 
     /// Build a report from raw flags, deduplicating and counting them.
     fn from_flags(prover: ProverKind, mut flags: Vec<AxiomFlag>) -> AxiomReport {
-        flags.sort_by_key(|f| std::cmp::Reverse(f.severity()));
+        // Sort by severity, then by identity, so equal flags are adjacent and
+        // `dedup` removes every duplicate (not only neighbouring ones).
+        flags.sort_by(|a, b| {
+            b.severity()
+                .cmp(&a.severity())
+                .then_with(|| a.description().cmp(&b.description()))
+        });
         flags.dedup();
         let unsound_count = flags.iter().filter(|f| f.severity() >= 3).count();
         let warning_count = flags.iter().filter(|f| f.severity() == 2).count();
@@ -532,6 +550,32 @@ mod tests {
     fn test_source_scan_idris_believe_me_is_reject() {
         let report = AxiomTracker::scan_source(&ProverKind::new("idris2"), "f = believe_me x\n");
         assert_eq!(report.worst_danger, DangerLevel::Reject);
+    }
+
+    #[test]
+    fn test_from_flags_dedups_non_adjacent_duplicates() {
+        let report = AxiomReport::from_reported(
+            ProverKind::new("lean"),
+            [
+                AxiomFlag::Sorry,
+                AxiomFlag::Admitted,
+                AxiomFlag::Sorry,
+                AxiomFlag::Other("x".into()),
+                AxiomFlag::AxiomOfChoice,
+                AxiomFlag::Other("x".into()),
+            ],
+        );
+        assert_eq!(report.flags.len(), 4, "{:?}", report.flags);
+    }
+
+    #[test]
+    fn test_from_name_maps_kernel_names() {
+        assert_eq!(AxiomFlag::from_name("sorryAx"), AxiomFlag::Sorry);
+        assert_eq!(
+            AxiomFlag::from_name("believe_me").danger_level(),
+            DangerLevel::Warning
+        );
+        assert_eq!(AxiomFlag::from_name("propext"), AxiomFlag::ClassicalAxiom);
     }
 
     #[test]

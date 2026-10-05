@@ -1182,11 +1182,17 @@ async fn record_feedback(
 
 /// Minimum-version handshake at start-up.
 ///
-/// An ECHIDNA that answers but is too old (or reports a non-semver version)
-/// stops start-up: every result it produced would be read with the wrong
-/// contract. An ECHIDNA that is not reachable yet only warns; each job runs
-/// the handshake again before it dispatches (see `process_job`).
+/// An ECHIDNA that answers but is incompatible (too old, no or non-semver
+/// version, or an unexpected REST shape) stops start-up: every result it
+/// produced would be read with the wrong contract. An ECHIDNA that is not
+/// reachable yet, or answers 5xx while warming up, only warns; each job runs
+/// the handshake again before it dispatches (see `process_job`). GraphQL-only
+/// deployments skip the REST handshake.
 async fn startup_handshake(echidna: &EchidnaClient) -> Result<()> {
+    if !echidna.uses_rest() {
+        tracing::info!("ECHIDNA mode is graphql: REST version handshake skipped");
+        return Ok(());
+    }
     match echidna.handshake().await {
         Ok(h) => {
             tracing::info!(
@@ -1197,9 +1203,9 @@ async fn startup_handshake(echidna: &EchidnaClient) -> Result<()> {
             );
             Ok(())
         }
-        Err(echidnabot::Error::Echidna(msg)) => Err(echidnabot::Error::Echidna(format!(
-            "ECHIDNA handshake failed: {msg}"
-        ))),
+        Err(echidnabot::Error::EchidnaIncompatible(msg)) => Err(
+            echidnabot::Error::EchidnaIncompatible(format!("ECHIDNA handshake failed: {msg}")),
+        ),
         Err(other) => {
             tracing::warn!(
                 "ECHIDNA not reachable at start-up ({other}); jobs will retry the handshake"
@@ -1224,7 +1230,7 @@ async fn process_job(
             "ECHIDNA core reported unhealthy status".to_string(),
         ));
     }
-    if !config.executor.local_isolation {
+    if !config.executor.local_isolation && echidna.uses_rest() {
         echidna.ensure_handshake().await?;
     }
 
