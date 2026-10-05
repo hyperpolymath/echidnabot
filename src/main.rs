@@ -288,6 +288,7 @@ async fn serve(
         config.scheduler.queue_size,
     ));
     let echidna = Arc::new(EchidnaClient::new(&config.echidna));
+    startup_handshake(&echidna).await?;
 
     let graphql_state = GraphQLState {
         store: store.clone(),
@@ -751,6 +752,7 @@ async fn run_scheduler_loop(
                         failed_files: vec![],
                         confidence: None,
                         axioms: None,
+                        trust_source: echidnabot::dispatcher::TrustSource::LocalFallback,
                     }
                 }
             };
@@ -852,6 +854,7 @@ async fn report_to_platform(
         artifacts: vec![],
         confidence: job_result.confidence.clone(),
         axioms: job_result.axioms.clone(),
+        trust_source: job_result.trust_source,
     };
 
     // Tactic suggestions for Advisor / Consultant / Regulator. Verifier
@@ -1177,6 +1180,37 @@ async fn record_feedback(
     }
 }
 
+/// Minimum-version handshake at start-up.
+///
+/// An ECHIDNA that answers but is too old (or reports a non-semver version)
+/// stops start-up: every result it produced would be read with the wrong
+/// contract. An ECHIDNA that is not reachable yet only warns; each job runs
+/// the handshake again before it dispatches (see `process_job`).
+async fn startup_handshake(echidna: &EchidnaClient) -> Result<()> {
+    match echidna.handshake().await {
+        Ok(h) => {
+            tracing::info!(
+                "ECHIDNA {} handshake ok ({} provers listed; minimum {})",
+                h.version,
+                h.provers.len(),
+                echidnabot::dispatcher::MIN_ECHIDNA_VERSION
+            );
+            Ok(())
+        }
+        Err(echidnabot::Error::Echidna(msg)) => Err(echidnabot::Error::Echidna(format!(
+            "ECHIDNA handshake failed: {msg}"
+        ))),
+        Err(other) => {
+            tracing::warn!(
+                "ECHIDNA not reachable at start-up ({other}); jobs will retry the handshake"
+            );
+            Ok(())
+        }
+    }
+}
+
+/// Run one proof job: check ECHIDNA (health + version handshake), find the
+/// proof files, verify each one, and aggregate status, axioms and trust.
 async fn process_job(
     job: &ProofJob,
     store: &dyn Store,
@@ -1189,6 +1223,9 @@ async fn process_job(
         return Err(echidnabot::Error::Echidna(
             "ECHIDNA core reported unhealthy status".to_string(),
         ));
+    }
+    if !config.executor.local_isolation {
+        echidna.ensure_handshake().await?;
     }
 
     let status = echidna.prover_status(&job.prover).await?;
@@ -1243,6 +1280,7 @@ async fn process_job(
             failed_files: vec![],
             confidence: None,
             axioms: None,
+            trust_source: echidnabot::dispatcher::TrustSource::LocalFallback,
         });
     }
 
@@ -1251,6 +1289,11 @@ async fn process_job(
     let mut verified = Vec::new();
     let mut failed = Vec::new();
     let mut prover_output = String::new();
+    // Source-level axiom scan (ECHIDNA's canonical scanner) over every file,
+    // merged with whatever ECHIDNA itself reported per file.
+    let mut source_axioms: Option<echidnabot::trust::axiom_tracker::AxiomReport> = None;
+    // `Echidna` only if ECHIDNA reported trust for every file it verified.
+    let mut all_trust_from_echidna = true;
 
     // Build the local sandboxed executor once (only when configured).
     // When `executor.local_isolation = false` (default), proofs delegate
@@ -1297,6 +1340,12 @@ async fn process_job(
             repo_path.join(path)
         };
         let content = fs::read_to_string(&full_path).await?;
+        let file_axioms =
+            echidnabot::trust::axiom_tracker::AxiomTracker::scan_source(&job.prover, &content);
+        source_axioms = Some(match source_axioms.take() {
+            Some(acc) => acc.merge(file_axioms),
+            None => file_axioms,
+        });
 
         let (verified_ok, output_chunk) = if let Some(ref ex) = local_executor {
             // Local sandboxed path. ExecutionResult is success on
@@ -1318,6 +1367,15 @@ async fn process_job(
         } else {
             // ECHIDNA-delegated path (default).
             let result = echidna.verify_proof(&job.prover, &content).await?;
+            if result.trust_source != echidnabot::dispatcher::TrustSource::Echidna {
+                all_trust_from_echidna = false;
+            }
+            if let Some(reported) = result.axioms {
+                source_axioms = Some(match source_axioms.take() {
+                    Some(acc) => acc.merge(reported),
+                    None => reported,
+                });
+            }
             (
                 result.status == echidnabot::dispatcher::ProofStatus::Verified,
                 result.prover_output,
@@ -1349,9 +1407,26 @@ async fn process_job(
     } else {
         echidnabot::dispatcher::ProofStatus::Failed
     };
-    let axioms = echidnabot::trust::axiom_tracker::AxiomTracker::scan(&job.prover, &prover_output);
-    let confidence =
-        echidnabot::trust::confidence::assess_confidence(&job.prover, final_status, false, 1);
+    let output_axioms =
+        echidnabot::trust::axiom_tracker::AxiomTracker::scan(&job.prover, &prover_output);
+    let axioms = match source_axioms {
+        Some(src) => src.merge(output_axioms),
+        None => output_axioms,
+    };
+    let confidence = echidnabot::trust::confidence::assess_confidence_with_axioms(
+        &job.prover,
+        final_status,
+        false,
+        1,
+        axioms.worst_danger,
+    );
+    // The level is always computed by ECHIDNA's trust kernel (linked in);
+    // `Echidna` here means every file's axiom data was reported by ECHIDNA.
+    let trust_source = if local_executor.is_none() && all_trust_from_echidna {
+        echidnabot::dispatcher::TrustSource::Echidna
+    } else {
+        echidnabot::dispatcher::TrustSource::LocalFallback
+    };
     Ok(echidnabot::scheduler::JobResult {
         success,
         message,
@@ -1361,6 +1436,7 @@ async fn process_job(
         failed_files: failed,
         confidence: Some(confidence),
         axioms: Some(axioms),
+        trust_source,
     })
 }
 

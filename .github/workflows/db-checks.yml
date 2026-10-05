@@ -46,8 +46,6 @@ jobs:
         # stating it explicitly keeps the step working across future re-pins.
         uses: dtolnay/rust-toolchain@v1
         with:
-          toolchain: master
-        with:
           toolchain: stable
 
       - name: Cache cargo
