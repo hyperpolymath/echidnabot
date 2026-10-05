@@ -25,7 +25,7 @@ jobs:
             # gh actions-lock owns line 1 of every workflow it manages, so
             # accept the licence anywhere in the leading comment block (the
             # rsr-template-repo form).
-            if ! awk '/^# SPDX-License-Identifier:/ { found=1 } /^[^#[:space:]]/ { exit } END { exit !found }' "$f"; then
+            if ! awk '/^# SPDX-License-Identifier:/ { found=1 } /^[[:space:]]*[^#[:space:]]/ { exit } END { exit !found }' "$f"; then
               echo "ERROR: $f missing SPDX header"
               errors=$((errors + 1))
             fi
