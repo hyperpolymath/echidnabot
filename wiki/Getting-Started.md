@@ -60,8 +60,10 @@ name = "your-repo"
 enabled = ["coq", "lean4"]
 
 [echidna]
-# Use public instance or self-host
-endpoint = "https://echidna.hyperpolymath.dev/graphql"
+# Default: a local `echidna server` on port 8081 (REST + GraphQL).
+# echidnabot checks the server is ECHIDNA >= 2.3.0 at start-up.
+endpoint = "http://127.0.0.1:8081/graphql"
+rest_endpoint = "http://127.0.0.1:8081"
 ```
 
 ### 2. Set Up Webhook

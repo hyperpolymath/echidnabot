@@ -72,7 +72,7 @@ Every commit with proof files gets verified. Broken proofs block merges (in `reg
 | **4 Bot Modes**        | Verifier, Advisor, Consultant, Regulator                   |
 | **ML Suggestions**     | Tactic suggestions via ECHIDNA's Julia ML backend          |
 | **Container Isolation**| podman rootless + bwrap fallback; fail-safe (refuses unsandboxed) |
-| **Trust Bridge**       | 5-level confidence, SHA-256 solver integrity, axiom tracking |
+| **Trust Bridge**       | 5-level confidence from ECHIDNA's own trust kernel, SHA-256 solver integrity, axiom tracking ([[ECHIDNA Integration]]) |
 | **GraphQL API**        | Query and control programmatically                         |
 | **Self-Hosting**       | Run your own instance; Containerfile + Guix supplied      |
 
