@@ -505,6 +505,7 @@ impl Config {
 }
 
 /// Render a secret-bearing field for `Debug` without its value.
+/// Returns `"<redacted>"` for `Some` and `"<unset>"` for `None`.
 ///
 /// Pattern from the types fit map (secret-types is not yet a usable
 /// library): tokens and webhook secrets never reach logs through `{:?}`.

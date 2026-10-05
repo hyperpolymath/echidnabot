@@ -96,8 +96,8 @@ impl AxiomFlag {
     /// The ECHIDNA danger level this flag corresponds to.
     ///
     /// `--type-in-type` can manufacture false theorems, so it is `Reject`;
-    /// the other unsound holes are `Warning` (ECHIDNA's level for `sorry`,
-    /// `Admitted` and `oops`); everything else is `Noted`.
+    /// `Sorry`, `Admitted`, `Oops` and `Postulate` are `Warning`;
+    /// everything else is `Noted`.
     pub fn danger_level(&self) -> DangerLevel {
         match self {
             Self::TypeInType => DangerLevel::Reject,
@@ -116,6 +116,7 @@ impl AxiomFlag {
     /// Used for both ECHIDNA source-scan findings and the names ECHIDNA
     /// reports in `echidna.prove.result/1` `trust.axioms` (which may use the
     /// kernel names, e.g. Lean's `sorryAx` from `#print axioms`).
+    /// Surrounding whitespace is trimmed; unrecognised names become `Other`.
     pub fn from_name(name: &str) -> Self {
         match name.trim() {
             "sorry" | "sorryAx" => Self::Sorry,
@@ -179,6 +180,8 @@ impl AxiomReport {
 
     /// Combine two reports on the same proof (for example a source scan and
     /// an output scan): the union of the flags and the worse danger level.
+    /// Retains this report's prover without checking that the other matches,
+    /// deduplicates flags and recalculates counts.
     pub fn merge(mut self, other: AxiomReport) -> AxiomReport {
         let worst = DangerLevel::max_danger(self.worst_danger, other.worst_danger);
         self.flags.extend(other.flags);

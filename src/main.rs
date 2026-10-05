@@ -238,6 +238,13 @@ type TracerFlushHook = Box<
         + 'static,
 >;
 
+/// Initialise storage and the scheduler, then serve HTTP on `host:port`.
+/// On shutdown, drain jobs within the configured timeout, close storage and
+/// run `tracer_hook` if supplied.
+///
+/// Propagates storage initialisation, incompatible ECHIDNA handshake and
+/// listener-binding errors. HTTP serving errors trigger shutdown and are
+/// consumed; other handshake failures allow start-up to continue.
 async fn serve(
     config: &Config,
     host: &str,
@@ -718,6 +725,11 @@ async fn init_db(config: &Config) -> Result<()> {
     Ok(())
 }
 
+/// Process queued jobs sequentially, persist outcomes and report them to the
+/// originating platform. Job errors become unsuccessful results; persistence,
+/// feedback and reporting failures do not stop the loop.
+///
+/// Checks `shutdown` while waiting for work, without interrupting an active job.
 async fn run_scheduler_loop(
     scheduler: Arc<JobScheduler>,
     store: Arc<dyn Store>,
@@ -798,17 +810,18 @@ async fn run_scheduler_loop(
 ///
 /// Cascade:
 ///   1. Look up the repository row to recover platform + bot mode.
-///   2. Resolve the effective mode via `modes::resolve_mode` (directive
-///      content is None until the executor lands a clone-and-read step).
+///   2. Resolve the effective mode from the fetched repository directive,
+///      repository settings and daemon default.
 ///   3. Build the platform-appropriate adapter.
 ///   4. Translate the `JobResult` into a `ProofResult` for the formatter,
 ///      then format per-mode.
-///   5. Always create a check run; comment on the originating PR for
+///   5. Attempt a check run; comment on the originating PR for
 ///      modes that opt in (Advisor / Consultant / Regulator).
 ///
-/// All steps are best-effort. Errors are surfaced to the caller (which
-/// logs but does not propagate them), so a 503 from GitHub or a missing
-/// token never blocks the scheduler.
+/// A missing repository is a no-op. Repository lookup and final adapter
+/// construction errors reach the caller. Directive, suggestion, reranking,
+/// coverage lookup and posting failures are handled locally. Failed inline
+/// review comments fall back to general PR comments.
 async fn report_to_platform(
     store: Arc<dyn Store>,
     echidna: &EchidnaClient,
@@ -1182,12 +1195,10 @@ async fn record_feedback(
 
 /// Minimum-version handshake at start-up.
 ///
-/// An ECHIDNA that answers but is incompatible (too old, no or non-semver
-/// version, or an unexpected REST shape) stops start-up: every result it
-/// produced would be read with the wrong contract. An ECHIDNA that is not
-/// reachable yet, or answers 5xx while warming up, only warns; each job runs
-/// the handshake again before it dispatches (see `process_job`). GraphQL-only
-/// deployments skip the REST handshake.
+/// Propagates `Error::EchidnaIncompatible` and converts all other handshake
+/// errors to success, allowing start-up to continue. Delegated REST jobs
+/// retry when no successful handshake is cached (see `process_job`).
+/// GraphQL-only deployments skip the REST handshake.
 async fn startup_handshake(echidna: &EchidnaClient) -> Result<()> {
     if !echidna.uses_rest() {
         tracing::info!("ECHIDNA mode is graphql: REST version handshake skipped");
@@ -1215,8 +1226,19 @@ async fn startup_handshake(echidna: &EchidnaClient) -> Result<()> {
     }
 }
 
-/// Run one proof job: check ECHIDNA (health + version handshake), find the
-/// proof files, verify each one, and aggregate status, axioms and trust.
+/// Run one proof job and aggregate file verdicts, axioms and confidence.
+///
+/// Checks ECHIDNA health and prover availability even for local execution;
+/// delegated REST jobs also ensure a cached version handshake. Clones the
+/// requested revision, discovers proof files when none were supplied and
+/// stores the discovered paths. Duration includes these steps, in milliseconds.
+/// No proof files yields an unsuccessful result without trust data.
+///
+/// Propagates database, checkout, file-reading and ECHIDNA errors, and returns
+/// a configuration error if local isolation has no available backend. Local
+/// execution errors become failed file verdicts. File-discovery task failures
+/// become an empty file list. Confidence is computed locally; trust provenance
+/// is `Echidna` only when every delegated result reports that provenance.
 async fn process_job(
     job: &ProofJob,
     store: &dyn Store,

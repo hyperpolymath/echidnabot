@@ -145,6 +145,12 @@ pub fn assess_confidence(
 /// is always passed as `false`: a certificate artefact raises nothing above
 /// Level 2 on its own. Solver integrity is checked elsewhere
 /// ([`crate::trust::SolverIntegrity`]) and is assumed here.
+///
+/// `checker_count` is the number of independent checkers that confirmed the
+/// result; values above `u32::MAX` are capped for assessment but retained in
+/// the report. `worst_axiom_danger` is the highest danger found in the proof.
+/// A status other than `Verified` returns Level 1 with no certificate and
+/// zero checkers, regardless of the supplied values.
 pub fn assess_confidence_with_axioms(
     prover: &ProverKind,
     status: ProofStatus,

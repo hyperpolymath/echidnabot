@@ -56,7 +56,8 @@ pub fn content_id(value: &serde_json::Value) -> Result<Uuid, serde_json::Error> 
 
 /// Content id of a proof goal's text (a JSON string).
 ///
-/// Infallible: a JSON string always canonicalises.
+/// Hashes the exact text as a JSON string, without trimming or normalisation.
+/// Returns the nil UUID if canonicalisation fails instead of propagating an error.
 pub fn goal_content_id(goal_text: &str) -> Uuid {
     content_id(&serde_json::Value::String(goal_text.to_string())).unwrap_or_else(|_| Uuid::nil())
 }

@@ -98,12 +98,23 @@ pub struct ProveResult {
 
 impl ProveResult {
     /// Parse and validate one `echidna.prove.result/1` object from text.
+    ///
+    /// Accepts surrounding whitespace and non-canonical key order. Invalid
+    /// JSON returns [`Error::Json`]; validation errors from [`Self::from_value`]
+    /// are propagated.
     pub fn parse(text: &str) -> Result<Self> {
         let value: serde_json::Value = serde_json::from_str(text.trim())?;
         Self::from_value(value)
     }
 
     /// Validate an already-parsed JSON value as `echidna.prove.result/1`.
+    ///
+    /// # Errors
+    /// Returns [`Error::Echidna`] for a missing or different schema tag, a
+    /// supplied duration outside the integer range `0..=2^53-1` milliseconds,
+    /// or non-finite confidence. Returns [`Error::Json`] for deserialisation
+    /// failures, including missing required fields, unknown top-level fields
+    /// and unknown statuses. Unknown fields within `trust` are ignored.
     pub fn from_value(value: serde_json::Value) -> Result<Self> {
         if !Self::is_prove_result(&value) {
             return Err(Error::Echidna(format!(

@@ -46,6 +46,9 @@ pub struct EchidnaClient {
 
 impl EchidnaClient {
     /// Create a new ECHIDNA client
+    ///
+    /// # Panics
+    /// Panics if the HTTP client cannot be initialised.
     pub fn new(config: &EchidnaConfig) -> Self {
         let client = Client::builder()
             .timeout(Duration::from_secs(config.timeout_secs))
@@ -66,9 +69,14 @@ impl EchidnaClient {
     ///
     /// Lists `/api/provers` (which also proves the REST surface is there) and
     /// reads the version from that response if present, otherwise from
-    /// `/api/health`. Fails with [`Error::Echidna`] if the server is older
-    /// than [`MIN_ECHIDNA_VERSION`] or reports an unparseable version. On
-    /// success the prover list is remembered for slug → name resolution.
+    /// `/api/health`. Returns the version and prover names, caching them for
+    /// slug resolution unless the cache lock is poisoned.
+    ///
+    /// # Errors
+    /// Returns [`Error::Http`] for request failures, [`Error::Echidna`] for
+    /// 5xx responses, and [`Error::EchidnaIncompatible`] for other unsuccessful
+    /// statuses, unreadable response bodies, or a missing, unparseable or
+    /// older-than-[`MIN_ECHIDNA_VERSION`] version.
     pub async fn handshake(&self) -> Result<EchidnaHandshake> {
         let response = self
             .client
@@ -123,6 +131,9 @@ impl EchidnaClient {
     }
 
     /// Run [`EchidnaClient::handshake`] unless one has already succeeded.
+    ///
+    /// Returns the cached result without rechecking the server. If the cache
+    /// is empty or unreadable, performs the handshake and propagates its errors.
     pub async fn ensure_handshake(&self) -> Result<EchidnaHandshake> {
         let cached = self.handshake.read().ok().and_then(|slot| slot.clone());
         match cached {
@@ -134,8 +145,8 @@ impl EchidnaClient {
     /// ECHIDNA's identifier for an echidnabot prover slug.
     ///
     /// Uses the list learned by [`EchidnaClient::handshake`] when one is
-    /// available (case-, `-`- and `_`-insensitive match), and otherwise the
-    /// static mapping for the classic provers.
+    /// available, ignoring case, `-`, `_`, spaces and `/`. With no match,
+    /// uses the classic prover mapping or the prover's display name.
     pub fn echidna_name(&self, prover: &ProverKind) -> String {
         let known = self
             .handshake
@@ -248,6 +259,12 @@ impl EchidnaClient {
         format!("{}{}", base, path)
     }
 
+    /// Submit proof source through GraphQL and derive confidence locally from
+    /// its source, prover output and certificate artefact names.
+    ///
+    /// Returns [`Error::Http`] for request or response-decoding failures and
+    /// [`Error::Echidna`] for unsuccessful HTTP statuses, GraphQL errors or
+    /// missing response data.
     async fn verify_proof_graphql(
         &self,
         prover: &ProverKind,
@@ -457,6 +474,11 @@ impl EchidnaClient {
         }
     }
 
+    /// Submit proof source to `/api/verify` using the resolved prover name.
+    ///
+    /// Returns [`Error::Http`] for request or JSON-decoding failures and
+    /// [`Error::Echidna`] for unsuccessful HTTP statuses. Result validation
+    /// errors from [`rest_verify_result`] are propagated.
     async fn verify_proof_rest(&self, prover: &ProverKind, content: &str) -> Result<ProofResult> {
         let request = RestVerifyRequest {
             prover: self.echidna_name(prover),
@@ -483,6 +505,12 @@ impl EchidnaClient {
         rest_verify_result(prover, content, body)
     }
 
+    /// Request up to five tactics for `goal_state`, or for `context` when the
+    /// goal state is blank. Each returned tactic receives confidence `0.5`
+    /// and a heuristic explanation.
+    ///
+    /// Returns [`Error::Http`] for request or response-decoding failures and
+    /// [`Error::Echidna`] for unsuccessful HTTP statuses.
     async fn suggest_tactics_rest(
         &self,
         prover: &ProverKind,
@@ -543,6 +571,10 @@ impl EchidnaClient {
         }
     }
 
+    /// Check whether `/api/provers` lists a matching normalised prover name.
+    ///
+    /// An absent name yields `Unavailable`; unsuccessful HTTP statuses yield
+    /// `Unknown`. Request and response-decoding failures return [`Error::Http`].
     async fn prover_status_rest(&self, prover: &ProverKind) -> Result<ProverStatus> {
         let response = self
             .client
@@ -599,9 +631,17 @@ struct RestVerifyResponse {
 
 /// Build a [`ProofResult`] from a REST `/api/verify` body.
 ///
-/// An `echidna.prove.result/1` body is read as that contract and its `trust`
-/// object is transported ([`TrustSource::Echidna`]). Any other body is read
-/// as the legacy shape and trust is derived locally from the proof source.
+/// An `echidna.prove.result/1` body supplies status, message, duration in
+/// milliseconds and reported axioms ([`TrustSource::Echidna`]). Its axioms
+/// are merged with a scan of `content`; confidence is recalculated locally,
+/// ignoring the reported confidence. Other bodies use the legacy shape,
+/// source-only axiom scanning and a zero duration. Both return empty prover
+/// output and artefact lists.
+///
+/// # Errors
+/// Propagates [`ProveResult::from_value`] validation errors for tagged bodies
+/// without trying the legacy shape. Legacy deserialisation errors return
+/// [`Error::Json`].
 fn rest_verify_result(
     prover: &ProverKind,
     content: &str,
@@ -661,6 +701,9 @@ fn rest_verify_result(
 }
 
 /// Map ECHIDNA's typed REST outcome onto [`ProofStatus`].
+///
+/// Matching ignores ASCII case. Unknown outcomes yield `Verified` when
+/// `valid` is true and `Unknown` otherwise; recognised outcomes ignore `valid`.
 fn parse_rest_outcome(outcome: &str, valid: bool) -> ProofStatus {
     match outcome.to_ascii_uppercase().as_str() {
         "PROVED" => ProofStatus::Verified,
@@ -679,12 +722,11 @@ struct RestHealthResponse {
     version: Option<String>,
 }
 
-/// Classify a non-success handshake status.
+/// Accept successful handshake statuses and classify failures.
 ///
-/// 5xx means the server is up but not ready (transient: the message says
-/// "unavailable", which [`crate::scheduler::retry::is_transient_error`]
-/// retries). Any other non-success status means this is not an ECHIDNA
-/// echidnabot can use.
+/// Returns [`Error::Echidna`] for 5xx responses, classified as transient by
+/// [`crate::scheduler::retry::is_transient_error`]. Other unsuccessful statuses
+/// return [`Error::EchidnaIncompatible`]. `path` identifies the failing endpoint.
 fn check_handshake_status(path: &str, status: reqwest::StatusCode) -> Result<()> {
     if status.is_success() {
         Ok(())
@@ -700,6 +742,10 @@ fn check_handshake_status(path: &str, status: reqwest::StatusCode) -> Result<()>
 }
 
 /// Parse a reported ECHIDNA version and enforce [`MIN_ECHIDNA_VERSION`].
+///
+/// Surrounding whitespace and leading lowercase `v` characters are ignored.
+/// Returns [`Error::EchidnaIncompatible`] if parsing fails or the version is
+/// below the minimum, using semantic-version ordering.
 pub fn check_min_version(raw: &str) -> Result<semver::Version> {
     let trimmed = raw.trim().trim_start_matches('v');
     let version = semver::Version::parse(trimmed).map_err(|e| {
