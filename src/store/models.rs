@@ -13,7 +13,7 @@ use crate::modes::BotMode;
 use crate::scheduler::{JobId, JobPriority, JobStatus};
 
 /// Repository record
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Repository {
     pub id: Uuid,
     pub platform: Platform,
@@ -43,15 +43,45 @@ pub struct Repository {
     pub regulator_coverage_threshold: u8,
 }
 
+impl std::fmt::Debug for Repository {
+    /// Debug output with `webhook_secret` redacted (log-leak guard).
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Repository")
+            .field("id", &self.id)
+            .field("platform", &self.platform)
+            .field("owner", &self.owner)
+            .field("name", &self.name)
+            .field(
+                "webhook_secret",
+                &crate::config::redacted(&self.webhook_secret),
+            )
+            .field("enabled_provers", &self.enabled_provers)
+            .field("check_on_push", &self.check_on_push)
+            .field("check_on_pr", &self.check_on_pr)
+            .field("auto_comment", &self.auto_comment)
+            .field("enabled", &self.enabled)
+            .field("last_checked_commit", &self.last_checked_commit)
+            .field("created_at", &self.created_at)
+            .field("updated_at", &self.updated_at)
+            .field("mode", &self.mode)
+            .field(
+                "regulator_coverage_threshold",
+                &self.regulator_coverage_threshold,
+            )
+            .finish()
+    }
+}
+
 fn default_regulator_threshold() -> u8 {
     100
 }
 
 impl Repository {
+    /// New repository record with defaults and a fresh UUIDv7 id.
     pub fn new(platform: Platform, owner: String, name: String) -> Self {
         let now = Utc::now();
         Self {
-            id: Uuid::new_v4(),
+            id: crate::ids::new_record_id(),
             platform,
             owner,
             name,
@@ -136,9 +166,10 @@ pub struct ProofResultRecord {
 }
 
 impl ProofResultRecord {
+    /// Persistable record of a job result, with a fresh UUIDv7 id.
     pub fn new(job_id: JobId, result: &crate::scheduler::JobResult) -> Self {
         Self {
-            id: Uuid::new_v4(),
+            id: crate::ids::new_record_id(),
             job_id: job_id.0,
             success: result.success,
             message: result.message.clone(),
@@ -180,6 +211,7 @@ pub struct TacticOutcomeRecord {
 }
 
 impl TacticOutcomeRecord {
+    /// Record of one tactic attempt, with a fresh UUIDv7 id.
     pub fn new(
         job_id: Option<Uuid>,
         prover: ProverKind,
@@ -189,7 +221,7 @@ impl TacticOutcomeRecord {
         duration_ms: i64,
     ) -> Self {
         Self {
-            id: Uuid::new_v4(),
+            id: crate::ids::new_record_id(),
             job_id,
             prover,
             goal_fingerprint,

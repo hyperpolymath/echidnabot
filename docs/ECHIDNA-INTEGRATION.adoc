@@ -1,0 +1,171 @@
+// SPDX-License-Identifier: CC-BY-SA-4.0
+// Copyright (c) Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+= echidnabot ⇄ ECHIDNA integration
+:toc:
+
+This page records how echidnabot depends on `hyperpolymath/echidna`, which
+parts are shared code and which are local, and the follow-ups still open.
+Status words follow AGENTS.md §6: _implemented_, _tested_, _wired_ and
+_proved_ mean different things and none implies the next.
+
+== Trust kernel (shared, not re-implemented)
+
+`src/trust/confidence.rs` and `src/trust/axiom_tracker.rs` no longer carry
+their own algorithms.
+
+* The trust *level* comes from `echidna_core_spark::compute_trust_level`
+  (ECHIDNA's trust kernel). echidnabot only maps its inputs onto ECHIDNA's
+  `TrustFactors`. `certificate_verified` is always `false`, because echidnabot
+  never checks a certificate itself.
+* The proof-*source* axiom scan is ECHIDNA's
+  `echidna_core_spark::axiom_tracker::AxiomTracker`, called through
+  `AxiomTracker::scan_source`.
+* The prover-*output* text scan (`AxiomTracker::scan`, for example Lean's
+  "declaration uses 'sorry'") stays local. ECHIDNA has no equivalent.
+
+The dependency is a git dependency pinned by full rev
+(`b761b3a832981be51d4e88076ef1b90fe5037e9c`, on echidna `main`). A path
+dependency would break standalone builds.
+
+Status: implemented and tested (unit tests in both modules). The kernel's
+Creusot annotations are ECHIDNA's. echidnabot does not claim they are
+proved.
+
+=== Follow-up: crate rename
+
+At the pinned rev the crate is named `echidna-core-spark`. It is not SPARK.
+Upstream intends to rename it (`echidna-core-creusot`) and to move the trust
+types into `echidna-core`. When either change lands on echidna `main`, update
+the `Cargo.toml` line and the `use` paths. Do not pin to an unmerged branch.
+
+== Prover identifiers
+
+`ProverKind` was already a string slug (`ProverKind::new("lean")`) and is no
+longer a 12-variant enum. echidnabot no longer keeps a static table of
+ECHIDNA's names either. The start-up handshake (below) reads ECHIDNA's own
+list from `/api/provers`. `EchidnaClient::echidna_name` matches a slug
+against that list, ignoring case, `-` and `_`. The static mapping is used
+only for the classic provers, and only when no list is available.
+
+Not done: depending on `echidna-core`'s `ProverKind` enum directly. That
+would tie echidnabot's release cadence to every backend ECHIDNA adds, which
+is the drift the slug type exists to avoid. Revisit if ECHIDNA publishes a
+small, stable identifiers crate.
+
+== Minimum-version handshake
+
+`EchidnaClient::handshake` calls `GET /api/provers`, which also confirms
+that the REST surface is up. It reads the server version from the
+`version` or `echidna_version` field of that response, or from
+`/api/health` if neither is present. It then enforces `MIN_ECHIDNA_VERSION`
+(`2.3.0`).
+
+* At `serve` start-up, an ECHIDNA that answers but is incompatible stops
+  the process (`Error::EchidnaIncompatible`). Incompatible means one of:
+  too old, no version reported, a non-semver version, a 4xx on the
+  handshake paths, or a body that cannot be parsed. An unreachable ECHIDNA,
+  or one returning 5xx while it warms up, only logs a warning.
+* Every job runs `ensure_handshake` before it dispatches, unless local
+  isolation is on.
+* With `mode = "graphql"` there is no REST surface, so the handshake is
+  skipped. A GraphQL version query is a follow-up.
+
+Status: implemented and unit-tested (version gate, name resolution). It is
+wired into `serve` and `process_job`. No end-to-end test against a live
+ECHIDNA was run.
+
+== Default endpoint
+
+`echidna server` listens on `127.0.0.1:8081` and serves REST only. GraphQL
+is the separate `echidna-graphql` binary, which serves at `/` and is also
+hard-coded to `127.0.0.1:8081`, so only one of the two can run on a host at
+a time. The defaults are `http://127.0.0.1:8081` (REST) and
+`http://127.0.0.1:8081/` (GraphQL), in `src/config.rs`, `echidnabot.toml`,
+`echidnabot.example.toml` and `config/echidnabot.ncl`. In `auto` mode
+echidnabot tries GraphQL first and falls back to REST, so either binary
+works with the defaults.
+
+Traced live on 2026-10-05 against echidna `a71aa2c` (z3 and coqc on
+PATH): REST through `echidna server`, and GraphQL through
+`echidna-graphql`, each with a planted false goal that must not verify.
+Before this change the GraphQL default was `/graphql`, which returns 404
+from `echidna-graphql`. See `tests/live_echidna.rs`.
+
+== `echidna.prove.result/1`
+
+`src/dispatcher/prove_result.rs` parses and validates the shared contract
+object:
+
+[source,json]
+----
+{"duration_ms":12,"echidna_version":"2.3.0","goal":"t","message":"ok","prover":"Lean","schema":"echidna.prove.result/1","status":"verified","trust":{"axioms":[],"confidence":null}}
+----
+
+A REST `/api/verify` body that carries the schema tag is read in this
+shape. Any other body goes through the legacy path (`valid`, plus the typed
+`outcome` when present).
+
+* Validation is strict about the schema tag, the status vocabulary, unknown
+  fields, the I-JSON integer bound on `duration_ms` (≤ 2^53−1) and a finite
+  `confidence`.
+* Key order is not enforced. A valid object that is not JCS-canonical is
+  still accepted, because echidnabot is a consumer.
+
+=== Receipt vs warrant (pattern from epistemic-types)
+
+Axiom names that ECHIDNA reports are mapped with `AxiomFlag::from_name`.
+Kernel names such as Lean's `sorryAx` and Idris's `believe_me` are
+included. A hole that ECHIDNA names therefore caps the level at 1, even
+when the local source looks clean (for example, a hole in an imported
+module).
+
+`ProofResult.trust_source` / `JobResult.trust_source` record where the trust
+data came from:
+
+* `echidna`: ECHIDNA reported `trust.axioms` itself. echidnabot passes them
+  on unchanged (a _receipt_).
+* `local-fallback`: echidnabot derived the axioms from the source and
+  output (a _warrant_).
+
+This is a plain enum that copies the distinction drawn by
+`hyperpolymath/epistemic-types`. It is not a dependency, because that
+library has no Rust port.
+
+== Identifiers
+
+`src/ids.rs` is the only module that mints identifiers:
+
+* `new_record_id()` returns a UUIDv7 for records and events: jobs,
+  repositories, result records and fleet findings.
+* `content_id(value)` returns a UUIDv8 per RFC 9562 Appendix B.2. It takes
+  SHA-256 over the RFC 8785 (JCS) bytes of the value, keeps the first 16
+  bytes, and sets version `8` and variant `10`. Use it for proof goals and
+  prove results. `goal_content_id(text)` is the string form.
+
+ECHIDNA and proof-burrower use the same construction, so all three agree on
+a content id. JCS bytes come from the `serde_json_canonicalizer` crate,
+because the estate crate `hyperpolymath/ijson-jcs` is private and a public
+build cannot depend on it. Swap it in once it is public.
+
+Minting sites routed through `ids::new_record_id` (previously
+`Uuid::new_v4`):
+
+* `src/scheduler/mod.rs` `JobId::new`
+* `src/store/models.rs`: `Repository::new`, `ProofResultRecord::new`,
+  `TacticOutcomeRecord::new`
+* tests and benches only: `src/fleet/mod.rs` (×3),
+  `src/feedback/corpus_delta.rs`, `src/feedback/reranker.rs`,
+  `src/scheduler/job_queue.rs`, `src/store/sqlite.rs`,
+  `tests/integration_tests.rs`, `tests/lifecycle.rs`, `tests/regressions/mod.rs`,
+  `benches/echidnabot_bench.rs`
+
+== Secrets in logs (pattern from the types fit map)
+
+`GitHubConfig`, `GitLabConfig`, `CodebergConfig` and `store::Repository` now
+have hand-written `Debug` impls that print `<redacted>` / `<unset>` in place
+of tokens and webhook secrets. This is not `secret-types`, which is still an
+empty template upstream.
+
+Still open: webhook secrets are stored in plaintext in SQLite
+(`store/sqlite.rs`). At-rest protection would need januskey's `KeyManager`
+split out into a library crate.

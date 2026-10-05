@@ -14,7 +14,7 @@ workflows:
         - 'actions/configure-pages@v6.0.0'
         - 'actions/deploy-pages@v5.0.1'
         - 'actions/upload-pages-artifact@v5.0.0'
-        - 'haskell-actions/setup@v2.12.0'
+        - 'haskell-actions/setup@v2.12.1'
     '.github/workflows/cflite_batch.yml':
         - 'google/clusterfuzzlite@v1'
     '.github/workflows/cflite_pr.yml':
@@ -26,7 +26,7 @@ workflows:
         - 'docker/build-push-action@v7.4.0'
         - 'docker/login-action@v4.6.0'
         - 'docker/metadata-action@v6.2.0'
-        - 'docker/setup-buildx-action@v4.4.0'
+        - 'docker/setup-buildx-action@v4.4.1'
     '.github/workflows/db-checks.yml':
         - 'actions/checkout@v7.0.1'
         - 'dtolnay/rust-toolchain@v1'
@@ -38,16 +38,12 @@ workflows:
         - 'actions/checkout@v7.0.1'
         - 'actions/deploy-pages@v5.0.1'
         - 'actions/upload-pages-artifact@v5.0.0'
-        - 'haskell-actions/setup@v2.12.0'
+        - 'haskell-actions/setup@v2.12.1'
     '.github/workflows/dogfood-gate.yml':
         - 'actions/checkout@v7.0.1'
     '.github/workflows/e2e.yml':
         - 'actions/checkout@v7.0.1'
         - 'swatinem/rust-cache@v2.9.2'
-    '.github/workflows/echidna-fuzz.yml':
-        - 'actions/cache@v6.1.0'
-        - 'actions/checkout@v7.0.1'
-        - 'actions/upload-artifact@v7.0.1'
     '.github/workflows/echidnabot.yml':
         - 'actions/checkout@v7.0.1'
     '.github/workflows/governance.yml': []
@@ -163,9 +159,9 @@ dependencies:
         commit: 'sha1-dc802804100637a589fabce1cb79ff13a1411302'
         owner_id: 5429470
         repo_id: 306769011
-    'docker/setup-buildx-action@v4.4.0':
-        ref: 'v4.4.0'
-        commit: 'sha1-594f3bf4285d9ea8dc53c9a0c9c4092420091003'
+    'docker/setup-buildx-action@v4.4.1':
+        ref: 'v4.4.1'
+        commit: 'sha1-f87e5991a6d7451dcb8d9637bfbc97413f497069'
         owner_id: 5429470
         repo_id: 288485773
     'dtolnay/rust-toolchain@v1':
@@ -183,9 +179,9 @@ dependencies:
         commit: 'sha1-884713a6c30a92e5e8544c39945cd7cb630abcd1'
         owner_id: 1342004
         repo_id: 400046858
-    'haskell-actions/setup@v2.12.0':
-        ref: 'v2.12.0'
-        commit: 'sha1-6037f33647c3f17758a2356c80fc4a53d7e0685d'
+    'haskell-actions/setup@v2.12.1':
+        ref: 'v2.12.1'
+        commit: 'sha1-0f8e8c99d88aeb3fbfd523f1ef2c6f762d10d64d'
         owner_id: 75048950
         repo_id: 623796603
     'softprops/action-gh-release@v3.0.3':
@@ -198,58 +194,3 @@ dependencies:
         commit: 'sha1-6323deb102c322ba6fcbdcafc7e3dddab59af2b6'
         owner_id: 580492
         repo_id: 298565987
-    'Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4':
-        ref: 'v2'
-        commit: 'sha1-c19371144df3bb44fab255c43d04cbc2ab54d1c4'
-        owner_id: 580492
-        repo_id: 298565987
-    'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9':
-        ref: 'v6.1.0'
-        commit: 'sha1-55cc8345863c7cc4c66a329aec7e433d2d1c52a9'
-        owner_id: 44036562
-        repo_id: 215566462
-    'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1':
-        ref: 'v7.0.1'
-        commit: 'sha1-3d3c42e5aac5ba805825da76410c181273ba90b1'
-        owner_id: 44036562
-        repo_id: 197814629
-    'actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0':
-        ref: 'v7.0.0'
-        commit: 'sha1-9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0'
-        owner_id: 44036562
-        repo_id: 197814629
-    'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a':
-        ref: 'v7.0.1'
-        commit: 'sha1-043fb46d1a93c77aae656e7c1c64a875d1fc6a0a'
-        owner_id: 44036562
-        repo_id: 192625955
-    'codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f':
-        ref: 'v7.0.0'
-        commit: 'sha1-fb8b3582c8e4def4969c97caa2f19720cb33a72f'
-        owner_id: 8226205
-        repo_id: 200299178
-    'dtolnay/rust-toolchain@67ef31d5b988238dd797d409d6f9574278e20537':
-        ref: 'stable'
-        commit: 'sha1-67ef31d5b988238dd797d409d6f9574278e20537'
-        owner_id: 1940490
-        repo_id: 260749683
-    'editorconfig-checker/action-editorconfig-checker@840e866d93b8e032123c23bac69dece044d4d84c':
-        ref: 'v2.2.0'
-        commit: 'sha1-840e866d93b8e032123c23bac69dece044d4d84c'
-        owner_id: 26415196
-        repo_id: 297874902
-    'erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124':
-        ref: 'v1.24.1'
-        commit: 'sha1-54075bcc5e249e4758d363f27d099f55d843f124'
-        owner_id: 47606891
-        repo_id: 331103973
-    'ossf/scorecard-action@4eaacf0543bb3f2c246792bd56e8cdeffafb205a':
-        ref: 'v2.4.3'
-        commit: 'sha1-4eaacf0543bb3f2c246792bd56e8cdeffafb205a'
-        owner_id: 67707773
-        repo_id: 421101922
-    'webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555':
-        ref: 'v0.10.0'
-        commit: 'sha1-e83874834305fe9a4a2997156cb26c5de65a8555'
-        owner_id: 135788
-        repo_id: 208510314

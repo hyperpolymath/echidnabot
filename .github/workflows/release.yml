@@ -53,8 +53,6 @@ jobs:
         # satisfy it.
         uses: dtolnay/rust-toolchain@v1
         with:
-          toolchain: master
-        with:
           toolchain: stable
           targets: ${{ matrix.target }}
       - name: Install cross-compilation tools

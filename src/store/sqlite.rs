@@ -802,8 +802,10 @@ mod tests {
     use crate::store::models::{goal_fingerprint, TacticOutcomeRecord};
 
     async fn fresh_store() -> (SqliteStore, std::path::PathBuf) {
-        let path =
-            std::env::temp_dir().join(format!("echidnabot-store-test-{}.db", Uuid::new_v4()));
+        let path = std::env::temp_dir().join(format!(
+            "echidnabot-store-test-{}.db",
+            crate::ids::new_record_id()
+        ));
         let url = format!("sqlite://{}?mode=rwc", path.display());
         let store = SqliteStore::new(&url).await.expect("open store");
         (store, path)
