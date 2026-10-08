@@ -275,3 +275,57 @@ mod tests {
         assert_eq!(goal_fingerprint("any").len(), 64);
     }
 }
+
+/// A proof obligation submitted over GraphQL (`submitProofObligation`).
+///
+/// Obligations come from hypatia's FleetDispatcher and LearningScheduler as
+/// free-standing claim text: no commit and no file, and the repo is a slug
+/// that need not be registered here. That is why this is its own record rather
+/// than a [`ProofJobRecord`], whose `repo_id` must be a registered repository.
+///
+/// The id is a UUIDv8 *content* id over `{repo, claim, context, prover}`, so
+/// resubmitting the same obligation yields the same id. Nothing consumes
+/// stored obligations yet: `status` stays `PENDING` until a dispatcher exists.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProofObligationRecord {
+    pub id: Uuid,
+    pub repo_slug: String,
+    pub repo_id: Option<Uuid>,
+    pub claim: String,
+    pub context: String,
+    pub prover: Option<ProverKind>,
+    pub inline_requested: bool,
+    pub status: String,
+    pub created_at: DateTime<Utc>,
+}
+
+impl ProofObligationRecord {
+    /// New `PENDING` obligation whose id is the content id of its fields.
+    pub fn new(
+        repo_slug: String,
+        repo_id: Option<Uuid>,
+        claim: String,
+        context: String,
+        prover: Option<ProverKind>,
+        inline_requested: bool,
+    ) -> Self {
+        let id = crate::ids::content_id(&serde_json::json!({
+            "repo": repo_slug,
+            "claim": claim,
+            "context": context,
+            "prover": prover.as_ref().map(|p| p.to_string()),
+        }))
+        .unwrap_or_else(|_| Uuid::nil());
+        Self {
+            id,
+            repo_slug,
+            repo_id,
+            claim,
+            context,
+            prover,
+            inline_requested,
+            status: "PENDING".to_string(),
+            created_at: Utc::now(),
+        }
+    }
+}

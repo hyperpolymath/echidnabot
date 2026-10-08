@@ -164,6 +164,39 @@ mutation {
 }
 ----
 
+==== submitProofObligation
+
+Record a free-standing proof obligation. This is the contract hypatia's
+FleetDispatcher and LearningScheduler send. `repo` is an `owner/name` slug
+and need not be registered here. `prover` and `inline` are optional.
+
+[source,graphql]
+----
+mutation {
+  submitProofObligation(input: {
+    repo: "hyperpolymath/echidnabot"
+    claim: "forall x, x = x"
+    context: "pattern P1"
+    prover: COQ
+    inline: true
+  }) {
+    success
+    proofId
+    status
+    newlyRecorded
+    repoRegistered
+  }
+}
+----
+
+`success: true` means the obligation is *stored*, not *proved*. Nothing
+dispatches stored obligations to a prover yet, so `status` is always `PENDING`,
+and `inline` is recorded but not honoured. `proofId` is a UUIDv8 content id
+over `{repo, claim, context, prover}`, so resubmitting the same obligation
+returns the same id with `newlyRecorded: false`. Invalid input (a non-slug
+`repo`, an empty `claim`, a `claim` or `context` over 64 KiB, an unknown
+prover) is a GraphQL error, never `success: false`.
+
 === Types
 
 ==== Platform
