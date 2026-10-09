@@ -1,6 +1,17 @@
-;; echidnabot - Guix Package Definition
-;; Development: guix shell -D -f guix.scm
-;; Build: guix build -f guix.scm
+;;
+;; echidnabot - Guix Development Environment
+;;
+;; Usage:
+;;   # Enter development environment with all dependencies
+;;   guix shell -D -f guix.scm
+;;
+;;   # Build the package
+;;   guix build -f guix.scm
+;;
+;; This file pins the Rust toolchain and essential crates from Guix's
+;; package definitions. Git dependencies (like echidna-core) are NOT
+;; pinned here because Guix cannot fetch from git repositories directly.
+;; They are resolved by Cargo when you run `cargo build`.
 
 (use-modules (guix packages)
              (guix gexp)
@@ -13,63 +24,69 @@
              (gnu packages rust-apps)
              (gnu packages sqlite)
              (gnu packages tls)
-             (gnu packages pkg-config))
+             (gnu packages pkg-config)
+             (gnu packages version-control))
 
-(define-public echidnabot
+;; Development shell with all native tools
+(define-public echidnabot-dev
   (package
-    (name "echidnabot")
+    (name "echidnabot-dev")
     (version "0.1.0")
-    (source (local-file "." "echidnabot-checkout"
-                        #:recursive? #t
-                        #:select? (git-predicate ".")))
+    (source (local-file "."))
     (build-system cargo-build-system)
     (arguments
-     `(#:cargo-inputs
-       (;; Core async runtime
-        ("rust-tokio" ,rust-tokio-1)
-        ;; HTTP framework
-        ("rust-axum" ,rust-axum-0.7)
-        ("rust-tower" ,rust-tower-0.4)
-        ("rust-tower-http" ,rust-tower-http-0.5)
-        ;; Serialization
-        ("rust-serde" ,rust-serde-1)
-        ("rust-serde-json" ,rust-serde-json-1)
-        ("rust-toml" ,rust-toml-0.8)
-        ;; Database
-        ("rust-sqlx" ,rust-sqlx-0.8)
-        ;; HTTP client
-        ("rust-reqwest" ,rust-reqwest-0.11)
-        ;; Utilities
-        ("rust-uuid" ,rust-uuid-1)
-        ("rust-chrono" ,rust-chrono-0.4)
-        ("rust-thiserror" ,rust-thiserror-1)
-        ("rust-anyhow" ,rust-anyhow-1)
-        ("rust-tracing" ,rust-tracing-0.1)
-        ("rust-tracing-subscriber" ,rust-tracing-subscriber-0.3)
-        ;; Crypto
-        ("rust-hmac" ,rust-hmac-0.12)
-        ("rust-sha2" ,rust-sha2-0.10)
-        ("rust-hex" ,rust-hex-0.4)
-        ;; CLI
-        ("rust-clap" ,rust-clap-4)
-        ("rust-config" ,rust-config-0.14))
-       #:cargo-development-inputs
-       (("rust-tokio-test" ,rust-tokio-test-0.4)
-        ("rust-tempfile" ,rust-tempfile-3))))
+     `(;; Cargo build flags
+       #:cargo-build-flags '("--release")
+       #:phases
+       (modify-phases %standard-phases
+         (delete 'configure)  ; No configure phase for Rust
+         (add-before 'build 'set-env
+           (lambda _
+             (setenv "RUST_BACKTRACE" "full")
+             #t)))))
     (native-inputs
-     (list pkg-config
-           rust
-           rust-cargo))
+     (list
+      ;; Rust toolchain
+      rust
+      cargo
+      pkg-config
+      
+      ;; Git for git dependencies
+      git
+      
+      ;; Build tools
+      make
+      cmake))
     (inputs
-     (list sqlite
-           openssl))
+     (list
+      ;; Runtime dependencies
+      sqlite
+      openssl))
+    (synopsis "Proof-aware CI bot development environment")
+    (description
+     "Development environment for echidnabot. Includes the Rust toolchain,
+Cargo, git, and system libraries needed for building echidnabot.
+Git dependencies (like echidna-core) are fetched by Cargo at build time.")
+    (home-page "https://github.com/hyperpolymath/echidnabot")
+    (license license:mpl2.0)))
+
+;; For building the production binary
+(define-public echidnabot
+  (package
+    (inherit echidnabot-dev)
+    (name "echidnabot")
+    (arguments
+     (substitute-keyword-arguments (package-arguments echidnabot-dev)
+       ((#:phases phases)
+        `(modify-phases ,phases
+           (delete 'check)))))  ; Skip tests for production build
+    (native-inputs
+     (alist-delete 'git (package-native-inputs echidnabot-dev)))
     (synopsis "Proof-aware CI bot for theorem prover repositories")
     (description
      "echidnabot monitors code repositories containing formal proofs and
-delegates verification to ECHIDNA Core.  It integrates with GitHub, GitLab,
-and Bitbucket to provide automated proof checking via webhooks.")
-    (home-page "https://github.com/hyperpolymath/echidnabot")
-    (license license:agpl3+)))
+delegates verification to ECHIDNA Core. It integrates with GitHub, GitLab,
+and Bitbucket to provide automated proof checking via webhooks.")))
 
-;; For development shell
-echidnabot
+;; Export the development environment as the default
+ echidnabot-dev

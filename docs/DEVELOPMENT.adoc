@@ -1,0 +1,289 @@
+// SPDX-License-Identifier: CC-BY-SA-4.0
+// Copyright (c) Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+= echidnabot Development Guide
+:toc:
+
+This guide explains how to set up a development environment for echidnabot.
+
+== Quick Start
+
+The fastest way to get started is with <<mise, mise>>:
+
+[source,bash]
+----
+# Clone the repository
+cd hyper-repos/DX/echidnabot
+
+# Install tools with mise
+mise install
+
+# Build and test
+just build
+just test
+----
+
+== Development Options
+
+Choose ONE of the following development environments. All are supported and
+tested.
+
+=== mise (Recommended)
+
+https://mise.jdx.dev/[mise] is a polyglot version manager that handles Rust,
+Node.js, Python, and other tools.
+
+[source,bash]
+----
+# 1. Install mise itself (see https://mise.jdx.dev/)
+#    On Debian/Ubuntu:
+#      curl -fsSL https://mise.jdx.dev/install.sh | sh
+
+# 2. Navigate to the repository
+cd hyper-repos/DX/echidnabot
+
+# 3. Install project dependencies (Rust, just, etc.)
+mise install
+
+# 4. Verify the toolchain
+rustc --version   # Should be 1.97.0
+cargo --version    # Should be 1.97.0
+just --version    # Should be 1.56.0
+
+# 5. Build and test
+just build
+just test
+----
+
+The project's `mise.toml` pins exact versions for reproducible builds.
+
+Available tasks (via `just`):
+
+[cols="1,2",options="header"]
+|===
+|Task |Description
+|`just build` |Build the project in release mode
+|`just build-dev` |Build the project in debug mode
+|`just test` |Run all tests
+|`just test-all` |Run tests for all packages
+|`just check` |Check the project for errors
+|`just check-all` |Check all packages
+|`just lint` |Run clippy with warnings-as-errors
+|`just fmt` |Format all code
+|`just run` |Run the bot in release mode
+|`just docs` |Generate and open documentation
+|===
+
+=== Guix
+
+https://guix.gnu.org/[GNU Guix] provides a fully reproducible development
+environment.
+
+[source,bash]
+----
+# 1. Install Guix (see https://guix.gnu.org/install)
+
+# 2. Add the project's Guix channel (optional, for development versions)
+#    Add to ~/.config/guix/channels.scm:
+#    (channel
+#      (name 'echidnabot)
+#      (url "https://github.com/hyperpolymath/echidnabot")
+#      (branch "main"))
+
+# 3. Pull the latest channels
+guix pull
+
+# 4. Enter the development shell
+cd hyper-repos/DX/echidnabot
+guix shell -D -f guix.scm
+
+# 5. Inside the shell, build with cargo
+cargo build --release
+----
+
+The `guix.scm` file defines the development environment with all native
+dependencies. Git dependencies (like `echidna-core`) are resolved by Cargo
+from GitHub at build time.
+
+=== Podman with Chainguard Wolfi
+
+For containerized development using https://www.chainguard.dev/[Chainguard Wolfi]
+and https://podman.io/[Podman]:
+
+[source,bash]
+----
+# 1. Install Podman (see https://podman.io/docs/installation)
+
+# 2. Build the development image
+cd hyper-repos/DX/echidnabot
+podman build -t echidnabot-dev -f Containerfile .
+
+# 3. Run a shell in the container for development
+podman run -it --rm \
+  -v $(pwd):/build \
+  -w /build \
+  echidnabot-dev \
+  /bin/sh
+
+# 4. Inside the container, build and test
+cargo build --release
+cargo test
+
+# 5. Or run the bot directly
+podman run -p 8080:8080 --rm echidnabot-dev serve
+----
+
+For production deployment, use the multi-stage `Containerfile` which builds
+a minimal runtime image based on `cgr.dev/chainguard/wolfi-base`.
+
+To pin image digests (estate convention):
+
+[source,bash]
+----
+# Pull the images
+podman pull cgr.dev/chainguard/rust:1.97.0
+podman pull cgr.dev/chainguard/wolfi-base:latest
+
+# Get the digest
+podman inspect --format '{{.Digest}}' cgr.dev/chainguard/rust:1.97.0
+
+# Update Containerfile with the digest
+# FROM cgr.dev/chainguard/rust:1.97.0@sha256:<digest>
+----
+
+=== Docker Compose
+
+For a full local stack including PostgreSQL:
+
+[source,bash]
+----
+# 1. Copy the example environment file
+cp .env.example .env
+
+# 2. Optionally edit .env to customize
+
+# 3. Bring up the stack (PostgreSQL + echidnabot)
+docker compose up -d
+
+# 4. View logs
+docker compose logs -f echidnabot
+
+# 5. Run tests against the running stack
+just test
+
+# 6. Tear down
+compose down -v  # Add -v to also remove the database volume
+----
+
+The `compose.yml` file defines:
+
+* `postgres`: PostgreSQL database (required for persistence)
+* `echidnabot`: The bot service, built from the `Containerfile`
+* `echidna-server`: Optional ECHIDNA REST stub for development (enabled with `--profile dev`)
+
+NOTE: `docker compose` and `podman-compose` are both supported.
+
+== Project Structure
+
+[source]
+----
+echidnabot/
+├── Cargo.toml                 # Rust project manifest
+├── Cargo.lock                 # Dependency lockfile (git-ignored)
+├── src/
+│   ├── lib.rs                 # Library root
+│   ├── main.rs                # Binary entry point
+│   ├── trust/                 # Trust kernel integration
+│   │   ├── confidence.rs      # Confidence level assessment (uses echidna-core)
+│   │   └── axiom_tracker.rs   # Axiom usage tracking (uses echidna-core)
+│   └── ...
+├── docs/
+│   └── ECHIDNA-INTEGRATION.adoc  # Integration documentation
+├── guix.scm                   # Guix development environment
+├── mise.toml                  # mise tool versions
+├── Containerfile              # Multi-stage Docker/Podman build
+└── compose.yml                # Docker Compose stack
+----
+
+== Git Dependencies
+
+echidnabot depends on `echidna-core` from the `hyperpolymath/echidna`
+repository. This is a git dependency pinned by full revision in `Cargo.toml`:
+
+[source,toml]
+----
+echidna-core = { git = "https://github.com/hyperpolymath/echidna", \
+                 rev = "a71aa2c2ab0f1b6d3f8b2feb96ec0afb77bf3de6" }
+----
+
+To update this dependency:
+
+[source,bash]
+----
+# 1. Check the current HEAD of echidna
+cd ../CORE/echidna
+git rev-parse HEAD
+
+# 2. Update the rev in echidnabot's Cargo.toml
+# 3. Update docs/ECHIDNA-INTEGRATION.adoc with the new rev
+# 4. Run cargo check and tests to verify
+cargo check
+cargo test
+----
+
+The dependency MUST be pinned to a commit on the `main` branch, never to an
+unmerged branch (estate rule).
+
+== Trust Kernel Integration
+
+The trust level assessment and axiom tracking in `src/trust/` delegate to
+ECHIDNA's canonical implementations from `echidna-core`. See
+link:ECHIDNA-INTEGRATION.adoc[ECHIDNA-INTEGRATION.adoc] for details.
+
+== Troubleshooting
+
+=== "Cargo not found" in mise
+
+If `mise install` reports that cargo is not in the registry, ensure you're
+using a recent version of mise. The Rust toolchain in mise includes cargo.
+
+[source,bash]
+----
+mise --version  # Should be >= 2026.10.0
+mise plugin install cargo
+mise install
+----
+
+=== Build fails with network errors
+
+The git dependency on `echidna-core` requires network access. If building
+in an offline environment:
+
+1. First build on a machine with network access to populate the Cargo cache
+2. Copy the cache (`~/.cargo/registry/cache` and `~/.cargo/git`) to the offline machine
+3. Build offline with `--frozen` or `--locked`
+
+=== "SQLite not found" errors
+
+On some systems, the SQLite development headers are required:
+
+* Debian/Ubuntu: `sudo apt install libsqlite3-dev`
+* RHEL/Fedora: `sudo dnf install sqlite-devel`
+* Alpine: `apk add sqlite-dev`
+* macOS: `brew install sqlite`
+
+== Continuous Integration
+
+The repository includes GitHub Actions workflows for CI/CD. See
+`.github/workflows/` for details.
+
+[source,bash]
+----
+# Run CI locally with act (requires Docker)
+act -j test
+
+# Or run just the Rust checks
+cargo check
+cargo clippy --all-targets --all-features -- -D warnings
+cargo test
+cargo fmt --check
+----

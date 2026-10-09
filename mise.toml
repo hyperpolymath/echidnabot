@@ -1,57 +1,50 @@
+# SPDX-License-Identifier: MPL-2.0
+# Mise configuration for echidnabot
+# Project-specific tool versions for reproducible development.
+# Run `mise install` to install all tools.
+
 [tools]
-# Language runtimes
-node = "latest"
-python = "latest"
-rust = "latest"
-go = "latest"
-zig = "latest"
-java = "latest"
-bun = "latest"
-denojs = "latest"
+# Primary language runtime
+rust = "1.97.0"
 
-# Package managers
-npm = "latest"
-yarn = "latest"
-pnpm = "latest"
-pip = "latest"
-cargo = "latest"
-go-task = "latest"
+# Task runner (wraps justfile)
+just = "1.56.0"
 
-# Formatting & Linting
-gofmt = "latest"
-black = "latest"
-isort = "latest"
-ruff = "latest"
-prettier = "latest"
-shfmt = "latest"
-stylua = "latest"
+# Node.js for build tooling (optional, for some scripts)
+node = "26.5.0"
 
-# Build tools
-cmake = "latest"
-make = "latest"
-ninja = "latest"
-
-# Shell tools
-git = "latest"
-gnu-sed = "latest"
-gnu-tar = "latest"
-gnu-grep = "latest"
-
-# Testing
-vitest = "latest"
-pytest = "latest"
-jest = "latest"
+# Python for some scripts (optional)
+python = "3.14.6"
 
 [env]
 # Common environment variables
 NODE_ENV = "development"
 PYTHONDONTWRITEBYTECODE = "1"
 PYTHONUNBUFFERED = "1"
+RUST_BACKTRACE = "full"
 
-# Task runner alias
-[alias]
-task = "go-task"
-build = "cargo build --release || npm run build || go build"
-test = "cargo test || npm test || go test ./..."
-lint = "ruff check . || prettier --check . || black --check ."
-fmt = "ruff format . || prettier --write . || black ."
+# Task aliases
+[tool_alias]
+# Build the project
+build = "cargo build --release"
+build-dev = "cargo build"
+
+# Run tests
+test = "cargo test"
+test-all = "cargo test --all"
+
+# Check the project
+check = "cargo check"
+check-all = "cargo check --all"
+
+# Run clippy linting
+lint = "cargo clippy --all-targets --all-features -- -D warnings"
+
+# Format code
+fmt = "cargo fmt --all"
+
+# Run the bot
+run = "cargo run --release"
+
+# Documentation
+docs = "cargo doc --no-deps --open"

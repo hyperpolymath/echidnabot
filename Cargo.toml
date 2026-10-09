@@ -28,6 +28,9 @@ path = "src/main.rs"
 # Fleet coordination
 gitbot-shared-context = { version = "0.1.0", git = "https://github.com/hyperpolymath/gitbot-fleet", rev = "40ef6bf1a43813948476d33c764e3405adc950c2" }
 
+# ECHIDNA core types and trust kernel
+echidna-core = { git = "https://github.com/hyperpolymath/echidna", rev = "a71aa2c2ab0f1b6d3f8b2feb96ec0afb77bf3de6" }
+
 # Async runtime
 tokio = { version = "1", features = ["full"] }
 
