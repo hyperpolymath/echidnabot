@@ -4,7 +4,7 @@
 //! Proof confidence level assessment
 //!
 //! The trust-level *algorithm* is ECHIDNA's, not echidnabot's: every call
-//! goes through [`echidna_core_spark::compute_trust_level`] (the Creusot-
+//! goes through [`echidna_core::trust::compute_trust_level`] (the Creusot-
 //! annotated kernel shared with ECHIDNA). This module only translates
 //! echidnabot's inputs (prover slug, status, artefacts, axiom scan) into
 //! ECHIDNA's [`TrustFactors`] and wraps the answer in a report.
@@ -15,8 +15,8 @@
 //! `echidna.prove.result/1` object, that is the *receipt* and is preferred;
 //! see [`crate::dispatcher::TrustSource`].
 
-use echidna_core_spark::axiom_tracker::DangerLevel;
-use echidna_core_spark::{compute_trust_level, ProverClass, TrustFactors, TrustLevel};
+use echidna_core::trust::axiom_tracker::DangerLevel;
+use echidna_core::trust::{compute_trust_level, ProverClass, TrustFactors, TrustLevel};
 use serde::{Deserialize, Serialize};
 
 use crate::dispatcher::{ProofStatus, ProverKind};

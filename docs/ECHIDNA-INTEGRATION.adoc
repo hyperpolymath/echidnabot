@@ -13,30 +13,28 @@ _proved_ mean different things and none implies the next.
 `src/trust/confidence.rs` and `src/trust/axiom_tracker.rs` no longer carry
 their own algorithms.
 
-* The trust *level* comes from `echidna_core_spark::compute_trust_level`
+* The trust *level* comes from `echidna_core::trust::compute_trust_level`
   (ECHIDNA's trust kernel). echidnabot only maps its inputs onto ECHIDNA's
   `TrustFactors`. `certificate_verified` is always `false`, because echidnabot
   never checks a certificate itself.
 * The proof-*source* axiom scan is ECHIDNA's
-  `echidna_core_spark::axiom_tracker::AxiomTracker`, called through
+  `echidna_core::trust::axiom_tracker::AxiomTracker`, called through
   `AxiomTracker::scan_source`.
 * The prover-*output* text scan (`AxiomTracker::scan`, for example Lean's
   "declaration uses 'sorry'") stays local. ECHIDNA has no equivalent.
 
-The dependency is a git dependency pinned by full rev
-(`b761b3a832981be51d4e88076ef1b90fe5037e9c`, on echidna `main`). A path
-dependency would break standalone builds.
+The dependency is `echidna-core` 0.2.0, whose stable `trust` surface
+re-exports the `echidna-core-creusot` kernel unchanged (including `pareto`).
+It is a git dependency pinned by full rev
+(`645d7a2489c644706210e171acba6f52741ad3b8`, verified on echidna `main`
+on 2026-10-09). Do not pin to an unmerged branch. A path dependency would
+break standalone builds.
 
-Status: implemented and tested (unit tests in both modules). The kernel's
-Creusot annotations are ECHIDNA's. echidnabot does not claim they are
-proved.
-
-=== Follow-up: crate rename
-
-At the pinned rev the crate is named `echidna-core-spark`. It is not SPARK.
-Upstream intends to rename it (`echidna-core-creusot`) and to move the trust
-types into `echidna-core`. When either change lands on echidna `main`, update
-the `Cargo.toml` line and the `use` paths. Do not pin to an unmerged branch.
+Status: implemented, with existing unit tests in both modules. Verification
+of the 2026-10-09 dependency re-point is pending: `cargo build` and
+`cargo test` could not run in the editing sandbox (Cargo is not installed).
+The kernel's Creusot annotations are ECHIDNA's. echidnabot does not claim
+they are proved.
 
 == Prover identifiers
 
