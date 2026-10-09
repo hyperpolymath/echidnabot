@@ -1,0 +1,46 @@
+name: Bug Report
+about: Report a bug in echidnabot
+labels:
+  - bug
+  - triage
+
+---
+
+## Bug Report
+
+### Description
+
+<!-- A clear and concise description of the bug -->
+
+### Steps to Reproduce
+
+1. 
+2. 
+3. 
+
+### Expected Behavior
+
+<!-- What you expected to happen -->
+
+### Actual Behavior
+
+<!-- What actually happened -->
+
+### Environment
+
+- OS:
+- Rust version:
+- echidnabot version:
+- Podman/Bwrap version (if applicable):
+
+### Logs
+
+<!-- Include relevant log output with RUST_LOG=debug if available -->
+
+### Additional Context
+
+<!-- Any other information that would be helpful -->
+
+---
+
+**Note:** Please search existing issues before creating a new one.
