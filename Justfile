@@ -20,9 +20,9 @@ set positional-arguments := true
 import? "build/contractile.just"
 
 # Project metadata — customize these
-project := "rsr-template-repo"
+project := "echidnabot"
 OWNER := "hyperpolymath"
-REPO := "rsr-template-repo"
+REPO := "echidnabot"
 version := "0.1.0"
 tier := "infrastructure"  # 1 | 2 | infrastructure
 
@@ -83,24 +83,11 @@ import? "build/just/assess.just"
 
 # Build the project (debug mode)
 build *args:
-    @echo "Building {{project}} (debug)..."
-    # TODO: Replace with your build command
-    # Examples:
-    #   cargo build {{args}}                    # Rust
-    #   mix compile {{args}}                    # Elixir
-    #   zig build {{args}}                      # Zig
-    #   deno task build {{args}}                # Deno/AffineScript
-    @echo "Build complete"
+    cargo build --locked {{args}}
 
 # Build in release mode with optimizations
 build-release *args:
-    @echo "Building {{project}} (release)..."
-    # TODO: Replace with your release build command
-    # Examples:
-    #   cargo build --release {{args}}
-    #   MIX_ENV=prod mix compile {{args}}
-    #   zig build -Doptimize=ReleaseFast {{args}}
-    @echo "Release build complete"
+    cargo build --locked --release {{args}}
 
 # Build and watch for changes (requires entr or similar)
 build-watch:
@@ -127,24 +114,15 @@ clean-all: clean
 
 # Run all tests
 test *args:
-    @echo "Running tests..."
-    # TODO: Replace with your test command
-    # Examples:
-    #   cargo test {{args}}
-    #   mix test {{args}}
-    #   zig build test {{args}}
-    #   deno test {{args}}
-    @echo "Tests passed!"
+    cargo test --locked {{args}}
 
 # Run tests with verbose output
 test-verbose:
-    @echo "Running tests (verbose)..."
-    # TODO: Replace with verbose test command
+    cargo test --locked -- --nocapture
 
 # Smoke test
 test-smoke:
-    @echo "Smoke test..."
-    # TODO: Add basic sanity checks
+    cargo test --locked --test smoke
 
 # Run end-to-end tests (full pipeline: build → run → verify)
 e2e:
@@ -227,31 +205,15 @@ fix: fmt
 
 # Format all source files [reversible: git checkout]
 fmt:
-    @echo "Formatting source files..."
-    # TODO: Replace with your formatter
-    # Examples:
-    #   cargo fmt
-    #   mix format
-    #   gleam format
-    #   deno fmt
+    cargo fmt --all
 
 # Check formatting without changes
 fmt-check:
-    @echo "Checking formatting..."
-    # TODO: Replace with your format check
-    # Examples:
-    #   cargo fmt --check
-    #   mix format --check-formatted
-    #   gleam format --check
+    cargo fmt --all -- --check
 
 # Run linter
 lint:
-    @echo "Linting source files..."
-    # TODO: Replace with your linter
-    # Examples:
-    #   cargo clippy -- -D warnings
-    #   mix credo --strict
-    #   gleam check
+    cargo clippy --locked --all-targets -- -D warnings
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # RUN & EXECUTE
@@ -278,13 +240,7 @@ install: build-release
 
 # Install/check all dependencies
 deps:
-    @echo "Checking dependencies..."
-    # TODO: Replace with your dependency check
-    # Examples:
-    #   cargo check
-    #   mix deps.get
-    #   gleam deps download
-    @echo "All dependencies satisfied"
+    cargo fetch --locked
 
 # Audit dependencies for vulnerabilities
 deps-audit:
@@ -426,19 +382,7 @@ container-init:
 
 # Build container image via cerro-torre pipeline
 container-build *args:
-    #!/usr/bin/env bash
-    if [ -f "container/ct-build.sh" ]; then
-        cd container && ./ct-build.sh {{args}}
-    elif [ -f "container/Containerfile" ]; then
-        podman build -t {{project}}:latest -f container/Containerfile .
-    elif [ -f "build/Containerfile" ]; then
-        podman build -t {{project}}:latest -f build/Containerfile .
-    elif [ -f "Containerfile" ]; then
-        podman build -t {{project}}:latest -f Containerfile .
-    else
-        echo "No Containerfile found in container/, build/, or project root"
-        exit 1
-    fi
+    podman build -t localhost/echidnabot:latest -f Containerfile {{args}} .
 
 # Verify compose configuration
 container-verify:
@@ -779,3 +723,24 @@ handover-human path=".":
 
 secret-scan-trufflehog:
     @command -v trufflehog >/dev/null && trufflehog filesystem . --only-verified || true
+
+# Install the repository-pinned mise, Rust/Cargo and Just tools
+bootstrap:
+    bash scripts/bootstrap.sh
+
+# Build the Chainguard Wolfi development image (requires only Podman)
+dev-container-build:
+    podman build --target development -t localhost/echidnabot-dev -f Containerfile .
+
+# Open a rootless development shell, or execute a command in it
+dev-container *args:
+    bash scripts/dev-container.sh {{args}}
+
+# Run both trust-module unit test paths
+trust-test:
+    cargo test --locked --lib trust::
+
+# Offline control-flow tests for development setup scripts (not real tool builds)
+dev-tools-test:
+    bash -n scripts/bootstrap.sh scripts/dev-container.sh tests/dev-tools.sh
+    bash tests/dev-tools.sh

@@ -1,0 +1,156 @@
+// SPDX-License-Identifier: MPL-2.0
+= Development environment
+:toc:
+
+A standalone checkout can fetch both git dependencies; no sibling fleet
+checkout is required. Choose the native, Guix, or Podman route below.
+All routes need internet access for their first install/build. This repository
+contains setup recipes, not vendored toolchain binaries or an offline SDK.
+
+== Tool ownership
+
+* `rust-toolchain.toml`: exact Rust version, Cargo, rustfmt and Clippy.
+  Mise reads this file; there is no second Rust version to drift.
+* `mise.toml`: Just 1.58.0 and build/test/check tasks. Unrelated language
+  runtimes and fallback commands have been removed.
+* `scripts/bootstrap.sh`: mise 2026.10.6, with SHA-256 checksums for Linux
+  x86_64 and aarch64 release archives. Checksums came from the upstream
+  release asset metadata. It installs into `$HOME/.local/bin` by default
+  (`MISE_BIN_DIR` overrides that location), without sudo or shell-profile edits.
+* `Cargo.lock`: application dependencies. Normal commands use `--locked`;
+  dependency updates must deliberately regenerate and review this file.
+
+== Native Linux
+
+Install the native compiler/linker, Git, CA certificates, curl, archive tools,
+CMake, pkg-config and SQLite headers through your OS package manager.
+For Debian/Ubuntu:
+
+[source,sh]
+----
+sudo apt-get update
+sudo apt-get install -y build-essential cmake pkg-config libsqlite3-dev \
+  git curl ca-certificates tar gzip xz-utils unzip
+bash scripts/bootstrap.sh
+export PATH="$HOME/.local/bin:$PATH"
+mise run build
+mise run test
+mise run trust-test
+mise run check
+# Equivalent Just entry points, with the mise-managed tools on PATH:
+mise exec -- just build
+mise exec -- just test
+----
+
+The bootstrap fails on missing prerequisites or failed downloads; it never
+prints a build/test success without executing the command. It explicitly
+trusts this checkout's mise configuration, so inspect that configuration first.
+It can be rerun after updating pins. For an interactive shell, use
+`eval "$(mise activate bash)"` (or your shell's equivalent).
+
+Downloads require GitHub and its release-asset CDN, Rust's distribution
+servers, crates.io's index/static download hosts and the git dependency
+repositories. A GitHub-only network allowlist is insufficient.
+
+== Guix build environment (explicit opt-in)
+
+This environment is provided at the owner's request despite the older
+estate-wide Guix deprecation guidance. It does not change the release build
+system or make echidnabot a Guix package. `guix/manifest.scm` supplies native
+build prerequisites; mise/rustup still supply the repository-pinned Rust.
+
+Install Guix on the host first. `guix/channels.scm` pins an authenticated Guix
+GitHub-mirror revision (927070a6, dated 2025-11-16); it is not a claim to track
+current Guix releases. Channel/package updates need separate review. Use this
+file, not the legacy root `.guix-channel`, for the environment.
+
+On Linux with unprivileged user namespaces enabled:
+
+[source,sh]
+----
+mkdir -p "$HOME/.cache/echidnabot-guix"
+guix time-machine -C guix/channels.scm -- shell \
+  --container --emulate-fhs --network \
+  --share="$HOME/.cache/echidnabot-guix=/tools" \
+  -m guix/manifest.scm -- env HOME=/tools bash
+# Inside the Guix shell, in the shared checkout:
+bash scripts/bootstrap.sh
+export PATH="$HOME/.local/bin:$PATH"
+mise run build
+mise run test
+----
+
+The FHS container is intentional: mise and rustup distribute conventional
+Linux binaries, which should not be assumed to run in a pure non-FHS Guix
+shell. Tool downloads persist under the shared `/tools` home; source edits
+and `target/` persist in the checkout. This requires access to Guix source
+and substitute servers as well as the toolchain hosts above. Guix channel
+and environment evaluation have not yet been exercised in the editing sandbox.
+
+== Rootless Podman on Chainguard Wolfi
+
+Install Podman using your host's supported packages (for example,
+`sudo apt-get install podman uidmap slirp4netns fuse-overlayfs` on Debian).
+Configure subordinate UID/GID ranges per your distribution's rootless Podman
+guide. On macOS/Windows, initialise and start a Podman Linux VM first.
+You do not need Rust, mise or Just on the host for this route.
+
+[source,sh]
+----
+# Build the development target and enter a shell:
+bash scripts/dev-container.sh --build
+# Or run non-interactively after building:
+bash scripts/dev-container.sh cargo build --locked
+bash scripts/dev-container.sh cargo test --locked
+bash scripts/dev-container.sh cargo test --locked --lib trust::
+bash scripts/dev-container.sh just fmt-check
+# Application/runtime image (final Containerfile stage):
+podman build -t localhost/echidnabot:latest -f Containerfile .
+podman run --rm localhost/echidnabot:latest --help
+----
+
+All stages derive from `cgr.dev/chainguard/wolfi-base`. The development image
+includes native build tools and the same mise-installed Rust/Just pins as the
+host setup. The builder compiles with `--locked`; the final non-root runtime
+image contains the application and runtime libraries, not the toolchains.
+
+The wrapper maps the caller to container UID/GID 1000 with `--userns=keep-id`,
+mounts the checkout read/write at `/workspace`, and uses named volumes
+`echidnabot-dev-target` and `echidnabot-dev-cargo` for build/dependency caches.
+It does not mount a container-engine socket or require privileged mode.
+`:Z` gives the checkout a private SELinux label: do not use the same checkout
+concurrently from other labelled containers. `:U` changes ownership only on
+the named cache volumes, not the source bind mount.
+To reset caches after exiting all development containers:
+
+[source,sh]
+----
+podman volume rm echidnabot-dev-target echidnabot-dev-cargo
+----
+
+The Wolfi default tag and APK repositories are rolling, so this is not yet a
+bit-for-bit reproducible image. For release builds supply a reviewed image
+digest with `--build-arg WOLFI_IMAGE=cgr.dev/chainguard/wolfi-base@sha256:...`.
+No digest is invented here: the registry was unreachable from the editing
+sandbox. Full reproducibility would also require an APK repository snapshot.
+Rebuild the development image when the Rust or Just pin changes.
+
+== Validation boundaries
+
+`cargo test --locked --lib trust::` covers the trust-level and source-axiom
+paths changed for #173. Always run the full build and test commands too.
+The current Rust CI wrapper documents a separate library-suite hang; do not
+silently substitute a narrower test run and claim the full suite passed.
+Live integration tests need an ECHIDNA server and relevant provers; these
+are not bundled with this development environment. Build tools do not imply
+that proof execution or the fleet's governance tooling is installed.
+
+In particular, `just validate-rsr` is not a defined recipe in this checkout;
+installing Just does not create it. The inherited Justfile still contains
+other estate-template recipes outside the build/test/format/lint paths wired
+here. Do not treat their placeholder messages as verification evidence.
+
+The editing sandbox could not fetch mise/Just release assets, Rust distributions
+or Wolfi images, and has no Podman or Guix. Shell syntax and mock-based wrapper
+checks can be run there, but Rust build/tests, real tool installation, Guix
+evaluation and container build/run remain pending in an unrestricted environment.

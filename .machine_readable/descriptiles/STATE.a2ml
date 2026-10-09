@@ -7,7 +7,7 @@ project = "echidnabot"
 version = "0.1.0"
 last-updated = "2026-10-09"
 status = "active"
-session = "Issue #173: re-point shared trust kernel to echidna-core 0.2.0 on upstream main; local slug and contract parser retained. Build and test blocked: Cargo is not installed in this sandbox; draft PR pending verification."
+session = "Issue #173 follow-up: owner-requested fresh-checkout tooling via mise, Guix and rootless Podman/Wolfi. Offline shell checks pass; installation and real Rust/container/Guix validation blocked by sandbox tooling and network restrictions. PR #174 merged separately; development-environment follow-up pending verification."
 
 [project-context]
 name = "Echidnabot"
@@ -454,3 +454,21 @@ changes = [
 validation = "cargo build and cargo test both attempted, exit 127: cargo: command not found. Trust unit tests not run."
 coordination = "#166 remains open, but this checkout already pins tracing-opentelemetry 0.34 and rustls 0.23.45. No OTel or TLS dependency changes made; no security or CI pass claimed."
 follow-up = "Run cargo build and cargo test with repository-pinned Rust 1.99.0, confirm lockfile resolution and trust unit tests before marking draft PR ready."
+
+[session-2026-10-09-development-environment]
+request = "Owner explicitly requested tool installation and repo-integrated mise, Guix environment settings and a Podman environment on Chainguard Wolfi; Guix provided as an explicit opt-in despite older deprecation guidance."
+changes = [
+  "Replace generic mise template with Just 1.58.0, rust-toolchain.toml discovery and Cargo tasks; bootstrap checksum-pins mise 2026.10.6 for Linux x86_64/aarch64.",
+  "Wire real Cargo build/test/format/lint/fetch and development-container Just recipes; add fresh-checkout documentation and README entry point.",
+  "Add authenticated pinned Guix channel plus native-prerequisite manifest, with documented FHS shell for downloaded Rust tools.",
+  "Use Chainguard Wolfi for development, builder and runtime Containerfile stages; add rootless Podman wrapper, named build caches and build-context exclusions.",
+  "Add offline script control-flow tests; no new .a2ml files.",
+]
+validation = "PASS: bash -n on all three shell scripts, tests/dev-tools.sh (mock install, failed download/checksum, Podman arguments and missing-image failure), git diff --check."
+blockers = [
+  "Mise and Just GitHub binary downloads fail at release-assets.githubusercontent.com; static.rust-lang.org and cgr.dev are unreachable under sandbox allowlist. No tools successfully installed.",
+  "Bootstrap preflight also finds CMake missing; pkg-config, Cargo, Just, Guix and Podman are absent. Rust build/tests and real container/Guix evaluation remain unverified.",
+  "Wolfi image digest cannot be verified here; rolling tag/APK repositories documented explicitly, not claimed fully reproducible.",
+  "PR #174 at 0896185 reports Cargo check failure (exit 101), Cargo test skipped; log download blocked at actions log host, so cause remains undiagnosed. Do not claim CI green or assume #166 caused it.",
+]
+follow-up = "Run bootstrap, cargo build/test and trust tests, Guix FHS environment and Podman build/run on an unrestricted host; inspect the failed Cargo check logs from merged PR #174 before readying the environment follow-up."

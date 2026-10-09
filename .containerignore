@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: MPL-2.0
+.git
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets
+.cache
+.local
+target
+build
+dist
+out
+node_modules
+*.log
