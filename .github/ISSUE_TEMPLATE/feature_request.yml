@@ -1,0 +1,78 @@
+name: Feature Request
+about: Suggest a new feature or enhancement for echidnabot
+title: "feat: "
+labels:
+  - enhancement
+  - triage
+
+---
+
+## Feature Request
+
+### Description
+
+<!-- A clear and concise description of the feature you want to add -->
+
+### Problem Statement
+
+<!-- Describe the problem this feature would solve -->
+
+### Target Area
+
+<!-- Where does this feature apply? e.g., src/dispatcher/, src/trust/, bot_directives/ -->
+
+### Proposed Solution
+
+<!-- Describe your proposed implementation -->
+
+### Acceptance Criteria
+
+<!-- What would need to be true for this feature to be considered complete? -->
+- [ ] 
+
+### References
+
+<!-- Any relevant links, papers, or existing implementations -->
+
+### Additional Context
+
+<!-- Any other information that would be helpful -->
+
+---
+
+## Issues List
+
+### High Priority
+
+- **feat(dispatcher): adaptive portfolio timeout and solver selection scheduling for CI PR gates**
+  - **Target Repository:** hyperpolymath/echidnabot
+  - **Area:** src/dispatcher/, src/trust/, bot_directives/
+  - **Description:** Implement adaptive portfolio timeout and solver selection scheduling for CI PR gates. Currently, echidnabot operates as a formal-verification CI bot triggering ECHIDNA proof checks on GitHub/GitLab/Codeberg PRs with static timeouts and fixed prover tiers. The feature should dynamically schedule solver portfolios and allocate per-job timeouts based on PR diff complexity and historical confidence receipts using Automated Algorithm Selection and Parameter Tuning principles from ParadisEO.
+  - **Proposed Changes:**
+    - PR Diff Feature Extraction: Extract lightweight structural features from incoming proof diffs (number of modified lines/theorems, target formal language, dependency graph centrality)
+    - Adaptive Solver Dispatcher: Implement dynamic schedule matrix optimizing multi-objective trade-off (Min Wall-Clock Time, Max CI Trust Level) with Tier-1 SAT/SMT backends for fast PR feedback and small-kernel provers (Coq, Isabelle, Lean 4) for merge gates
+    - Circuit Breaker Tuning: Use adaptive sliding-window statistics to dynamically adjust circuit breaker trip thresholds
+  - **Acceptance Criteria:**
+    - Average CI turnaround time on non-breaking PRs decreases without reducing overall verification trust thresholds
+    - Zero regressions in the 184-test test suite
+    - Dynamic scheduling respects all explicit directives configured in .machine_readable/bot_directives/echidnabot.a2ml
+  - **References:** Echidnabot Architecture: wiki/Architecture.md, ParadisEO Automated Algorithm Selection: Dreo et al. (2021) "Paradiseo: from a modular framework to automated design"
+  - **Status:** Open
+  - **Roadmap:** [ParadisEO Metaheuristic Integration - EB-01](https://github.com/hyperpolymath/echidna/blob/main/.github/ROADMAP-PARADISEO.md#eb-01-featdispatcher-adaptive-portfolio-timeout-and-solver-selection-scheduling-for-ci-pr-gates)
+
+### Medium Priority
+
+### Low Priority
+
+---
+
+## Navigation
+
+This feature is part of the [ParadisEO Metaheuristic Integration Roadmap](https://github.com/hyperpolymath/echidna/blob/main/.github/ROADMAP-PARADISEO.md), which coordinates related work across:
+- **echidna**: ECH-01 through ECH-04 (Pareto, ML, Chapel, FFI)
+- **proof-burrower**: PB-01 through PB-02 (Swarm, Ledger)
+- **echidnabot**: EB-01 (Dispatcher)
+
+---
+
+**Note:** Please search existing issues before creating a new one.
