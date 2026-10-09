@@ -7,7 +7,7 @@ project = "echidnabot"
 version = "0.1.0"
 last-updated = "2026-10-09"
 status = "active"
-session = "Issue #173 follow-up: owner-requested fresh-checkout tooling via mise, Guix and rootless Podman/Wolfi. Offline shell checks pass; installation and real Rust/container/Guix validation blocked by sandbox tooling and network restrictions. PR #174 remains draft."
+session = "Issue #173 follow-up: owner-requested fresh-checkout tooling via mise, Guix and rootless Podman/Wolfi. Offline shell checks pass; installation and real Rust/container/Guix validation blocked by sandbox tooling and network restrictions. PR #174 merged separately; development-environment follow-up pending verification."
 
 [project-context]
 name = "Echidnabot"
@@ -471,4 +471,4 @@ blockers = [
   "Wolfi image digest cannot be verified here; rolling tag/APK repositories documented explicitly, not claimed fully reproducible.",
   "PR #174 at 0896185 reports Cargo check failure (exit 101), Cargo test skipped; log download blocked at actions log host, so cause remains undiagnosed. Do not claim CI green or assume #166 caused it.",
 ]
-follow-up = "Run bootstrap, cargo build/test and trust tests, Guix FHS environment and Podman build/run on an unrestricted host; inspect PR Cargo check logs before readying #174."
+follow-up = "Run bootstrap, cargo build/test and trust tests, Guix FHS environment and Podman build/run on an unrestricted host; inspect the failed Cargo check logs from merged PR #174 before readying the environment follow-up."
