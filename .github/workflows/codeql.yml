@@ -28,7 +28,7 @@ permissions:
 jobs:
   analyze:
     permissions:
+      actions: read
       contents: read
       security-events: write
-    uses: hyperpolymath/standards/.github/workflows/codeql-reusable.yml@d135b05bfc647d0c0fbfedc7e80f37ea50f49236 # main as of 2026-06-01
-    secrets: inherit
+    uses: hyperpolymath/standards/.github/workflows/codeql-reusable.yml@740c9d7d4ed4d1f319a04c92b28218beb75668d7 # main as of 2026-06-01
