@@ -85,7 +85,7 @@ uuid = { version = "1.10", features = ["v7", "v8", "serde"] }
 # RFC 8785 (JCS) canonical bytes for src/ids.rs content ids. The estate
 # crate hyperpolymath/ijson-jcs is not public, so a public build cannot
 # depend on it; swap once it is (docs/ECHIDNA-INTEGRATION.adoc).
-serde_json_canonicalizer = "0.3"
+serde_json_canonicalizer = "0.4"
 chrono = { version = "0.4", features = ["serde"] }
 thiserror = "2"
 anyhow = "1"
