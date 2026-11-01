@@ -1,0 +1,192 @@
+// SPDX-License-Identifier: MPL-2.0
+= Estate routing audit — 2026-11-01
+
+== Verdict and authority
+
+Against the supplied invariant, estate communication must pass through
+VeriSimDB via VCL. echidnabot currently violates that invariant for delegated
+ECHIDNA communication. The direct client is intentional current behaviour,
+not dead code: defaults, API modes, startup checks, tests and integration docs
+all support it. No local routing policy, central adapter, or authorised direct
+exception was found. Calling it _transitional_ is a proposed migration decision,
+not a description of an existing migration mechanism. This audit treats the
+invariant supplied with the task as normative; it does not claim to have found
+an estate-wide policy declaration in this checkout.
+
+== Rust evidence (baseline ab26bd54)
+
+* `src/dispatcher/echidna_client.rs::new` constructs a reqwest client from
+  `EchidnaConfig.endpoint` and `rest_endpoint`. `verify_proof` selects direct
+  GraphQL or REST; Auto falls back from GraphQL to REST on error. Neither
+  route calls VeriSimDB. Relabelling the endpoint as a database URL does not
+  translate either protocol into VCL.
+* `handshake` calls `/api/provers`, then `/api/health` if needed.
+  `verify_proof_rest` posts to `/api/verify`; the GraphQL implementation posts
+  a verification mutation. Tactics, health and prover availability also use
+  direct HTTP. Routing only proof submission would leave bypasses.
+* `src/main.rs::serve` constructs `Arc<EchidnaClient>` and calls
+  `startup_handshake`. The CLI verification path also constructs the client.
+  `process_job` calls health and prover status before its local-isolation
+  branch; even local-isolation is therefore not network-free.
+* `src/config.rs::EchidnaApiMode` and the TOML examples expose direct modes,
+  not a central-routing switch. `Cargo.toml` has no VeriSimDB client.
+  `tests/live_echidna.rs` exercises direct interoperability; those tests are
+  not evidence of estate routing compliance.
+* BoJ-only MCP routing (`src/llm.rs`) is a separate boundary, not proof that
+  dispatcher HTTP travels through VeriSimDB. SQLite persistence and content
+  IDs likewise do not establish a routed communication path.
+
+== Receipt versus derived assessment
+
+`src/dispatcher/prove_result.rs::ProveResult::from_value` is the existing
+consumer boundary for `echidna.prove.result/1`: exact schema/status,
+required fields, unknown top-level field rejection, bounded integer duration,
+and finite optional confidence. Key order is unrestricted; unknown nested
+trust fields are ignored. It is not a signature verifier, identity check,
+request/goal correlator, or theorem soundness proof.
+
+The actual `rest_verify_result` behaviour is more limited than earlier
+integration prose claimed. It parses the typed receipt, maps reported axiom
+names to flags, merges a local source scan, ignores reported confidence and
+recalculates confidence locally. It then returns `ProofResult` labelled
+`TrustSource::Echidna`. That label means reported axioms contributed, NOT
+that all returned trust data is an unchanged receipt. The original typed
+object is not retained in that result. Legacy REST and GraphQL follow their
+own conversion paths; typed receipts are not mandatory on all current paths.
+This audit does not silently change those production semantics.
+
+The epistemic-types reference is
+https://github.com/hyperpolymath/epistemic-types/tree/5422cd5bf1418c44321bf0f77e894737a451d8f5[5422cd5].
+Its README describes a constructive map-only base, separately added factivity
+and sound-warrant assumptions. A JSON receipt or provenance enum supplies
+neither `reflect` nor warrant soundness. Local confidence is a derived
+assessment, not a mechanically sound warrant. There is no Rust epistemic-types
+dependency or proof transport integration here.
+
+== Backend-specific design and code added
+
+`src/dispatcher/verisim_echidna.rs` supplies an intentionally unwired Rust
+seam, not a universal interoperability layer:
+
+. `EchidnaProveRequest` carries only ECHIDNA prover/source input. It is not a
+  published wire schema or VCL syntax.
+. `VeriSimEchidnaGateway` is the explicit integration obligation: submit via
+  authorised VeriSimDB/VCL routing and extract one ECHIDNA receipt.
+. `VeriSimEchidnaAdapter::prove` validates that receipt using the existing
+  `ProveResult::from_value`, returns the typed object without enrichment,
+  rejects legacy bodies, and propagates errors without a direct fallback.
+
+No concrete gateway implements that obligation. A trait implementation can
+lie about its route; the type is not proof of network policy. Unit tests use
+stubs only. The seam preserves typed receipt fields (not original JSON bytes
+or ignored extension fields), and does not promote a verified status to fact.
+
+For grounding, VeriSimDB's Rust connector inspected at
+https://github.com/hyperpolymath/verisimdb/blob/dd8270951a4ddbe2f9189b276cc7dac60cd9cd7d/connectors/clients/rust/src/vcl.rs[dd827095]
+exposes `execute_vcl(query)` posting a query envelope to
+`/api/v1/vcl/execute`, returning success, statement type, row count and data.
+That generic query surface does not by itself establish an ECHIDNA invocation,
+a receipt extraction rule, or universal backend interoperability. No invented
+`PROVE` statement, federation capability, or generic JSON passthrough is used
+in this patch.
+
+== Required migration (planned, not implemented)
+
+* Agree a versioned ECHIDNA-specific gateway contract with VeriSimDB/VCL:
+  supported operation, authorised target/provers, source binding, submission
+  and result correlation, receipt extraction, capability/version discovery,
+  timeout/cancellation, idempotency and retry behaviour. Do not interpolate
+  untrusted proof source into VCL text. Define parameterisation or separately
+  stored content references with the backend implementer.
+* Retain the validated receipt separately from derived local assessments and
+  their provenance. Persist both explicitly through JobResult/store/reporting;
+  do not overwrite receipt confidence or imply formal warrant soundness.
+  Bind results to requests using an agreed contract, not an assumed equality
+  between the receipt's theorem-name `goal` and source text/content ID.
+* Wire serve, CLI, workers, health, availability, handshake and tactics to
+  central routing; fail closed when routing/capabilities are unavailable.
+  Do not downgrade to legacy or direct ECHIDNA on route failure. If an explicit
+  development-only direct exception is authorised, make it opt-in and visibly
+  non-estate-compliant, not the production default.
+* Cover retry classification, duplicate submissions, unavailable gateway,
+  malformed/wrong-version receipts, rejected authorisation and correlation
+  mismatches. Add a live central-route test plus network-denial tests proving
+  no ECHIDNA endpoint is contacted by estate mode. Audit other estate clients
+  separately rather than claiming this adapter routes the entire bot.
+
+== Verification and status
+
+Implemented in this patch: audit, corrected documentation, backend-specific
+adapter seam and stub tests for receipt preservation, validation rejection and
+error propagation. Production direct behaviour remains unchanged. Central
+routing, persistence of the original receipt and honest separated assessment
+provenance remain planned. No live VCL/ECHIDNA test was performed.
+
+The sandbox has neither `cargo` nor `rustup` on PATH; compilation, rustfmt and
+Rust tests could not be run. New tests are therefore unverified, not passing
+claims. Run `cargo test dispatcher::verisim_echidna` with the repository's
+pinned toolchain, followed by the full test suite and clippy before rollout.
+
+== Policy alignment and Grade 3 target (follow-up)
+
+The owner requires Grade 3 proofing, with mathematics architecture sourced
+from Mathesis and other verification policy from standards. Sources inspected:
+
+* https://github.com/hyperpolymath/mathesis/blob/50a012dba57fe90c9aca8d57241690c133ab117c/estate-mathematical-architecture[Mathesis estate mathematical architecture],
+  especially sections 3 and 5. Grade 3 means an iteratively formulated
+  Agda proof that actually type-checks locally, without independent-system
+  translation yet. It is not a confidence percentage or a Rust test level.
+* https://github.com/hyperpolymath/standards/blob/46ee18323305d5b36e2eef936e47dd54c39ea736/3-practice/PROOF-POLICY.adoc[Standards proof policy],
+  especially sections 1, 2.1, 2.2 and 5. First-party Rust implementation
+  obligations belong on the code in Creusot; shared interface/wire contracts
+  belong in Idris2; theory belongs in Agda, with Rocq and Lean rechecks and
+  explicit statement correspondence. An Agda model alone does not prove
+  runtime refinement of Rust.
+
+The architecture's illustrative Agda flags are not a substitute for the
+standards policy's canonical invocation:
+`agda --safe --without-K --cubical-compatible <module.agda>`.
+Full Cubical or incompatible profiles require separate explicit review.
+Grade 3 is an intermediate mathematics milestone, not closure of the
+standards policy's independent recheck obligations. Record grades separately
+from proof-ledger status and engineering implementation assurance.
+
+For this patch, Grade 3 is NOT attained. No Agda witness, Creusot discharge,
+or Idris2 interface proof was produced or checked. Stub tests are unrun and
+therefore do not even establish `tested-only`. Obligations remain `open`:
+
+[cols="2,1,3",options="header"]
+|===
+|Obligation |Mapped verifier |Outstanding evidence
+|Receipt validation and no direct fallback in the new adapter
+|Creusot on Rust
+|Code contracts, explicit dependency assumptions, generated obligation discharge
+|ECHIDNA gateway request/receipt and error protocol
+|Idris2
+|Agreed backend protocol and checked interface contract; no invented wire model
+|Receipt transport does not imply factivity or warrant soundness
+|Agda (Grade 3 target)
+|Explicit statement and assumptions, local strict-profile type-check receipt;
+subsequent independent rechecks remain open
+|Estate network routing invariant
+|Implementation and deployment evidence
+|Concrete gateway, all call sites migrated, network-denial integration tests;
+trait obligations alone do not establish this property
+|===
+
+Retain source ownership in echidnabot. Mathesis may index receipts but must
+not become a parallel proof owner. Each future result must name the exact
+source revision, proposition, assumptions, tool/library versions, invocation
+and observed outcome. Agda, Idris2 and Creusot are also absent from PATH in
+this sandbox. Missing tools are open obligations, not waived checks.
+
+=== Subsequent source preparation
+
+Unverified theory candidates and a strict local Agda check command have now
+been added. This does not change the `open` proof statuses above. See
+link:PROOF-STATUS.adoc[the current proof ledger] for the pre-existing fixture
+inventory, ABI scaffold defects, new Agda/Lean/Rocq candidates and observed
+toolchain installation blockers. See
+link:ESTATE-HANDOFFS.adoc[scoped handoff prompts] for external contract and
+environment work. No Grade 3 or production central-routing completion is
+claimed from source preparation.
