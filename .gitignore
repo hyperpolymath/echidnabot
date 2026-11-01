@@ -99,3 +99,6 @@ proofs/**/*.glob
 
 # Lean build artefacts
 proofs/**/*.olean
+
+# Agda interfaces are generated checker artefacts, not proof receipts
+*.agdai
