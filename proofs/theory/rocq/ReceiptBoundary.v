@@ -17,6 +17,7 @@ Record SoundReceiptWarrant {Claim : Set} (w : ReceiptWarrant Claim) : Type := {
 
 Arguments sound {Claim w} _ _.
 
+(** Derive a claim from a receipt warrant and an explicit soundness witness. *)
 Definition receive_with_soundness {Claim : Set}
     (w : ReceiptWarrant Claim) (checked : SoundReceiptWarrant w) : Claim :=
   sound checked (evidence_token w).
@@ -24,10 +25,12 @@ Definition receive_with_soundness {Claim : Set}
 Definition empty_claim_token : ReceiptWarrant Empty_set :=
   {| evidence_type := unit; evidence_token := tt |}.
 
+(** An unconditional reflection function for every claim yields a contradiction. *)
 Definition no_unconditional_reflection
     (reflect : forall Claim : Set, ReceiptWarrant Claim -> Claim) : Empty_set :=
   reflect Empty_set empty_claim_token.
 
+(** A soundness witness for the empty-claim token yields a contradiction. *)
 Definition no_soundness_for_empty_token
     (checked : SoundReceiptWarrant empty_claim_token) : Empty_set :=
   receive_with_soundness empty_claim_token checked.

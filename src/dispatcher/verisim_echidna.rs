@@ -25,6 +25,10 @@ pub struct EchidnaProveRequest<'a> {
 /// This trait documents obligations; it does not prove routing or soundness.
 #[async_trait]
 pub trait VeriSimEchidnaGateway: Send + Sync {
+    /// Submit a proof request and return the extracted ECHIDNA receipt as JSON.
+    ///
+    /// # Errors
+    /// Implementations must propagate routing failures to the caller.
     async fn prove_receipt(&self, request: EchidnaProveRequest<'_>) -> Result<Value>;
 }
 
@@ -38,10 +42,19 @@ pub struct VeriSimEchidnaAdapter<G> {
 }
 
 impl<G: VeriSimEchidnaGateway> VeriSimEchidnaAdapter<G> {
+    /// Create an adapter using the supplied gateway.
     pub fn new(gateway: G) -> Self {
         Self { gateway }
     }
 
+    /// Submit a request and return a structurally validated ECHIDNA receipt.
+    ///
+    /// Recognised fields are returned without local trust enrichment; unknown
+    /// fields within `trust` are ignored.
+    ///
+    /// # Errors
+    /// Propagates gateway errors and validation errors from
+    /// [`ProveResult::from_value`].
     pub async fn prove(&self, request: EchidnaProveRequest<'_>) -> Result<ProveResult> {
         ProveResult::from_value(self.gateway.prove_receipt(request).await?)
     }
