@@ -120,10 +120,18 @@ module).
 `ProofResult.trust_source` / `JobResult.trust_source` record where the trust
 data came from:
 
-* `echidna`: ECHIDNA reported `trust.axioms` itself. echidnabot passes them
-  on unchanged (a _receipt_).
-* `local-fallback`: echidnabot derived the axioms from the source and
-  output (a _warrant_).
+* `echidna`: ECHIDNA reported `trust.axioms` itself. The REST consumer
+  validates the typed receipt, but then maps axiom names, merges a local
+  source scan and recalculates confidence. The resulting `ProofResult` is
+  an enriched assessment, not an unchanged receipt; this label alone does
+  not distinguish all locally derived data.
+* `local-fallback`: echidnabot derived the axioms from source and/or
+  output. This is a local assessment, not a mechanically sound warrant.
+
+The current direct client bypasses VeriSimDB/VCL. See
+link:ESTATE-ROUTING-AUDIT.adoc[the estate routing audit] for the invariant
+assessment, an unwired backend-specific Rust adapter seam, and the remaining
+production migration. No central routing is claimed by this integration.
 
 This is a plain enum that copies the distinction drawn by
 `hyperpolymath/epistemic-types`. It is not a dependency, because that
