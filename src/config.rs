@@ -77,6 +77,15 @@ pub struct Config {
     /// `OTEL_EXPORTER_OTLP_ENDPOINT` env var (env wins over TOML).
     #[serde(default)]
     pub observability: ObservabilityConfig,
+
+    /// GraphQL API access: which repositories the route credential may
+    /// submit obligations for, and the per-IP rate limit on `/graphql`.
+    /// The credentials themselves are read only from the environment
+    /// (`ECHIDNABOT_API_ROUTE_TOKEN`, `ECHIDNABOT_API_ADMIN_TOKEN`).
+    ///
+    /// TOML: `[api]\nroute_repos = ["hyperpolymath/*"]\nrate_limit_rpm = 120`
+    #[serde(default)]
+    pub api: ApiConfig,
 }
 
 /// Lifecycle settings — how long to wait for in-flight work to drain
@@ -311,11 +320,49 @@ impl Default for ServerConfig {
 }
 
 fn default_host() -> String {
-    "0.0.0.0".to_string()
+    // Loopback by default: binding every interface is an explicit choice,
+    // and the daemon refuses it unless API credentials are configured
+    // (see `api::auth`).
+    "127.0.0.1".to_string()
 }
 
 fn default_port() -> u16 {
     8080
+}
+
+/// GraphQL API access settings. The two credentials are not here: they are
+/// read only from `ECHIDNABOT_API_ROUTE_TOKEN` and `ECHIDNABOT_API_ADMIN_TOKEN`
+/// so they never sit in a config file.
+///
+/// ```toml
+/// [api]
+/// route_repos = ["hyperpolymath/*"]
+/// rate_limit_rpm = 120
+/// ```
+#[derive(Debug, Deserialize, Clone)]
+pub struct ApiConfig {
+    /// Repositories the route credential may submit obligations for:
+    /// exact `owner/name` slugs or `owner/*`. Empty allows none.
+    #[serde(default)]
+    pub route_repos: Vec<String>,
+
+    /// Maximum `/graphql` requests per IP per minute. Default 120; set
+    /// `0` to disable.
+    #[serde(default = "default_api_rate_limit_rpm")]
+    pub rate_limit_rpm: u32,
+}
+
+impl Default for ApiConfig {
+    fn default() -> Self {
+        Self {
+            route_repos: Vec::new(),
+            rate_limit_rpm: default_api_rate_limit_rpm(),
+        }
+    }
+}
+
+fn default_api_rate_limit_rpm() -> u32 {
+    120
 }
 
 #[derive(Debug, Deserialize, Clone)]
