@@ -206,6 +206,8 @@ echidnabot provers list
 | `ECHIDNABOT_CONFIG` | Path to config file |
 | `ECHIDNABOT_DATABASE_URL` | Database connection string |
 | `ECHIDNABOT_ECHIDNA_ENDPOINT` | ECHIDNA Core GraphQL URL |
+| `ECHIDNABOT_API_ROUTE_TOKEN` | Bearer credential that may only submit proof obligations, for `[api] route_repos` |
+| `ECHIDNABOT_API_ADMIN_TOKEN` | Bearer credential for the whole GraphQL API |
 | `GITHUB_WEBHOOK_SECRET` | GitHub webhook secret |
 | `GITLAB_TOKEN` | GitLab access token |
 

@@ -13,9 +13,14 @@ The main configuration file, located in your repository root or at
 ----
 # Server configuration
 [server]
-host = "0.0.0.0"
+host = "127.0.0.1"  # a non-loopback host needs API credentials
 port = 8080
 workers = 4
+
+# GraphQL API access (credentials come from the environment only)
+[api]
+route_repos = ["hyperpolymath/*"]  # "owner/name" or "owner/*"
+rate_limit_rpm = 120                # per TCP peer address; 0 disables
 
 # Database configuration
 [database]
@@ -66,6 +71,8 @@ webhook_secret = "${GITLAB_WEBHOOK_SECRET}"
 |`+ECHIDNABOT_ECHIDNA_ENDPOINT+` |ECHIDNA Core GraphQL endpoint |Yes
 |`+ECHIDNABOT_ECHIDNA_REST_ENDPOINT+` |ECHIDNA Core REST endpoint |No
 |`+ECHIDNABOT_ECHIDNA_MODE+` |ECHIDNA API mode (auto/graphql/rest) |No
+|`+ECHIDNABOT_API_ROUTE_TOKEN+` |Bearer credential for `submitProofObligation` only, limited to `[api] route_repos`; at least 32 bytes |To submit obligations
+|`+ECHIDNABOT_API_ADMIN_TOKEN+` |Bearer credential for every GraphQL query and mutation; at least 32 bytes, distinct from the route credential |To use the API
 |`+GITHUB_WEBHOOK_SECRET+` |GitHub webhook secret |For GitHub
 |`+GITHUB_APP_ID+` |GitHub App ID |For GitHub
 |`+GITHUB_PRIVATE_KEY+` |GitHub App private key (PEM) |For GitHub
