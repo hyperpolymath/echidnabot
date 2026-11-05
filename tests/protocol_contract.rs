@@ -313,6 +313,10 @@ const UPDATE_SETTINGS: &str =
      settings: { webhookSecret: \"forged\" }) { id } }";
 const RECORD_OUTCOME: &str = "mutation { recordTacticOutcome(input: { \
      prover: COQ, goalState: \"g\", tactic: \"auto\", succeeded: true, durationMs: 1 }) { id } }";
+const REGISTER_REPO: &str = "mutation { registerRepository(input: { \
+     platform: GIT_HUB, owner: \"someone-else\", name: \"repo\", webhookSecret: \"forged\" }) { id } }";
+const TRIGGER_CHECK: &str =
+    "mutation { triggerCheck(repoId: \"00000000-0000-0000-0000-000000000000\") { id } }";
 
 #[tokio::test]
 async fn obligation_outside_the_route_scope_is_forbidden() {
@@ -324,13 +328,15 @@ async fn obligation_outside_the_route_scope_is_forbidden() {
 }
 
 #[tokio::test]
-async fn schema_executed_without_a_principal_refuses_every_field() {
+async fn schema_executed_without_a_principal_refuses_the_guarded_fields() {
     let schema = obligation_schema().await;
     let submit = fleet_mutation("hyperpolymath/echidnabot", "c", "d", "");
     for q in [
         submit.as_str(),
         UPDATE_SETTINGS,
         RECORD_OUTCOME,
+        REGISTER_REPO,
+        TRIGGER_CHECK,
         "{ repositories { id } }",
     ] {
         let resp = run_as(&schema, q, None).await;
@@ -345,7 +351,13 @@ async fn schema_executed_without_a_principal_refuses_every_field() {
 #[tokio::test]
 async fn route_credential_cannot_reach_administrative_fields() {
     let schema = obligation_schema().await;
-    for q in [UPDATE_SETTINGS, RECORD_OUTCOME, "{ repositories { id } }"] {
+    for q in [
+        UPDATE_SETTINGS,
+        RECORD_OUTCOME,
+        REGISTER_REPO,
+        TRIGGER_CHECK,
+        "{ repositories { id } }",
+    ] {
         let resp = run(&schema, q).await;
         assert_eq!(
             error_code(&resp).as_deref(),

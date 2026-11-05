@@ -15,12 +15,12 @@ The main configuration file, located in your repository root or at
 [server]
 host = "127.0.0.1"  # a non-loopback host needs API credentials
 port = 8080
+workers = 4
 
 # GraphQL API access (credentials come from the environment only)
 [api]
 route_repos = ["hyperpolymath/*"]  # "owner/name" or "owner/*"
-rate_limit_rpm = 120                # 0 disables
-workers = 4
+rate_limit_rpm = 120                # per TCP peer address; 0 disables
 
 # Database configuration
 [database]

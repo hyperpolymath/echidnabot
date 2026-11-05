@@ -135,7 +135,9 @@ impl std::fmt::Debug for ApiCredentials {
 }
 
 impl ApiCredentials {
-    /// Validate and hold the two credentials. An empty string counts as unset.
+    /// Validate and hold the two credentials. Surrounding whitespace is
+    /// removed, as it is from a presented token, so a value read from a file
+    /// with a trailing newline still matches. An empty value counts as unset.
     ///
     /// # Errors
     /// [`CredentialError`] when a credential is too short or both are equal.
@@ -144,8 +146,10 @@ impl ApiCredentials {
         admin_token: Option<String>,
         route_scope: RepoScope,
     ) -> Result<Self, CredentialError> {
-        let route_token = route_token.filter(|t| !t.is_empty());
-        let admin_token = admin_token.filter(|t| !t.is_empty());
+        let normalise =
+            |t: Option<String>| t.map(|t| t.trim().to_string()).filter(|t| !t.is_empty());
+        let route_token = normalise(route_token);
+        let admin_token = normalise(admin_token);
         if route_token
             .as_ref()
             .is_some_and(|t| t.len() < MIN_TOKEN_LEN)
@@ -398,6 +402,28 @@ mod tests {
         assert!(!RepoScope::new(["*"]).allows("a/b"));
         assert!(!RepoScope::new(["*/*"]).allows("a/b"));
         assert!(!RepoScope::default().allows("a/b"));
+    }
+
+    #[test]
+    fn stored_credentials_are_trimmed_like_presented_ones() {
+        // A value read from a secrets file often ends in a newline.
+        let c = ApiCredentials::new(
+            Some(format!("  {ROUTE}\n")),
+            Some(format!("{ADMIN}\n")),
+            RepoScope::new(["a/*"]),
+        )
+        .unwrap();
+        assert_eq!(
+            c.authenticate(Some(&format!("Bearer {ROUTE}"))),
+            Some(Principal::Route(RepoScope::new(["a/*"])))
+        );
+        assert_eq!(
+            c.authenticate(Some(&format!("Bearer {ADMIN}"))),
+            Some(Principal::Admin)
+        );
+        // Whitespace alone is unset, not a short credential.
+        let blank = ApiCredentials::new(Some(" \n".into()), None, RepoScope::default()).unwrap();
+        assert!(blank.is_empty());
     }
 
     #[test]

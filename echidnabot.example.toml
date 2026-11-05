@@ -18,7 +18,9 @@ port = 8080
 # Repositories the route credential may submit for: "owner/name" or "owner/*".
 # Empty allows none.
 route_repos = ["hyperpolymath/*"]
-# /graphql requests per IP per minute (0 disables).
+# /graphql requests per minute per TCP peer address (0 disables). The peer is
+# the address that connected, so behind a reverse proxy every client shares
+# the proxy's budget: limit at the proxy instead and set 0 here.
 rate_limit_rpm = 120
 
 [database]

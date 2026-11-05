@@ -322,7 +322,14 @@ async fn smoke_graphql_rate_limit_returns_429() {
             .await;
         assert_eq!(r.status_code(), 200, "request {i} should pass");
     }
-    // Limited before authentication: an unauthenticated flood is limited too.
+    // An authenticated caller over the limit is refused...
+    let r = server
+        .post("/graphql")
+        .authorization_bearer(ADMIN_TOKEN)
+        .json(&serde_json::json!({ "query": "{ __typename }" }))
+        .await;
+    r.assert_status(axum::http::StatusCode::TOO_MANY_REQUESTS);
+    // ...and, limited before authentication, so is an unauthenticated flood.
     let r = server
         .post("/graphql")
         .json(&serde_json::json!({ "query": "{ __typename }" }))
