@@ -1,0 +1,84 @@
+// SPDX-License-Identifier: MPL-2.0
+= Scoped estate handoff prompts
+
+These prompts concern gaps actually identified during the echidnabot audit.
+No changes outside `hyperpolymath/echidnabot` were made. The names
+`hyperpolymath/stuff-of-awesome`, `metadatastician` and
+`catachresis-colloquium` were supplied as possible estate contexts; their
+contents/ownership were not inspected here. Do not attribute defects to
+those repositories or owners without a separate audit.
+
+== Session/toolchain provisioner
+
+Provision latest stable Rust 1.99.1, Agda 2.8.0.2 (Cubical-compatible mode),
+Idris2 0.8.0, Lean 4.35.0 and Rocq 9.3.0, plus Creusot 0.14.0 with its
+required nightly-2026-08-03/rustc-dev/llvm-tools, OCaml/opam, Why3/Why3find
+and solver versions required by that Creusot release. Verify official
+checksums and record installed versions; do not substitute similarly named
+npm packages. Cubicle 1.2.0 is a separate optional model checker, not Agda's
+Cubical mode. Install it only for an identified model-checking obligation.
+
+Current sandbox blocks static.rust-lang.org, Debian package hosts and
+release-assets.githubusercontent.com. Provide a trusted prebuilt toolchain
+image or enable official download hosts and dependency access through the
+session's supported setup. Do not weaken proof flags or treat missing tools
+as a successful check. Preserve echidnabot's current Rust pin until the
+stable bump passes build/tests/clippy. Run scripts/check-agda-proofs.sh,
+then kernel-check the independent candidates under proofs/theory, record
+statement correspondence, and discharge first-party Rust obligations in
+Creusot on actual code. Report every remaining open obligation.
+
+== hyperpolymath/verisimdb — ECHIDNA-specific route contract
+
+Inspect the actual VCL executor, Rust client, authorisation and federation
+surfaces before designing anything. Agree with echidna/echidnabot owners a
+versioned ECHIDNA proof-submission/result contract reachable through
+VeriSimDB via VCL. Existing execute_vcl query success is not proof success.
+Define source parameterisation or content references, allowed targets,
+correlation, receipt extraction, capability/version discovery, timeout,
+cancellation, idempotency and retry semantics. Return exactly the typed
+ECHIDNA receipt at the consumer boundary; do not invent universal backend
+interoperability. Provide positive and planted-negative integration evidence.
+Until the contract exists, echidnabot's VeriSimEchidnaGateway is an unwired
+obligation, not a functional central route.
+
+== hyperpolymath/echidna — receipt and gateway producer alignment
+
+Audit the actual GraphQL/REST producer paths and echidna.prove.result/1
+contract before proposing changes. Coordinate the ECHIDNA-specific VCL
+route with VeriSimDB. Preserve the original receipt fields and explicitly
+state which receipt identity, authenticity and request-binding guarantees
+are available; a theorem-name goal must not be assumed to equal source
+text or its content ID. Keep receipt reporting separate from local
+confidence/warrant inference. Record checked proof evidence for the pinned
+trust-kernel implementation rather than equating annotations with discharge.
+Do not silently change the shared schema or claim universal interoperability.
+
+== hyperpolymath/mathesis — catalogue only checked evidence
+
+Use the estate-mathematical-architecture grading and current standards proof
+policy together. Index source-owned receipts from echidnabot only after
+execution evidence exists. The new Agda ReceiptBoundary and FixtureIdentity
+sources are currently AGDA-PENDING; there is no Grade 3 receipt yet. Rust
+ConfidenceLevel::Level3 must not be ingested as mathematics Grade 3.
+Track independent target checks, proposition correspondence, assumptions,
+source hashes and exact toolchains separately. Do not flatten these into a
+percentage or relocate source proof ownership into Mathesis.
+
+== hyperpolymath/standards — reconciliation review, not a defect claim
+
+Review the interaction of Mathesis Grade 3 (locally checked Agda) with the
+proof policy's Rust/Creusot, Idris2 interface and Agda plus Rocq/Lean mappings.
+Document explicitly that the Grade 3 milestone does not discharge independent
+recheck obligations or prove Rust refinement. Clarify architecture examples
+that mention --erasure or full --cubical against the canonical strict
+--safe --without-K --cubical-compatible profile and reviewed exceptions.
+Retain separate policy intent, installed gates and observed receipts.
+
+== epistemic-types — no upstream defect established
+
+No upstream change is requested on the strength of this audit. Its explicit
+separation of map-only structure, factivity and warrant soundness informed
+the local repair. The echidnabot theory candidates do not import that Agda
+library and must not be advertised as a checked integration or faithful
+transport of its witnesses.

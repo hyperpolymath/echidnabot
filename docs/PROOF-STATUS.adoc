@@ -1,0 +1,169 @@
+// SPDX-License-Identifier: MPL-2.0
+= Proof status — estate routing and receipt boundary
+:toc:
+
+== Evidence rules
+
+Updated 2026-11-01 on `arena/68c18146-echidnabot`, based on
+`ab26bd54c8bdc04da8cc48c0778a25eb774be268`. New files are working-tree
+candidates, not committed or checked proof receipts. No Grade 3 attainment
+is claimed. `open` means not checked/done, `argued` means an explicit
+assumption, and `tested-only` requires an actual observed bounded check.
+ConfidenceLevel::Level3 is a runtime heuristic, NOT Mathesis Grade 3.
+
+Policies and pinned references are in
+link:ESTATE-ROUTING-AUDIT.adoc[the routing audit]. Theory requires strict
+Agda checks, with separately recorded Rocq/Lean statement correspondence and
+kernel results. Rust behaviour requires Creusot on actual first-party code;
+a mathematical model does not establish runtime refinement.
+
+== Local obligation ledger
+
+[cols="1,2,1,3",options="header"]
+|===
+|ID |Statement and artefact |Status |Required evidence / limits
+|T-RECEIPT
+|A general evidence token does not imply its claim;
+`proofs/agda/ReceiptBoundary.agda`
+|open
+|AGDA-PENDING. `no-unconditional-reflection` constructs a contradiction
+from unconditional reflection by instantiating Claim with Empty and evidence
+with Unit. `receive-with-soundness` requires an explicit evidence-to-claim
+function. This is new local theory, informed by epistemic-types, NOT a port
+of that library or proof of the Rust parser. No external library or postulate.
+|T-RECEIPT-ROCQ / T-RECEIPT-LEAN
+|Same statements, quantification, evidence packaging and assumptions as
+T-RECEIPT
+|open
+|Independent re-proof source candidates now exist under
+`proofs/theory/{rocq,lean}/ReceiptBoundary.*`, without libraries, axioms or
+admitted obligations. Neither was compiled; no transport or checked
+correspondence exists. A Prop-only reformulation of Set-level quantification
+is not silently interchangeable. The candidates deliberately use Rocq Set
+and Lean Type rather than silently shrinking the claims to Prop.
+|E-ADAPTER
+|`VeriSimEchidnaAdapter::prove` validates the gateway payload and propagates
+failure without calling a direct client
+|open
+|Creusot contracts and all first-party Rust obligations remain undischarged.
+Async/gateway, serde and dependency contracts need an explicit trust boundary.
+Stub tests are present but unrun; absence of a direct endpoint in this struct
+is code-review evidence, not proof of gateway behaviour.
+|E-RECEIPT
+|`ProveResult::from_value` checks the existing typed receipt constraints
+|open
+|Rust/Creusot proof on actual code. Existing tests are not proof receipts.
+Structural validation alone supplies no authentication, correlation or factivity.
+|I-GATEWAY
+|Shared ECHIDNA-specific VeriSimDB/VCL protocol contract
+|open
+|Backend agreement and Idris2 contract required before implementation;
+no executable central route is supplied by the new trait.
+|E-ROUTING
+|All relevant production estate calls use authorised VeriSimDB/VCL routing
+|open
+|Current direct client is a counterexample. Call-site migration and deployment
+network tests remain absent. No model proof can make this row pass today.
+|E-PROVENANCE
+|Original typed receipt stays separate from locally computed assessment
+|open
+|New unwired adapter returns the validated receipt. Existing production REST
+conversion still merges axioms, recomputes confidence and drops original fields.
+Persistence, aggregation and reporting require a deliberate migration.
+|===
+
+== Pre-existing proof material and semantic reconstruction
+
+The old `proofs/ECHO-TYPES-AUDIT.adoc` classified the four Lean/Coq files
+as prover fixtures. That remains true. Its statement that ABI scaffolding
+is out of scope does NOT make that scaffolding verified.
+
+* `proofs/coq/trivial_ok.v`: `forall (A : Prop), A -> A`.
+* `proofs/lean/trivial_ok.lean`: `(A : Prop) -> A -> A`.
+* New `proofs/agda/FixtureIdentity.agda`: `(A : Set) -> A -> A`.
+  This is a semantic reconstruction of the constructive identity schema,
+  because there was no Agda record. It is not witness transport. Rocq/Lean
+  Prop and Agda Set differ; correspondence is limited to propositional
+  identity and remains `open` until checked and justified explicitly.
+  All three current executions are unavailable in this sandbox.
+* `proofs/coq/admitted_stub.v` and `proofs/lean/sorry_stub.lean` are negative
+  fixtures, not candidate proofs. Their escape hatches must stay intact.
+  They are excluded from Grade 3 counts, not repaired into passing fixtures.
+* JSON files under `proofs/test_fixtures` are webhook/prover inputs, not proofs.
+
+=== ABI scaffold debt (not verified)
+
+`src/abi/{Types,Layout,Foreign}.idr` contains literal `{{PROJECT}}` module
+names, unresolved holes and placeholder foreign symbols. These are templates,
+not an instantiated echidnabot ABI. `HasSize`/`HasAlignment` have unrestricted
+constructors and therefore do not establish actual compiler layout.
+`exampleStructSize` claims 16 while its own comment describes 24 bytes.
+`offsetInBounds` quantifies over arbitrary Field values without membership or
+bounds premises, so it cannot be proved as written. Layout checking and
+foreign pointer/lifetime obligations also remain unresolved.
+
+Status: `open`. Do not replace holes with postulates or transcribe these
+claims to Agda as if they were true. A semantic rewrite needs the actual
+exported ABI, supported targets, field representations, ownership and bounds
+premises; the Rust interface proof policy remains active. No new ABI symbols
+or layout contracts are invented in this patch.
+
+== Assumed boundaries (argued, not proven)
+
+* `serde_json` at the Cargo.lock version: parsing/value representation and
+  numeric/deserialisation behaviour used by ProveResult. No external proof
+  was checked here. A Rust proof must name any trusted extern specification.
+* Gateway trait implementers: compliance with authorised routing, extraction,
+  authentication and request correlation is an obligation, not type-enforced.
+* `echidna-core` at `645d7a2489c644706210e171acba6f52741ad3b8`:
+  imported trust kernel behaviour. Upstream annotations alone are not a
+  checked Creusot receipt for this crate and its callers.
+* Any future claim of theorem truth needs the relevant prover kernel/checker
+  boundary and assumptions, separately from receipt transport.
+
+== Toolchain acquisition attempt
+
+Published stable releases observed through GitHub's release API on 2026-11-01:
+Rust 1.99.1; Agda 2.8.0.2; Creusot 0.14.0; Idris2 0.8.0;
+Lean 4.35.0; Rocq 9.3.0; Cubicle 1.2.0. None was installed or run.
+Creusot 0.14.0 itself pins `nightly-2026-08-03` with rustc-dev and llvm-tools;
+it cannot simply be built against latest stable Rust. Its INSTALL requires
+Cargo, opam/OCaml, Why3/Why3find and solver acquisition.
+
+Actual network observations:
+
+* `static.rust-lang.org` and `deb.debian.org`: TLS connection failed;
+  Debian HTTP also returned an empty reply.
+* The Agda Linux release asset was requested through api.github.com;
+  its redirect to `release-assets.githubusercontent.com` failed TLS.
+* The sandbox permits GitHub source/API and npm/PyPI registries, not the
+  distribution/package hosts needed by the normal installers. Unrelated npm
+  packages named agda/rustup are not substituted for trusted toolchains.
+
+Required environment help: provision verified toolchains through the session
+setup, or allow the official distribution and package hosts (including release
+assets and the dependencies required by opam). Cubical Agda is a mode of Agda,
+not the separate Cubicle model checker. Full Cubical is not the canonical
+proof profile and needs a separately reviewed exception where necessary.
+The existing Rust pin is preserved until an actual tested toolchain update;
+this is an unmet latest-stable target, not a completed upgrade.
+
+== Reproduction and completion criteria
+
+`./scripts/check-agda-proofs.sh` requires exactly Agda 2.8.0.2, ignores stale
+interfaces, uses no external libraries, and runs the strict policy flags.
+It prints source hashes, base revision and invocations. Capture the output
+and record the observed result here; do not edit statuses based on expected
+success. Its missing-tool failure was observed in this session (exit 127).
+This is evidence that absence is not silently skipped, not a proof execution.
+
+`cargo test --locked dispatcher::verisim_echidna` and the existing protocol
+suites remain unrun. Creusot, Idris2 and independent theory rechecks also
+remain unrun. CI wiring for the new theory gate and its real positive/negative
+controls is still open; a local check command is not an installed CI gate.
+
+Completion requires: actual checker receipts; backend protocol agreement;
+production routing and provenance migration; implementation/interface proofs;
+matched theory rechecks; preserved fixture detection; and regression tests.
+This session has NOT completed old/new proof updating or the original routing
+work. Documentation and unverified source candidates are partial progress only.
