@@ -4,18 +4,25 @@
 
 == Evidence rules
 
-Updated 2026-11-01 on `arena/68c18146-echidnabot`, based on
-`ab26bd54c8bdc04da8cc48c0778a25eb774be268`. New files are working-tree
-candidates, not committed or checked proof receipts. No Grade 3 attainment
-is claimed. `open` means not checked/done, `argued` means an explicit
-assumption, and `tested-only` requires an actual observed bounded check.
-ConfidenceLevel::Level3 is a runtime heuristic, NOT Mathesis Grade 3.
+First written 2026-11-01 on `arena/68c18146-echidnabot`, based on
+`ab26bd54c8bdc04da8cc48c0778a25eb774be268`. Updated 2026-11-09 with the
+first kernel receipts for the receipt-boundary theory, taken at
+`1443adfabb98a9e0daea562bc8dbe764442c14cc` (<<receipts>>), and with the
+GraphQL authorisation obligations from #192 (<<rust-auth>>).
+
+Tokens are the closed vocabulary of PROOF-POLICY §5: `proven`,
+`proven-with-postulates`, `tested-only`, `argued`, `open`. A theory theorem
+also carries a Proof Witness Grade (PWG, PROOF-POLICY §8) and, per leg, a
+§2.2 correspondence state. The three are separate fields. A PWG is derived
+from the receipts below, never asserted. `ConfidenceLevel::Level3` is a
+runtime heuristic and is not a PWG.
 
 Policies and pinned references are in
 link:ESTATE-ROUTING-AUDIT.adoc[the routing audit]. Theory requires strict
 Agda checks, with separately recorded Rocq/Lean statement correspondence and
-kernel results. Rust behaviour requires Creusot on actual first-party code;
-a mathematical model does not establish runtime refinement.
+kernel results. Rust behaviour is verified with Creusot (Pearlite contracts)
+and Verus on the actual first-party code (PROOF-POLICY §1.2); a mathematical
+model does not establish runtime refinement.
 
 == Local obligation ledger
 
@@ -25,22 +32,30 @@ a mathematical model does not establish runtime refinement.
 |T-RECEIPT
 |A general evidence token does not imply its claim;
 `proofs/agda/ReceiptBoundary.agda`
-|open
-|AGDA-PENDING. `no-unconditional-reflection` constructs a contradiction
-from unconditional reflection by instantiating Claim with Empty and evidence
-with Unit. `receive-with-soundness` requires an explicit evidence-to-claim
-function. This is new local theory, informed by epistemic-types, NOT a port
-of that library or proof of the Rust parser. No external library or postulate.
-|T-RECEIPT-ROCQ / T-RECEIPT-LEAN
+|proven
+|AGDA-VERIFIED (<<receipts>>, R-AGDA). `no-unconditional-reflection`
+constructs a contradiction from unconditional reflection by instantiating
+Claim with Empty and evidence with Unit. `receive-with-soundness` requires
+an explicit evidence-to-claim function. This is new local theory, informed
+by epistemic-types, NOT a port of that library or proof of the Rust parser.
+Import cone: this module alone, no libraries, no postulates. PWG: `PWG-3`,
+derived; it owes both recheck legs until they count (§8.4).
+|T-RECEIPT-LEAN
 |Same statements, quantification, evidence packaging and assumptions as
-T-RECEIPT
-|open
-|Independent re-proof source candidates now exist under
-`proofs/theory/{rocq,lean}/ReceiptBoundary.*`, without libraries, axioms or
-admitted obligations. Neither was compiled; no transport or checked
-correspondence exists. A Prop-only reformulation of Set-level quantification
-is not silently interchangeable. The candidates deliberately use Rocq Set
-and Lean Type rather than silently shrinking the claims to Prop.
+T-RECEIPT; `proofs/theory/lean/ReceiptBoundary.lean`
+|proven
+|Route `re-proved`. LEAN-CHECKED, no axioms (<<receipts>>, R-LEAN).
+§2.2 state `BRIDGE-PENDING`: the statement comparison in
+<<correspondence>> is agent-drafted and awaits owner review. Until then the
+leg does not count towards a PWG.
+|T-RECEIPT-ROCQ
+|Same statements, quantification, evidence packaging and assumptions as
+T-RECEIPT; `proofs/theory/rocq/ReceiptBoundary.v`
+|proven
+|Route `re-proved`. COQ-CHECKED, closed under the global context
+(<<receipts>>, R-ROCQ). §2.2 state `BRIDGE-PENDING`, as for the Lean leg.
+The leg was checked with Coq 8.18.0, not a Rocq 9 release; the file uses
+only the prelude (`Empty_set`, `unit`).
 |E-ADAPTER
 |`VeriSimEchidnaAdapter::prove` validates the gateway payload and propagates
 failure without calling a direct client
@@ -85,10 +100,12 @@ is out of scope does NOT make that scaffolding verified.
   because there was no Agda record. It is not witness transport. Rocq/Lean
   Prop and Agda Set differ; correspondence is limited to propositional
   identity and remains `open` until checked and justified explicitly.
-  All three current executions are unavailable in this sandbox.
+  The Agda file checks under the strict profile (<<receipts>>, R-AGDA); the
+  Rocq and Lean fixtures are prover test material (PROOF-POLICY §3), not
+  recheck legs.
 * `proofs/coq/admitted_stub.v` and `proofs/lean/sorry_stub.lean` are negative
   fixtures, not candidate proofs. Their escape hatches must stay intact.
-  They are excluded from Grade 3 counts, not repaired into passing fixtures.
+  They are excluded from PWG counts, not repaired into passing fixtures.
 * JSON files under `proofs/test_fixtures` are webhook/prover inputs, not proofs.
 
 === ABI scaffold debt (not verified)
@@ -121,49 +138,188 @@ or layout contracts are invented in this patch.
 * Any future claim of theorem truth needs the relevant prover kernel/checker
   boundary and assumptions, separately from receipt transport.
 
-== Toolchain acquisition attempt
 
-Published stable releases observed through GitHub's release API on 2026-11-01:
-Rust 1.99.1; Agda 2.8.0.2; Creusot 0.14.0; Idris2 0.8.0;
-Lean 4.35.0; Rocq 9.3.0; Cubicle 1.2.0. None was installed or run.
-Creusot 0.14.0 itself pins `nightly-2026-08-03` with rustc-dev and llvm-tools;
-it cannot simply be built against latest stable Rust. Its INSTALL requires
-Cargo, opam/OCaml, Why3/Why3find and solver acquisition.
+[[receipts]]
+== Kernel receipts (2026-11-09, agent session)
 
-Actual network observations:
+Taken at `1443adfabb98a9e0daea562bc8dbe764442c14cc` with the scripts below.
+These are session receipts, not per-commit CI receipts: the `theory` job in
+`.github/workflows/proof-safety.yml` repeats them on every pull request and
+push to `main`, and its run is the receipt `PWG-1` would need (§8.2).
 
-* `static.rust-lang.org` and `deb.debian.org`: TLS connection failed;
-  Debian HTTP also returned an empty reply.
-* The Agda Linux release asset was requested through api.github.com;
-  its redirect to `release-assets.githubusercontent.com` failed TLS.
-* The sandbox permits GitHub source/API and npm/PyPI registries, not the
-  distribution/package hosts needed by the normal installers. Unrelated npm
-  packages named agda/rustup are not substituted for trusted toolchains.
+[cols="1,2,3,2",options="header"]
+|===
+|ID |Checker |Invocation and input digest |Observed result, axioms
 
-Required environment help: provision verified toolchains through the session
-setup, or allow the official distribution and package hosts (including release
-assets and the dependencies required by opam). Cubical Agda is a mode of Agda,
-not the separate Cubicle model checker. Full Cubical is not the canonical
-proof profile and needs a separately reviewed exception where necessary.
-The existing Rust pin is preserved until an actual tested toolchain update;
-this is an unmet latest-stable target, not a completed upgrade.
+|R-AGDA
+|Agda 2.8.0.2, official Linux release (archive sha256
+`2bcf24bb561b1be859bba841e5d67962d1616b3251bc147f878e4f60a2fbd9f7`)
+|`./scripts/check-agda-proofs.sh`: `agda --safe --without-K
+--cubical-compatible --exact-split --no-sized-types --no-guardedness
+--no-libraries --no-default-libraries --ignore-interfaces`.
+`ReceiptBoundary.agda` sha256
+`276ee4b56a9c2c7e7d8878162090785119bbbb141c359afc6d3352b0100c9014`;
+`FixtureIdentity.agda` sha256
+`9c7b80b13f3507fc54f08b93e17190fc081c4cee00db0dd63d70c154746a91fb`
+|Both modules accepted, exit 0. `--safe` refuses `postulate`; no library is
+in the import cone. Negative controls: a planted `postulate` and a false
+reflection proof were both refused (exit 42).
+
+|R-LEAN
+|Lean 4.35.0, commit `eb6cafb7290e8bd5f2937522d8d804f58f02bafc` (release
+archive sha256
+`7289597a44543246c9227b8cae501767e095ce17f6d448b95fc4a8dc97268f6d`)
+|`./scripts/check-theory-rechecks.sh`: `lean
+proofs/theory/lean/ReceiptBoundary.lean`. Source sha256
+`00ea31f061473e4ad48d06904c18d302c30d5b1443d6dd71afb863c8e328858f`
+|Accepted, exit 0. `#print axioms`: none of the three theorems depends on
+any axiom. Negative control: a planted `axiom` makes the leg fail.
+
+|R-ROCQ
+|The Coq Proof Assistant 8.18.0 (OCaml 4.14.1), Ubuntu 24.04 `coq`
+package `8.18.0+dfsg-1build2`
+|`./scripts/check-theory-rechecks.sh`: `coqc -q ReceiptBoundary.v`.
+Source sha256
+`ca65d1dd2c87cee49a10d26c0466b3ba812d183c71d44e965b9d14e99bf3e66d`
+|Accepted, exit 0. `Print Assumptions`: all three closed under the global
+context. Negative control: a planted `Admitted` makes the leg fail.
+|===
+
+[[correspondence]]
+== Statement correspondence for T-RECEIPT (agent-drafted, awaiting review)
+
+Both recheck legs are re-proofs, not transports (§2). The comparison below
+was made by reading the three files side by side. It was drafted by an agent
+and is not yet reviewed, so each leg stays `BRIDGE-PENDING` and does not
+count towards a PWG (§2.2, §8.2). On owner review it becomes `RECONCILED`,
+and the PWG derived from these receipts would then be `PWG-2ii`.
+
+[cols="2,2,2,2",options="header"]
+|===
+|Item |Agda |Lean 4 |Rocq
+
+|Small universe of claims and evidence
+|`Set` (`--without-K`)
+|`Type` (Type 0)
+|`Set` (predicative)
+
+|Warrant record and its universe
+|`Warrant Claim : Set₁`, fields `Evidence : Set`, `evidence : Evidence`
+|`ReceiptWarrant Claim : Type 1`, same fields
+|`ReceiptWarrant Claim : Type`, fields `evidence_type : Set`,
+`evidence_token`
+
+|Soundness structure
+|`SoundWarrant w : Set`, field `sound : Evidence w → Claim`
+|`SoundReceiptWarrant w`, same field
+|`SoundReceiptWarrant w : Type`, same field
+
+|Empty and unit
+|local `Empty` (no constructors), local `Unit`
+|core `Empty`, core `Unit` (`PUnit.{1}`)
+|prelude `Empty_set`, `unit`
+
+|`receive-with-soundness`
+|`(w : Warrant Claim) → SoundWarrant w → Claim`
+|same quantification
+|same quantification
+
+|`no-unconditional-reflection`
+|`((Claim : Set) → Warrant Claim → Claim) → Empty`
+|same, over `Type`
+|same, over `Set`
+
+|`no-soundness-for-empty-token`
+|`SoundWarrant empty-claim-token → Empty`
+|same
+|same
+|===
+
+Residual assumptions: none in any leg (no postulates, axioms or admitted
+obligations). The match is between small predicative universes; none of the
+three statements is about `Prop`, and none is moved there.
+
+[[rust-auth]]
+== GraphQL authorisation obligations (#192)
+
+#192 added bearer authentication and per-field authorisation. Under
+PROOF-POLICY §1.2 its behaviour is verified with Creusot (Pearlite contracts)
+and Verus on the shipped functions. No verifier was run on it; it is covered
+by unit, contract and smoke tests only, which are not proof receipts. Each
+row is `open` until a verifier discharges it.
+
+[cols="1,3,2,2",options="header"]
+|===
+|ID |Entrypoint and specification |Verifiers and assumptions |Status and next action
+
+|E-AUTH-SCOPE
+|`RepoScope::allows` (`src/api/auth.rs`): true iff the slug is `owner/name`
+with one `/`, both parts non-empty, and some pattern is that exact slug or
+`owner/*` for that owner. No pattern admits every owner.
+|Creusot/Pearlite and Verus. Assumes `str` equality, `split_once` and
+`contains` behave as std documents (trusted extern specs).
+|`open`. Tests: `scope_matches_exact_and_owner_wildcard_only`. Next: Pearlite
+contract on a byte-slice core of the matcher.
+
+|E-AUTH-ROLE
+|`ApiCredentials::authenticate`: the admin credential maps to `Admin`, the
+route credential to `Route(scope)`, anything else to `None`; credentials
+are trimmed on storage and on presentation alike.
+|Creusot/Pearlite and Verus. `constant_time_eq`
+(`src/trust/solver_integrity.rs`) is assumed to equal byte equality; its
+timing property is outside both verifiers.
+|`open`. Tests: `authenticate_maps_each_credential_to_its_role`,
+`stored_credentials_are_trimmed_like_presented_ones`.
+
+|E-AUTH-GUARD
+|`admin_only`, `route_or_admin`, `check_repo_scope`: with no principal every
+guarded field is refused; `Route` reaches only `submitProofObligation`, and
+only in scope.
+|Creusot/Pearlite and Verus on the guard functions. async-graphql guard
+dispatch is a trusted boundary (third party, §1.1).
+|`open`. Tests: `schema_executed_without_a_principal_refuses_the_guarded_fields`,
+`route_credential_cannot_reach_administrative_fields`.
+
+|E-RATE-BOUND
+|`WebhookRateLimiter::check_ip` (`src/api/rate_limit.rs`): at most `limit`
+admissions per peer per window; the peer map is swept when it reaches
+`max(4096, 2 × size after the last sweep)`, and a sweep never drops a peer
+with a request inside the window.
+|Creusot/Pearlite and Verus. `Instant` monotonicity and `HashMap` behaviour
+are trusted std boundaries.
+|`open`. Tests: `idle_peers_are_swept_once_the_map_is_large`,
+`active_peers_survive_a_sweep_and_stay_limited`.
+|===
+
+[[deviations]]
+== Toolchain deviations (PROOF-POLICY §6)
+
+`D-THEORY-TOOLS`, state `open`. The `theory` job in
+`.github/workflows/proof-safety.yml` installs its checkers outside a Guix
+manifest or container, because this repository has neither:
+
+* Agda 2.8.0.2 from the official GitHub release archive, digest above;
+* Lean 4.35.0 from `releases.lean-lang.org`, digest above;
+* Coq 8.18.0 from the Ubuntu 24.04 archive (pinned by the runner image).
+
+Each script asserts the version it observes and fails on a mismatch. The
+deviation closes when a Guix manifest or a proof-toolchain container provides
+the same versions.
 
 == Reproduction and completion criteria
 
-`./scripts/check-agda-proofs.sh` requires exactly Agda 2.8.0.2, ignores stale
-interfaces, uses no external libraries, and runs the strict policy flags.
-It prints source hashes, base revision and invocations. Capture the output
-and record the observed result here; do not edit statuses based on expected
-success. Its missing-tool failure was observed in this session (exit 127).
-This is evidence that absence is not silently skipped, not a proof execution.
+`./scripts/check-agda-proofs.sh` requires Agda 2.8.0.2 (first line of
+`agda --version`; the official binary prints build flags after it), ignores
+stale interfaces, uses no external libraries, and runs the strict policy
+flags. `./scripts/check-theory-rechecks.sh` requires Lean at the version in
+`proofs/theory/lean/lean-toolchain` and Coq 8.18.0, runs each leg's negative
+control first, and fails unless every axiom report is clean. Both print
+source hashes, base revision and invocations. Record the observed result
+here; do not edit statuses on expected success.
 
-`cargo test --locked dispatcher::verisim_echidna` and the existing protocol
-suites remain unrun. Creusot, Idris2 and independent theory rechecks also
-remain unrun. CI wiring for the new theory gate and its real positive/negative
-controls is still open; a local check command is not an installed CI gate.
-
-Completion requires: actual checker receipts; backend protocol agreement;
-production routing and provenance migration; implementation/interface proofs;
-matched theory rechecks; preserved fixture detection; and regression tests.
-This session has NOT completed old/new proof updating or the original routing
-work. Documentation and unverified source candidates are partial progress only.
+Still open: `cargo test --locked dispatcher::verisim_echidna`; Creusot and
+Verus on any Rust obligation; Idris2 for I-GATEWAY; owner review of the
+T-RECEIPT correspondence; and a Rocq 9 recheck if the estate pins one.
+Completion requires backend protocol agreement, production routing and
+provenance migration, implementation and interface proofs, and preserved
+fixture detection.

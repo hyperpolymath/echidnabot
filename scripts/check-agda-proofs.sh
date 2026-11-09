@@ -9,7 +9,7 @@ if ! command -v agda >/dev/null; then
     echo 'OPEN: Agda 2.8.0.2 is required; no proof was checked.' >&2
     exit 127
 fi
-actual=$(agda --version)
+actual=$(agda --version | head -n 1)
 if [[ "$actual" != "$expected" ]]; then
     printf 'OPEN: expected %s, observed %s. Review the pin explicitly.\n' "$expected" "$actual" >&2
     exit 1
