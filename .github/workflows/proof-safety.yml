@@ -49,14 +49,14 @@ jobs:
       - name: Install Agda 2.8.0.2 (digest-verified release)
         run: |
           mkdir -p "$RUNNER_TEMP/agda"
-          curl -fsSL -o "$RUNNER_TEMP/agda.tar.xz" "$AGDA_URL"
+          curl --proto "=https" --tlsv1.2 -fsSL -o "$RUNNER_TEMP/agda.tar.xz" "$AGDA_URL"
           echo "$AGDA_SHA256  $RUNNER_TEMP/agda.tar.xz" | sha256sum -c -
           tar -xJf "$RUNNER_TEMP/agda.tar.xz" -C "$RUNNER_TEMP/agda"
           echo "$RUNNER_TEMP/agda" >> "$GITHUB_PATH"
       - name: Install Lean 4.35.0 (digest-verified release)
         run: |
           mkdir -p "$RUNNER_TEMP/lean"
-          curl -fsSL -o "$RUNNER_TEMP/lean.tar.zst" "$LEAN_URL"
+          curl --proto "=https" --tlsv1.2 -fsSL -o "$RUNNER_TEMP/lean.tar.zst" "$LEAN_URL"
           echo "$LEAN_SHA256  $RUNNER_TEMP/lean.tar.zst" | sha256sum -c -
           tar --zstd -xf "$RUNNER_TEMP/lean.tar.zst" -C "$RUNNER_TEMP/lean" --strip-components=1
           echo "$RUNNER_TEMP/lean/bin" >> "$GITHUB_PATH"

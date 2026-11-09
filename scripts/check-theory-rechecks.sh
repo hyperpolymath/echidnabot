@@ -17,8 +17,9 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
 require() {
-    if ! command -v "$1" >/dev/null; then
-        echo "OPEN: $1 is required; no proof was checked." >&2
+    local tool=$1
+    if ! command -v "$tool" >/dev/null; then
+        echo "OPEN: $tool is required; no proof was checked." >&2
         exit 127
     fi
 }
