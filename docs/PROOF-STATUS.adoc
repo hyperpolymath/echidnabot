@@ -44,7 +44,8 @@ derived; it owes both recheck legs until they count (§8.4).
 |A Lean restatement of T-RECEIPT, intended to match it; the match is not
 yet confirmed (`BRIDGE-PENDING`). `proofs/theory/lean/ReceiptBoundary.lean`
 |proven
-|Route `re-proved`. LEAN-CHECKED, no axioms (<<receipts>>, R-LEAN).
+|Route `re-proved`; transport was tried and failed (<<transport>>).
+LEAN-CHECKED, no axioms (<<receipts>>, R-LEAN).
 §2.2 state `BRIDGE-PENDING`: the statement comparison in
 <<correspondence>> is agent-drafted and awaits owner review. Until then the
 leg does not count towards a PWG.
@@ -52,7 +53,8 @@ leg does not count towards a PWG.
 |A Rocq restatement of T-RECEIPT, intended to match it; the match is not
 yet confirmed (`BRIDGE-PENDING`). `proofs/theory/rocq/ReceiptBoundary.v`
 |proven
-|Route `re-proved`. COQ-CHECKED, closed under the global context
+|Route `re-proved`; transport was tried and failed (<<transport>>).
+COQ-CHECKED, closed under the global context
 (<<receipts>>, R-ROCQ). §2.2 state `BRIDGE-PENDING`, as for the Lean leg.
 The leg was checked with Coq 8.18.0, not a Rocq 9 release; the file uses
 only the prelude (`Empty_set`, `unit`).
@@ -240,6 +242,37 @@ and the PWG derived from these receipts would then be `PWG-2ii`.
 Residual assumptions: none in any leg (no postulates, axioms or admitted
 obligations). The match is between small predicative universes; none of the
 three statements is about `Prop`, and none is moved there.
+
+[[transport]]
+=== Why both legs are re-proved: the Dedukti transport attempt (2026-11-09)
+
+PROOF-POLICY §2 asks for transport through Dedukti first. It was tried for
+T-RECEIPT in an agent session and failed at both steps, so both legs fall
+back to re-proof (§2, "Re-proof as fallback").
+
+. *Agda to Dedukti.* Agda2Dedukti at `c7c7d671` (the only Agda-to-Dedukti
+  translator; it builds against a Deducteam fork of Agda reporting 2.6.3)
+  translates its own test files (`dependantRecord`, `box`), and Dedukti 2.7
+  accepts them. It does not translate `ReceiptBoundary.agda`:
+  * the fork rejects `--cubical-compatible`; a copy differing only by that
+    flag was used;
+  * on that copy the translator stops with an internal Agda error
+    (`__IMPOSSIBLE__`, `Agda/TypeChecking/Sort.hs:216`), in both its plain
+    and eta modes. Minimal modules isolate the trigger: a parameterised
+    record in `Set₁`, which is how `Warrant` is declared;
+  * a variant with `Warrant` as a `data` type (checked by Agda 2.8.0.2, so
+    a different source, not T-RECEIPT) fails differently: "Expected a
+    unrestricted argument, but found an erased argument".
+. *Dedukti to Rocq and Lean.* Even a translated term would have no route
+  out. Lambdapi 4.0.0 (2026-11-05) adds a Lean exporter beside its Rocq
+  one, but both drop rewrite rules ("Command not translated") and turn
+  the theory's symbols into axioms. Agda's Dedukti encoding is built on
+  rewrite rules. On a three-line rewrite theory the exported Lean fails to
+  type-check, and the exported Rocq fails to parse.
+
+The statement comparison above is therefore by reading, and the legs stay
+`BRIDGE-PENDING` until the owner reviews it. Retry the transport when
+Agda2Dedukti tracks a current Agda or Lambdapi exports rewrite theories.
 
 [[rust-auth]]
 == GraphQL authorisation obligations (#192)
