@@ -169,20 +169,22 @@ reflection proof were both refused (exit 42).
 |Lean 4.35.0, commit `eb6cafb7290e8bd5f2937522d8d804f58f02bafc` (release
 archive sha256
 `7289597a44543246c9227b8cae501767e095ce17f6d448b95fc4a8dc97268f6d`)
-|`./scripts/check-theory-rechecks.sh`: `lean
-proofs/theory/lean/ReceiptBoundary.lean`. Source sha256
+|`./scripts/check-theory-rechecks.sh`: `lean -o` compiles the file as a
+module; a query file the script writes runs `#print axioms` on the three
+named theorems. Source sha256
 `00ea31f061473e4ad48d06904c18d302c30d5b1443d6dd71afb863c8e328858f`
-|Accepted, exit 0. `#print axioms`: none of the three theorems depends on
-any axiom. Negative control: a planted `axiom` makes the leg fail.
+|Accepted, exit 0. None of the three theorems depends on any axiom.
+Negative control: a planted `axiom` is reported and refused.
 
 |R-ROCQ
 |The Coq Proof Assistant 8.18.0 (OCaml 4.14.1), Ubuntu 24.04 `coq`
 package `8.18.0+dfsg-1build2`
-|`./scripts/check-theory-rechecks.sh`: `coqc -q ReceiptBoundary.v`.
-Source sha256
+|`./scripts/check-theory-rechecks.sh`: `coqc -q -Q . Recheck` compiles the
+file as a module; one query file per theorem, written by the script, runs
+`Print Assumptions` on it. Source sha256
 `ca65d1dd2c87cee49a10d26c0466b3ba812d183c71d44e965b9d14e99bf3e66d`
 |Accepted, exit 0. `Print Assumptions`: all three closed under the global
-context. Negative control: a planted `Admitted` makes the leg fail.
+context. Negative control: a planted `Admitted` is reported and refused.
 |===
 
 [[correspondence]]
