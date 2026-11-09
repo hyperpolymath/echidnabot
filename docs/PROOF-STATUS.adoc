@@ -44,8 +44,11 @@ admitted obligations. The `rocq` job in `proof-safety.yml` compiles the
 Rocq candidate and requires `Print Assumptions` to report closed terms;
 that is kernel acceptance, not correspondence (unpinned local observation:
 Coq 8.18.0 accepts it). The Lean candidate has no CI job and is unchecked.
-No transport or checked statement correspondence (PROOF-POLICY §2.2
-`RECONCILED`) exists, so neither leg counts toward a grade. A Prop-only reformulation of Set-level quantification
+Both are re-proofs, not transports. The statement comparison PROOF-POLICY
+§2.2 asks for is recorded in
+link:T-RECEIPT-CORRESPONDENCE.adoc[`T-RECEIPT-CORRESPONDENCE.adoc`]. Both legs
+stay `BRIDGE-PENDING`, and count toward no grade, until a kernel result is
+recorded against it. A Prop-only reformulation of Set-level quantification
 is not silently interchangeable. The candidates deliberately use Rocq Set
 and Lean Type rather than silently shrinking the claims to Prop.
 |E-ADAPTER
