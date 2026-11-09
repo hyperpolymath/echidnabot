@@ -180,7 +180,8 @@ Toolchain deviation (Rocq): the `rocq` job installs Coq from the signed
 Ubuntu 24.04 archive, not from a pinned release archive with a recorded
 digest. The job prints the installed package version and the archive's
 published SHA-256 for it, so each run records exactly which kernel accepted
-the file, but the version can move with the runner image. A pinned Rocq
+the file. It fails unless the kernel is Coq 8.18.x, so a runner-image change
+cannot silently swap kernels. A pinned Rocq
 release replaces this when one is available to CI.
 
 Completion requires: actual checker receipts; backend protocol agreement;
