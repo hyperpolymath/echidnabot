@@ -39,7 +39,7 @@ jobs:
           set -euo pipefail
           tc="$RUNNER_TEMP/agda"
           mkdir -p "$tc"
-          curl --fail --location --retry 3 -o "$tc/agda.tar.xz" \
+          curl --proto '=https' --proto-redir '=https' --fail --location --retry 3 -o "$tc/agda.tar.xz" \
             https://github.com/agda/agda/releases/download/v2.7.0.1/Agda-v2.7.0.1-linux.tar.xz
           echo "975b515a14877ab6bce5bfc641e16c4a3ee52ca5d7f846577dee80aa2145db8a  $tc/agda.tar.xz" | sha256sum --check
           tar --no-same-owner -xJf "$tc/agda.tar.xz" -C "$tc"
