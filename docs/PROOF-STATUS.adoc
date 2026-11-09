@@ -267,8 +267,9 @@ back to re-proof (§2, "Re-proof as fallback").
   out. Lambdapi 4.0.0 (2026-11-05) adds a Lean exporter beside its Rocq
   one, but both drop rewrite rules ("Command not translated") and turn
   the theory's symbols into axioms. Agda's Dedukti encoding is built on
-  rewrite rules. On a three-line rewrite theory the exported Lean fails to
-  type-check, and the exported Rocq fails to parse.
+  rewrite rules. On a five-line rewrite theory both exports fail to
+  type-check: with the rule gone, the proof term no longer has its stated
+  type.
 
 The statement comparison above is therefore by reading, and the legs stay
 `BRIDGE-PENDING` until the owner reviews it. Retry the transport when
