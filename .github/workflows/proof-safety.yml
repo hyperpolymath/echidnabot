@@ -74,7 +74,9 @@ jobs:
           set -euo pipefail
           # Pinned at major.minor: a runner image that ships another Coq fails
           # here instead of silently changing the kernel.
-          coqc --version | tee /dev/stderr | grep -q '^The Coq Proof Assistant, version 8\.18\.'
+          v=$(coqc --version)
+          printf '%s\n' "$v"
+          grep -q '^The Coq Proof Assistant, version 8\.18\.' <<<"$v"
           echo "commit: $GITHUB_SHA"
           sha256sum ReceiptBoundary.v
           coqc -Q . TR ReceiptBoundary.v
