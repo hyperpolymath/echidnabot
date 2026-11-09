@@ -5,9 +5,10 @@
 # script checks that each target kernel accepts its file with no axioms; the
 # statement correspondence is recorded separately in docs/PROOF-STATUS.adoc.
 #
-# Both legs also run a negative control first: a planted axiom (Lean) and a
-# planted Admitted (Rocq) must make the leg fail, so a green run means the
-# check can see the failure it guards against.
+# Both legs also run negative controls first: a planted axiom (Lean) and a
+# planted Admitted (Rocq), each queried flush-left and indented, must make the
+# leg fail, so a green run means the check can see the failure it guards
+# against.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
@@ -24,28 +25,53 @@ require() {
     fi
 }
 
-# lean_leg FILE: the kernel accepts FILE and every `#print axioms` command (at
-# the start of a line, so comments do not count) reports no axioms. Prints the
-# observed output.
+# Both legs judge the checker's own output, not the source text, so a query
+# the source count misses (indented, or produced some other way) still fails
+# the leg if it reports an axiom. The source count only sets a floor: there
+# must be at least as many clean reports as query commands. A query inside a
+# block comment raises that floor without a report, so it fails closed.
+
+# lean_leg FILE: the kernel accepts FILE, no `#print axioms` report names an
+# axiom, and the clean reports cover every query command. Prints the output.
 lean_leg() {
     local out
     out=$(lean "$1" 2>&1) || { printf '%s\n' "$out"; return 1; }
     printf '%s\n' "$out"
-    local printed clean
-    printed=$(grep -c '^#print axioms' "$1" || true)
+    local queries clean tainted
+    queries=$(grep -c '^[[:space:]]*#print axioms' "$1" || true)
     clean=$(grep -c 'does not depend on any axioms' <<<"$out" || true)
-    [[ "$printed" -gt 0 && "$clean" -eq "$printed" ]]
+    tainted=$(grep -c 'depends on axioms' <<<"$out" || true)
+    [[ "$tainted" -eq 0 && "$queries" -gt 0 && "$clean" -ge "$queries" ]]
 }
 
-# rocq_leg FILE: coqc accepts FILE and every `Print Assumptions` is closed.
+# rocq_leg FILE: coqc accepts FILE, no `Print Assumptions` report lists
+# axioms, and the closed reports cover every query command.
 rocq_leg() {
     local out
     out=$(cd "$(dirname "$1")" && coqc -q "$(basename "$1")" 2>&1) || { printf '%s\n' "$out"; return 1; }
     printf '%s\n' "$out"
-    local printed clean
-    printed=$(grep -c '^Print Assumptions' "$1" || true)
+    local queries clean tainted
+    queries=$(grep -c '^[[:space:]]*Print Assumptions' "$1" || true)
     clean=$(grep -c 'Closed under the global context' <<<"$out" || true)
-    [[ "$printed" -gt 0 && "$clean" -eq "$printed" ]]
+    tainted=$(grep -c '^Axioms:' <<<"$out" || true)
+    [[ "$tainted" -eq 0 && "$queries" -gt 0 && "$clean" -ge "$queries" ]]
+}
+
+# control LEG FILE REPORT COMPILE...: FILE must compile under COMPILE, the
+# checker must print REPORT (it saw the planted axiom), and LEG must still
+# refuse FILE. A compile error therefore cannot pass as a refusal.
+control() {
+    local leg=$1 file=$2 report=$3 out
+    shift 3
+    out=$("$@" 2>&1) || { printf '%s\n' "$out" >&2; echo "FAIL: control $(basename "$file") did not compile." >&2; exit 1; }
+    if ! grep -q -- "$report" <<<"$out"; then
+        echo "FAIL: control $(basename "$file") did not report its planted axiom." >&2
+        exit 1
+    fi
+    if "$leg" "$file" >/dev/null; then
+        echo "FAIL: $leg accepted control $(basename "$file")." >&2
+        exit 1
+    fi
 }
 
 printf 'Base commit (not a clean-tree claim): %s\n' "$(git rev-parse HEAD)"
@@ -57,23 +83,11 @@ if [[ "$lean_actual" != *"$lean_expected,"* ]]; then
     exit 1
 fi
 printf 'Tool: %s\n' "$lean_actual"
-cat >"$work/Planted.lean" <<'EOF'
-axiom planted : False
-theorem uses : False := planted
-#print axioms uses
-EOF
-# The control must fail for the right reason: the file compiles and Lean names
-# the planted axiom, yet lean_leg still refuses it. A compile error would also
-# make lean_leg fail, so it is ruled out first.
-planted_out=$(lean "$work/Planted.lean" 2>&1) || { printf '%s\n' "$planted_out" >&2; echo 'FAIL: the Lean control did not compile.' >&2; exit 1; }
-if ! grep -q 'depends on axioms: \[planted\]' <<<"$planted_out"; then
-    echo 'FAIL: Lean did not report the planted axiom.' >&2
-    exit 1
-fi
-if lean_leg "$work/Planted.lean" >/dev/null; then
-    echo 'FAIL: the Lean leg accepted a planted axiom.' >&2
-    exit 1
-fi
+printf 'axiom planted : False\ntheorem uses : False := planted\n#print axioms uses\n' >"$work/Planted.lean"
+printf 'axiom planted : False\ntheorem uses : False := planted\n  #print axioms uses\n' >"$work/Indented.lean"
+for f in Planted Indented; do
+    control lean_leg "$work/$f.lean" 'depends on axioms: \[planted\]' lean "$work/$f.lean"
+done
 sha256sum proofs/theory/lean/ReceiptBoundary.lean
 printf 'Invocation: lean proofs/theory/lean/ReceiptBoundary.lean\n'
 lean_leg proofs/theory/lean/ReceiptBoundary.lean
@@ -85,22 +99,12 @@ if [[ "$rocq_actual" != "$rocq_expected" ]]; then
     exit 1
 fi
 printf 'Tool: %s\n' "$rocq_actual"
-cat >"$work/Planted.v" <<'EOF'
-Lemma planted : False.
-Admitted.
-Print Assumptions planted.
-EOF
-# As for Lean: the control compiles and coqc lists the admitted lemma as an
-# axiom, so the refusal below is the axiom check, not a compile error.
-planted_out=$(cd "$work" && coqc -q Planted.v 2>&1) || { printf '%s\n' "$planted_out" >&2; echo 'FAIL: the Rocq control did not compile.' >&2; exit 1; }
-if ! grep -q '^planted : False' <<<"$planted_out"; then
-    echo 'FAIL: coqc did not list the planted Admitted.' >&2
-    exit 1
-fi
-if rocq_leg "$work/Planted.v" >/dev/null; then
-    echo 'FAIL: the Rocq leg accepted a planted Admitted.' >&2
-    exit 1
-fi
+printf 'Lemma planted : False.\nAdmitted.\nPrint Assumptions planted.\n' >"$work/Planted.v"
+printf 'Lemma planted : False.\nAdmitted.\n  Print Assumptions planted.\n' >"$work/Indented.v"
+for f in Planted Indented; do
+    # shellcheck disable=SC2016 # $1 and $2 are expanded by the inner sh, not here.
+    control rocq_leg "$work/$f.v" '^planted : False' sh -c 'cd "$1" && coqc -q "$2"' _ "$work" "$f.v"
+done
 cp proofs/theory/rocq/ReceiptBoundary.v "$work/"
 sha256sum proofs/theory/rocq/ReceiptBoundary.v
 printf 'Invocation: coqc -q ReceiptBoundary.v\n'
