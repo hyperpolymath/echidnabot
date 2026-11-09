@@ -63,6 +63,11 @@ jobs:
           set -euo pipefail
           sudo apt-get update -q
           sudo apt-get install -y -q --no-install-recommends coq
+          # Toolchain record: a signed Ubuntu archive package, not a pinned
+          # release archive (see docs/PROOF-STATUS.adoc). Print the installed
+          # version and the archive's published SHA-256 for that version.
+          echo "coq package: $(dpkg-query -W -f='${Version}' coq)"
+          apt-cache show "coq=$(dpkg-query -W -f='${Version}' coq)" | grep -m1 '^SHA256:'
       - name: Compile T-RECEIPT-ROCQ and print its assumptions
         working-directory: proofs/theory/rocq
         run: |
@@ -70,7 +75,12 @@ jobs:
           coqc --version
           echo "commit: $GITHUB_SHA"
           sha256sum ReceiptBoundary.v
-          out=$(coqc ReceiptBoundary.v)
-          printf '%s\n' "$out"
-          # Every Print Assumptions line must report a closed term.
-          test "$(printf '%s\n' "$out" | grep -c '^Closed under the global context$')" -eq 3
+          coqc -Q . TR ReceiptBoundary.v
+          # Check each theorem on its own: its Print Assumptions output must be
+          # exactly a closed term, so one theorem cannot pass for another.
+          for t in receive_with_soundness no_unconditional_reflection no_soundness_for_empty_token; do
+            printf 'From TR Require Import ReceiptBoundary.\nPrint Assumptions %s.\n' "$t" > "Check_$t.v"
+            out=$(coqc -Q . TR "Check_$t.v")
+            echo "$t: $out"
+            test "$out" = "Closed under the global context"
+          done

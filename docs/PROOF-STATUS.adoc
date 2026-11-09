@@ -172,7 +172,16 @@ This is evidence that absence is not silently skipped, not a proof execution.
 `cargo test --locked dispatcher::verisim_echidna` and the existing protocol
 suites remain unrun. Creusot, Idris2 and independent theory rechecks also
 remain unrun. The `agda` and `rocq` jobs in `proof-safety.yml` are the
-theory gates; a status moves only on their observed output.
+theory gates. Each status moves only when its own required evidence is
+observed: the theory rows on those jobs' output, the Rust rows on a Creusot
+check, and so on.
+
+Toolchain deviation (Rocq): the `rocq` job installs Coq from the signed
+Ubuntu 24.04 archive, not from a pinned release archive with a recorded
+digest. The job prints the installed package version and the archive's
+published SHA-256 for it, so each run records exactly which kernel accepted
+the file, but the version can move with the runner image. A pinned Rocq
+release replaces this when one is available to CI.
 
 Completion requires: actual checker receipts; backend protocol agreement;
 production routing and provenance migration; implementation/interface proofs;
