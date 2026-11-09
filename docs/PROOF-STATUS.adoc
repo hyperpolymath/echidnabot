@@ -4,12 +4,12 @@
 
 == Evidence rules
 
-Updated 2026-11-01 on `arena/68c18146-echidnabot`, based on
-`ab26bd54c8bdc04da8cc48c0778a25eb774be268`. New files are working-tree
-candidates, not committed or checked proof receipts. No Grade 3 attainment
-is claimed. `open` means not checked/done, `argued` means an explicit
-assumption, and `tested-only` requires an actual observed bounded check.
-ConfidenceLevel::Level3 is a runtime heuristic, NOT Mathesis Grade 3.
+The theory sources below were committed in #191 (`eedfdc3`). No proof
+witness grade is claimed: under PROOF-POLICY §8 a grade is derived from a
+CI receipt, and T-RECEIPT has none yet, so it is `ungraded`. `open` means
+not checked/done, `argued` means an explicit assumption, and `tested-only`
+requires an actual observed bounded check. ConfidenceLevel::Level3 is a
+runtime heuristic, NOT a proof witness grade (`PWG-3`).
 
 Policies and pinned references are in
 link:ESTATE-ROUTING-AUDIT.adoc[the routing audit]. Theory requires strict
@@ -26,7 +26,10 @@ a mathematical model does not establish runtime refinement.
 |A general evidence token does not imply its claim;
 `proofs/agda/ReceiptBoundary.agda`
 |open
-|AGDA-PENDING. `no-unconditional-reflection` constructs a contradiction
+|Awaiting the CI receipt from the `agda` job in
+`.github/workflows/proof-safety.yml` (pinned, digest-checked Agda 2.7.0.1,
+`scripts/check-agda-proofs.sh`). Unpinned local observation only: Agda 2.6.3
+accepts the module under the same flags. `no-unconditional-reflection` constructs a contradiction
 from unconditional reflection by instantiating Claim with Empty and evidence
 with Unit. `receive-with-soundness` requires an explicit evidence-to-claim
 function. This is new local theory, informed by epistemic-types, NOT a port
@@ -37,8 +40,12 @@ T-RECEIPT
 |open
 |Independent re-proof source candidates now exist under
 `proofs/theory/{rocq,lean}/ReceiptBoundary.*`, without libraries, axioms or
-admitted obligations. Neither was compiled; no transport or checked
-correspondence exists. A Prop-only reformulation of Set-level quantification
+admitted obligations. The `rocq` job in `proof-safety.yml` compiles the
+Rocq candidate and requires `Print Assumptions` to report closed terms;
+that is kernel acceptance, not correspondence (unpinned local observation:
+Coq 8.18.0 accepts it). The Lean candidate has no CI job and is unchecked.
+No transport or checked statement correspondence (PROOF-POLICY §2.2
+`RECONCILED`) exists, so neither leg counts toward a grade. A Prop-only reformulation of Set-level quantification
 is not silently interchangeable. The candidates deliberately use Rocq Set
 and Lean Type rather than silently shrinking the claims to Prop.
 |E-ADAPTER
@@ -85,10 +92,10 @@ is out of scope does NOT make that scaffolding verified.
   because there was no Agda record. It is not witness transport. Rocq/Lean
   Prop and Agda Set differ; correspondence is limited to propositional
   identity and remains `open` until checked and justified explicitly.
-  All three current executions are unavailable in this sandbox.
 * `proofs/coq/admitted_stub.v` and `proofs/lean/sorry_stub.lean` are negative
   fixtures, not candidate proofs. Their escape hatches must stay intact.
-  They are excluded from Grade 3 counts, not repaired into passing fixtures.
+  They are excluded from every proof count and grade, not repaired into
+  passing fixtures. `docs/proof-debt.adoc` records both.
 * JSON files under `proofs/test_fixtures` are webhook/prover inputs, not proofs.
 
 === ABI scaffold debt (not verified)
@@ -150,7 +157,9 @@ this is an unmet latest-stable target, not a completed upgrade.
 
 == Reproduction and completion criteria
 
-`./scripts/check-agda-proofs.sh` requires exactly Agda 2.8.0.2, ignores stale
+`./scripts/check-agda-proofs.sh` requires exactly Agda 2.7.0.1 (the CI pin,
+whose archive digest is recorded in `proof-safety.yml`; 2.8.0.2 remains the
+latest-stable target until its digest is recorded), ignores stale
 interfaces, uses no external libraries, and runs the strict policy flags.
 It prints source hashes, base revision and invocations. Capture the output
 and record the observed result here; do not edit statuses based on expected
@@ -159,8 +168,8 @@ This is evidence that absence is not silently skipped, not a proof execution.
 
 `cargo test --locked dispatcher::verisim_echidna` and the existing protocol
 suites remain unrun. Creusot, Idris2 and independent theory rechecks also
-remain unrun. CI wiring for the new theory gate and its real positive/negative
-controls is still open; a local check command is not an installed CI gate.
+remain unrun. The `agda` and `rocq` jobs in `proof-safety.yml` are the
+theory gates; a status moves only on their observed output.
 
 Completion requires: actual checker receipts; backend protocol agreement;
 production routing and provenance migration; implementation/interface proofs;

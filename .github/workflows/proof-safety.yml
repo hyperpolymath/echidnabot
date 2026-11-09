@@ -26,3 +26,51 @@ jobs:
           cargo test --locked --test protocol_contract
           cargo test --locked --bin echidnabot clone_contract_tests
           cargo test --locked --lib git_process_tests
+  agda:
+    name: Agda theory (PROOF-POLICY §2.1 canonical invocation)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install pinned, digest-checked Agda
+        run: |
+          set -euo pipefail
+          tc="$RUNNER_TEMP/agda"
+          mkdir -p "$tc"
+          curl --fail --location --retry 3 -o "$tc/agda.tar.xz" \
+            https://github.com/agda/agda/releases/download/v2.7.0.1/Agda-v2.7.0.1-linux.tar.xz
+          echo "975b515a14877ab6bce5bfc641e16c4a3ee52ca5d7f846577dee80aa2145db8a  $tc/agda.tar.xz" | sha256sum --check
+          tar --no-same-owner -xJf "$tc/agda.tar.xz" -C "$tc"
+          {
+            echo "Agda_datadir=$tc/Agda-v2.7.0.1/data"
+            echo "LC_ALL=C.UTF-8"
+          } >> "$GITHUB_ENV"
+          echo "$tc/Agda-v2.7.0.1/bin" >> "$GITHUB_PATH"
+      - name: Type-check T-RECEIPT and the fixture identity, printing the receipt
+        run: ./scripts/check-agda-proofs.sh
+  rocq:
+    name: Rocq recheck candidate (kernel acceptance only)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the distribution Rocq (Coq) kernel
+        run: |
+          set -euo pipefail
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends coq
+      - name: Compile T-RECEIPT-ROCQ and print its assumptions
+        working-directory: proofs/theory/rocq
+        run: |
+          set -euo pipefail
+          coqc --version
+          echo "commit: $GITHUB_SHA"
+          sha256sum ReceiptBoundary.v
+          out=$(coqc ReceiptBoundary.v)
+          printf '%s\n' "$out"
+          # Every Print Assumptions line must report a closed term.
+          test "$(printf '%s\n' "$out" | grep -c '^Closed under the global context$')" -eq 3
