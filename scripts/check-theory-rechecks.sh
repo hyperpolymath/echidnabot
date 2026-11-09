@@ -24,14 +24,15 @@ require() {
     fi
 }
 
-# lean_leg FILE: the kernel accepts FILE and every `#print axioms` line reports
-# no axioms. Prints the observed output.
+# lean_leg FILE: the kernel accepts FILE and every `#print axioms` command (at
+# the start of a line, so comments do not count) reports no axioms. Prints the
+# observed output.
 lean_leg() {
     local out
     out=$(lean "$1" 2>&1) || { printf '%s\n' "$out"; return 1; }
     printf '%s\n' "$out"
     local printed clean
-    printed=$(grep -c '#print axioms' "$1" || true)
+    printed=$(grep -c '^#print axioms' "$1" || true)
     clean=$(grep -c 'does not depend on any axioms' <<<"$out" || true)
     [[ "$printed" -gt 0 && "$clean" -eq "$printed" ]]
 }
@@ -61,6 +62,14 @@ axiom planted : False
 theorem uses : False := planted
 #print axioms uses
 EOF
+# The control must fail for the right reason: the file compiles and Lean names
+# the planted axiom, yet lean_leg still refuses it. A compile error would also
+# make lean_leg fail, so it is ruled out first.
+planted_out=$(lean "$work/Planted.lean" 2>&1) || { printf '%s\n' "$planted_out" >&2; echo 'FAIL: the Lean control did not compile.' >&2; exit 1; }
+if ! grep -q 'depends on axioms: \[planted\]' <<<"$planted_out"; then
+    echo 'FAIL: Lean did not report the planted axiom.' >&2
+    exit 1
+fi
 if lean_leg "$work/Planted.lean" >/dev/null; then
     echo 'FAIL: the Lean leg accepted a planted axiom.' >&2
     exit 1
@@ -81,6 +90,13 @@ Lemma planted : False.
 Admitted.
 Print Assumptions planted.
 EOF
+# As for Lean: the control compiles and coqc lists the admitted lemma as an
+# axiom, so the refusal below is the axiom check, not a compile error.
+planted_out=$(cd "$work" && coqc -q Planted.v 2>&1) || { printf '%s\n' "$planted_out" >&2; echo 'FAIL: the Rocq control did not compile.' >&2; exit 1; }
+if ! grep -q '^planted : False' <<<"$planted_out"; then
+    echo 'FAIL: coqc did not list the planted Admitted.' >&2
+    exit 1
+fi
 if rocq_leg "$work/Planted.v" >/dev/null; then
     echo 'FAIL: the Rocq leg accepted a planted Admitted.' >&2
     exit 1

@@ -41,16 +41,16 @@ by epistemic-types, NOT a port of that library or proof of the Rust parser.
 Import cone: this module alone, no libraries, no postulates. PWG: `PWG-3`,
 derived; it owes both recheck legs until they count (§8.4).
 |T-RECEIPT-LEAN
-|Same statements, quantification, evidence packaging and assumptions as
-T-RECEIPT; `proofs/theory/lean/ReceiptBoundary.lean`
+|A Lean restatement of T-RECEIPT, intended to match it; the match is not
+yet confirmed (`BRIDGE-PENDING`). `proofs/theory/lean/ReceiptBoundary.lean`
 |proven
 |Route `re-proved`. LEAN-CHECKED, no axioms (<<receipts>>, R-LEAN).
 §2.2 state `BRIDGE-PENDING`: the statement comparison in
 <<correspondence>> is agent-drafted and awaits owner review. Until then the
 leg does not count towards a PWG.
 |T-RECEIPT-ROCQ
-|Same statements, quantification, evidence packaging and assumptions as
-T-RECEIPT; `proofs/theory/rocq/ReceiptBoundary.v`
+|A Rocq restatement of T-RECEIPT, intended to match it; the match is not
+yet confirmed (`BRIDGE-PENDING`). `proofs/theory/rocq/ReceiptBoundary.v`
 |proven
 |Route `re-proved`. COQ-CHECKED, closed under the global context
 (<<receipts>>, R-ROCQ). §2.2 state `BRIDGE-PENDING`, as for the Lean leg.
@@ -300,7 +300,8 @@ manifest or container, because this repository has neither:
 
 * Agda 2.8.0.2 from the official GitHub release archive, digest above;
 * Lean 4.35.0 from `releases.lean-lang.org`, digest above;
-* Coq 8.18.0 from the Ubuntu 24.04 archive (pinned by the runner image).
+* Coq from the Ubuntu 24.04 archive. Nothing pins the package version;
+  `scripts/check-theory-rechecks.sh` requires 8.18.0 and fails otherwise.
 
 Each script asserts the version it observes and fails on a mismatch. The
 deviation closes when a Guix manifest or a proof-toolchain container provides
