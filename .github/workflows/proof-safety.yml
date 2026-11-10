@@ -26,65 +26,45 @@ jobs:
           cargo test --locked --test protocol_contract
           cargo test --locked --bin echidnabot clone_contract_tests
           cargo test --locked --lib git_process_tests
-  agda:
-    name: Agda theory (PROOF-POLICY §2.1 canonical invocation)
+
+  theory:
+    # Receipt-boundary theory (docs/PROOF-STATUS.adoc T-RECEIPT): the Agda
+    # source and its Lean and Rocq re-proofs, each checked by its own kernel
+    # at this commit. Toolchains come from pinned upstream release archives,
+    # not the Guix manifest: this is the recorded PROOF-POLICY §6 deviation
+    # D-THEORY-TOOLS in docs/PROOF-STATUS.adoc. Each archive is verified by
+    # digest, and each script fails if the version it observes differs.
+    name: Theory proofs (Agda, Lean, Rocq)
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    env:
+      AGDA_URL: https://github.com/agda/agda/releases/download/v2.8.0.2/Agda-v2.8.0.2-linux.tar.xz
+      AGDA_SHA256: 2bcf24bb561b1be859bba841e5d67962d1616b3251bc147f878e4f60a2fbd9f7
+      LEAN_URL: https://releases.lean-lang.org/lean4/v4.35.0/lean-4.35.0-linux.tar.zst
+      LEAN_SHA256: 7289597a44543246c9227b8cae501767e095ce17f6d448b95fc4a8dc97268f6d
     steps:
       - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
-      - name: Install pinned, digest-checked Agda
+      - name: Install Agda 2.8.0.2 (digest-verified release)
         run: |
-          set -euo pipefail
-          tc="$RUNNER_TEMP/agda"
-          mkdir -p "$tc"
-          curl --proto '=https' --proto-redir '=https' --fail --location --retry 3 -o "$tc/agda.tar.xz" \
-            https://github.com/agda/agda/releases/download/v2.7.0.1/Agda-v2.7.0.1-linux.tar.xz
-          echo "975b515a14877ab6bce5bfc641e16c4a3ee52ca5d7f846577dee80aa2145db8a  $tc/agda.tar.xz" | sha256sum --check
-          tar --no-same-owner -xJf "$tc/agda.tar.xz" -C "$tc"
-          {
-            echo "Agda_datadir=$tc/Agda-v2.7.0.1/data"
-            echo "LC_ALL=C.UTF-8"
-          } >> "$GITHUB_ENV"
-          echo "$tc/Agda-v2.7.0.1/bin" >> "$GITHUB_PATH"
-      - name: Type-check T-RECEIPT and the fixture identity, printing the receipt
-        run: ./scripts/check-agda-proofs.sh
-  rocq:
-    name: Rocq recheck candidate (kernel acceptance only)
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v7.0.1
-        with:
-          persist-credentials: false
-      - name: Install the distribution Rocq (Coq) kernel
+          mkdir -p "$RUNNER_TEMP/agda"
+          curl --proto "=https" --tlsv1.2 -fsSL -o "$RUNNER_TEMP/agda.tar.xz" "$AGDA_URL"
+          echo "$AGDA_SHA256  $RUNNER_TEMP/agda.tar.xz" | sha256sum -c -
+          tar -xJf "$RUNNER_TEMP/agda.tar.xz" -C "$RUNNER_TEMP/agda"
+          echo "$RUNNER_TEMP/agda" >> "$GITHUB_PATH"
+      - name: Install Lean 4.35.0 (digest-verified release)
         run: |
-          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/lean"
+          curl --proto "=https" --tlsv1.2 -fsSL -o "$RUNNER_TEMP/lean.tar.zst" "$LEAN_URL"
+          echo "$LEAN_SHA256  $RUNNER_TEMP/lean.tar.zst" | sha256sum -c -
+          tar --zstd -xf "$RUNNER_TEMP/lean.tar.zst" -C "$RUNNER_TEMP/lean" --strip-components=1
+          echo "$RUNNER_TEMP/lean/bin" >> "$GITHUB_PATH"
+      - name: Install Coq 8.18.0 (Ubuntu 24.04 archive)
+        run: |
           sudo apt-get update -q
-          sudo apt-get install -y -q --no-install-recommends coq
-          # Toolchain record: a signed Ubuntu archive package, not a pinned
-          # release archive (see docs/PROOF-STATUS.adoc). Print the installed
-          # version and the archive's published SHA-256 for that version.
-          echo "coq package: $(dpkg-query -W -f='${Version}' coq)"
-          apt-cache show "coq=$(dpkg-query -W -f='${Version}' coq)" | grep -m1 '^SHA256:'
-      - name: Compile T-RECEIPT-ROCQ and print its assumptions
-        working-directory: proofs/theory/rocq
-        run: |
-          set -euo pipefail
-          # Pinned at major.minor: a runner image that ships another Coq fails
-          # here instead of silently changing the kernel.
-          v=$(coqc --version)
-          printf '%s\n' "$v"
-          grep -q '^The Coq Proof Assistant, version 8\.18\.' <<<"$v"
-          echo "commit: $GITHUB_SHA"
-          sha256sum ReceiptBoundary.v
-          coqc -Q . TR ReceiptBoundary.v
-          # Check each theorem on its own: its Print Assumptions output must be
-          # exactly a closed term, so one theorem cannot pass for another.
-          for t in receive_with_soundness no_unconditional_reflection no_soundness_for_empty_token; do
-            printf 'From TR Require Import ReceiptBoundary.\nPrint Assumptions %s.\n' "$t" > "Check_$t.v"
-            out=$(coqc -Q . TR "Check_$t.v")
-            echo "$t: $out"
-            test "$out" = "Closed under the global context"
-          done
+          sudo apt-get install -y -q coq
+      - name: Agda source (strict profile)
+        run: ./scripts/check-agda-proofs.sh
+      - name: Lean and Rocq recheck legs (with negative controls)
+        run: ./scripts/check-theory-rechecks.sh

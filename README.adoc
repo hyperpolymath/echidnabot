@@ -71,7 +71,7 @@ failures, auto-resets after 5 minutes.
 
 [source,bash]
 ----
-# Build (requires gitbot-fleet layout — see CONTRIBUTING.md)
+# Build (a bare clone builds; see CONTRIBUTING.adoc)
 cargo build --release
 
 # Initialise database

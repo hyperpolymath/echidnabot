@@ -120,10 +120,6 @@ packaging primary going forward.
 |echidnabot is registered as a submodule in `hyperpolymath/echidna` but
  checked in as regular files. Acknowledged drift; fix path tracked in
  `STATE.a2ml` `[known-drift]`.
-
-|`Cargo.toml` path dep on `../../shared-context`
-|Standalone-clone builds fail at dep resolution. Acknowledged; tracked
- in issue #18. Working build requires the gitbot-fleet layout.
 |===
 
 == Outstanding Action Items
@@ -132,8 +128,9 @@ packaging primary going forward.
 the work landing.)
 
 * [ ] Generate SPDX SBOM at release time and attach to GitHub Release
-* [ ] Resolve `gitbot-shared-context` path dependency for standalone
-      buildability (issue #18)
+* [x] Resolve `gitbot-shared-context` path dependency for standalone
+      buildability. Done: `Cargo.toml` takes it as a git dependency with a
+      `rev` pin, and a bare clone builds.
 * [ ] Realise the Zig FFI scaffold (replace `echidnabot` template
       placeholders in `ffi/zig/`; see link:ABI-FFI-README.md[ABI-FFI-README.md]
       "Current Status")

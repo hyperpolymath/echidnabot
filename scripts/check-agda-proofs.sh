@@ -4,15 +4,12 @@
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
-# Pinned to the release whose archive digest is recorded in
-# .github/workflows/proof-safety.yml (the estate CI pin). 2.8.0.2 stays the
-# latest-stable target until its digest is recorded beside that job.
-expected='Agda version 2.7.0.1'
+expected='Agda version 2.8.0.2'
 if ! command -v agda >/dev/null; then
-    echo 'OPEN: Agda 2.7.0.1 is required; no proof was checked.' >&2
+    echo 'OPEN: Agda 2.8.0.2 is required; no proof was checked.' >&2
     exit 127
 fi
-actual=$(agda --version)
+actual=$(agda --version | head -n 1)
 if [[ "$actual" != "$expected" ]]; then
     printf 'OPEN: expected %s, observed %s. Review the pin explicitly.\n' "$expected" "$actual" >&2
     exit 1
