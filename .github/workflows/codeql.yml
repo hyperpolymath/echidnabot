@@ -8,6 +8,7 @@
 # single-language / single-job by design — multi-language wrappers
 # call the reusable once per language. echidnabot is a Rust crate with no
 # JavaScript or TypeScript file, so this caller passes `language: rust`.
+# A second job scans the workflow files (`language: actions`).
 name: CodeQL Security Analysis
 on:
   push:
@@ -34,3 +35,11 @@ jobs:
     uses: metadatastician/standards/.github/workflows/codeql-reusable.yml@740c9d7d4ed4d1f319a04c92b28218beb75668d7 # main as of 2026-06-01
     with:
       language: rust
+  analyze-actions:
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    uses: metadatastician/standards/.github/workflows/codeql-reusable.yml@740c9d7d4ed4d1f319a04c92b28218beb75668d7
+    with:
+      language: actions
