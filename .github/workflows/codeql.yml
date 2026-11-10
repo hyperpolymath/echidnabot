@@ -1,13 +1,14 @@
 # This workflow is managed by gh actions-lock.
 # SPDX-License-Identifier: MPL-2.0
 # This workflow is managed by gh actions-lock.
-# Thin wrapper around hyperpolymath/standards codeql-reusable.yml.
+# Thin wrapper around metadatastician/standards codeql-reusable.yml.
 # Matches the echidna sibling-repo pattern (estate-wide consolidation:
 # 263 deployments, 69 unique SHAs, 26% structural drift). Default
 # language is javascript-typescript (84.8% of estate); the reusable is
 # single-language / single-job by design — multi-language wrappers
-# call the reusable once per language. echidnabot is JS/TS today, so
-# the default suffices.
+# call the reusable once per language. echidnabot is a Rust crate with no
+# JavaScript or TypeScript file, so this caller passes `language: rust`.
+# A second job scans the workflow files (`language: actions`).
 name: CodeQL Security Analysis
 on:
   push:
@@ -31,4 +32,14 @@ jobs:
       actions: read
       contents: read
       security-events: write
-    uses: hyperpolymath/standards/.github/workflows/codeql-reusable.yml@740c9d7d4ed4d1f319a04c92b28218beb75668d7 # main as of 2026-06-01
+    uses: metadatastician/standards/.github/workflows/codeql-reusable.yml@740c9d7d4ed4d1f319a04c92b28218beb75668d7 # main as of 2026-06-01
+    with:
+      language: rust
+  analyze-actions:
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    uses: metadatastician/standards/.github/workflows/codeql-reusable.yml@740c9d7d4ed4d1f319a04c92b28218beb75668d7
+    with:
+      language: actions
