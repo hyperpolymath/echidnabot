@@ -1,22 +1,36 @@
 == Proof Debt
 
 Tracks soundness-relevant escape hatches in `+echidnabot+` that the
-trusted-base reducer flags as undocumented. Each is retained pending
-dedicated cleanup; new occurrences should land with an inline
-`+// TRUSTED:+` annotation or an entry below.
+trusted-base reducer flags. New occurrences land with an inline
+`+// TRUSTED:+` annotation or an entry below, following the estate
+`TRUSTED-BASE-REDUCTION-POLICY.adoc`.
 
-=== Current entries (placeholder)
+=== Current entries
 
-The current 2 escape hatches were inherited from earlier scaffolding and
-have not yet been individually classified. Tracking issue: filed
-alongside this PR.
+Both hatches are deliberate negative fixtures. They are not debt to be
+repaid: removing either escape hatch would break the test that proves the
+detector sees it. They are excluded from every proof count and grade.
 
-* Hatch 1: TBD (file:line)
-* Hatch 2: TBD (file:line)
+[cols="2,1,4",options="header"]
+|===
+|Location |Hatch |Rationale
 
-=== How to populate
+|`proofs/coq/admitted_stub.v:11`
+|`Admitted.`
+|Negative fixture. `tests/protocol_contract.rs`
+(`checked_in_negative_proofs_are_detected`) asserts that echidnabot's axiom
+scanner reports it. Keep the hatch intact.
 
-Run the standards trusted-base reducer locally; it lists the offending
-file:line tuples. Move each from "`TBD`" to a real entry with a one-line
-rationale. When all entries have rationale + cleanup-issue link, this
-file is fully load-bearing instead of a placeholder.
+|`proofs/lean/sorry_stub.lean:7`
+|`sorry`
+|Negative fixture, same test. Carries an inline
+`hypatia: allow code_safety/sorry` directive with this rationale.
+|===
+
+=== Not hatches, but not proofs either
+
+`src/abi/{Types,Layout,Foreign}.idr` is unfilled template scaffolding
+(`{{PROJECT}}` module names and open holes). It contains no
+`believe_me`, `assert_total` or `postulate`, so the reducer does not list
+it, but it is not a verified ABI. See `docs/PROOF-STATUS.adoc`,
+"ABI scaffold debt".
