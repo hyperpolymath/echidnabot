@@ -33,25 +33,18 @@ cargo check
 cargo test
 ----
 
-==== Workspace caveat — `+gitbot-shared-context+`
+==== Build from a bare clone
 
-echidnabot’s `+Cargo.toml+` carries a *path dependency* on
-`+gitbot-shared-context+` that assumes the
-https://github.com/hyperpolymath/gitbot-fleet[gitbot-fleet] monorepo
-layout (sibling directory `+../../shared-context+`). Building from a
-bare clone of `+echidnabot+` alone therefore fails at the
-dependency-resolution step. This is *acknowledged tech debt* — see issue
-https://github.com/hyperpolymath/echidnabot/issues/18[#18]. Until that
-is resolved, contributors who want a building tree should either:
+`+Cargo.toml+` takes `+gitbot-shared-context+` as a git dependency, pinned
+by its full commit hash (`+rev+`), as it takes `+echidna-core+`. A bare
+clone of `+echidnabot+` builds, and its tests run, with the toolchain of
+`+rust-toolchain.toml+`. No
+https://github.com/hyperpolymath/gitbot-fleet[`+gitbot-fleet+`] checkout
+is necessary.
 
-[arabic]
-. Clone the parent
-https://github.com/hyperpolymath/gitbot-fleet[`+gitbot-fleet+`] and work
-from `+gitbot-fleet/bots/echidnabot/+`, *or*
-. Provide a local checkout of `+shared-context+` at
-`+../../shared-context+` relative to this clone, *or*
-. Limit your changes to *documentation* (which is what this PR-class
-covers — no build required).
+An earlier version of this section said that the dependency was a path
+dependency at `+../../shared-context+` and that a bare clone failed. That
+is not true any more.
 
 '''''
 
@@ -174,8 +167,7 @@ Before opening a PR:
 
 * [ ] `+cargo fmt --check+` is clean
 * [ ] `+cargo clippy --all-targets -- -D warnings+` is clean
-* [ ] `+cargo test+` passes (caveat: requires gitbot-fleet layout — see
-above)
+* [ ] `+cargo test+` passes
 * [ ] New behaviour has tests (unit + integration where appropriate)
 * [ ] Docs updated when touching public surface (README / wiki / CLI
 help)
