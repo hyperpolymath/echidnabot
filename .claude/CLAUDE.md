@@ -114,16 +114,16 @@ Both are FOSS with independent governance (no Big Tech).
 4. `EXPLAINME.adoc` — caveats on README claims (test counts, mode wiring, prover surface drift)
 5. `ROADMAP.adoc` — what's actually done vs aspirational
 
-### Build caveat — DO NOT try to `cargo build` from a bare clone
+### Build: a bare clone builds
 
-`Cargo.toml` carries a path dependency on `gitbot-shared-context` at
-`../../shared-context` — that path only resolves inside the
-`gitbot-fleet` monorepo layout. Standalone `git clone` of echidnabot
-will **fail at dependency resolution**. This is acknowledged debt
-tracked in issue #18; do not "fix" it unless explicitly asked.
+`Cargo.toml` takes `gitbot-shared-context` as a git dependency, pinned by
+its full commit hash (`rev`), as it takes `echidna-core`. A standalone
+`git clone` of echidnabot builds, and its tests run, with the toolchain of
+`rust-toolchain.toml`. No `gitbot-fleet` checkout is necessary.
 
-For documentation work this doesn't matter. For code work, work from a
-`gitbot-fleet` checkout.
+An earlier version of this note said that the dependency was a path
+dependency at `../../shared-context` and that a bare clone failed. That
+is not true any more.
 
 ### Dual-truth pattern (monorepo + standalone)
 
@@ -162,8 +162,9 @@ provers can land without touching the type. Use
 
 - `proofs/coq/admitted_stub.v` and `proofs/lean/sorry_stub.lean` are
   **intentional failures** for dogfood CI. Do not "fix" them.
-- `Cargo.toml`'s `gitbot-shared-context` path entry — see build
-  caveat above.
+- The `rev` pins of the git dependencies in `Cargo.toml`
+  (`gitbot-shared-context`, `echidna-core`). Move a pin only on purpose,
+  and say why in the commit.
 - `LICENSE` and `LICENSE.txt` are intentionally identical (MPL-2.0).
 
 ### When making changes, update in lockstep
@@ -193,8 +194,9 @@ truth and update stragglers when you touch them.
 - Conventional Commits format (`feat(scope): …`).
 - `CHANGELOG.md` regenerates from commits via
   `standards/changelog-reusable.yml` — **do not hand-edit**.
-- Co-author trailer:
-  `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>`
+- Co-author trailer: `Co-Authored-By: Claude <noreply@anthropic.com>`.
+  The line has no model name and no version, so that it is true for each
+  session.
 - PR strategy: open with `gh pr create`, then immediately
   `gh pr merge <N> --auto --squash --delete-branch`.
 
