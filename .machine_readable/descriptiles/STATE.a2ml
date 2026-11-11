@@ -5,7 +5,7 @@
 [metadata]
 project = "echidnabot"
 version = "0.1.0"
-last-updated = "2026-10-09"
+last-updated = "2026-11-10"
 status = "active"
 session = "Issue #173 follow-up: owner-requested fresh-checkout tooling via mise, Guix and rootless Podman/Wolfi. Offline shell checks pass; installation and real Rust/container/Guix validation blocked by sandbox tooling and network restrictions. PR #174 merged separately; development-environment follow-up pending verification."
 
@@ -160,6 +160,8 @@ milestones = [
 issues = [
   "BoJ Zig adapter source dir empty — echidnabot-mcp routes through existing BoJ cartridges as a stopgap. Needs Zig shim before BoJ-only-MCP rule is fully satisfied.",
   "GitLab + Bitbucket Discussions/Diff API for true inline review comments deferred — stubs fall back to MR note.",
+  "CI gates do not start (recorded 2026-11-10): 6 workflows call reusable workflows of metadatastician/standards (codeql, governance, hypatia-scan, mirror, rust-ci, scorecard), and the Actions settings of this repository refuse a reusable workflow of that owner. Each run ends as startup_failure with no job. Waiting on the owner: Settings, Actions, General, allow list.",
+  "actions.lock has 8 entries that name hyperpolymath/standards, the old owner name of the standards repository. The file is tool-owned. Waiting on the owner: gh actions-lock.",
 ]
 
 [known-drift]
