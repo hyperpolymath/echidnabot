@@ -146,7 +146,7 @@ jobs:
         uses: erlef/setup-beam@v1.24.1
         with:
           elixir-version: '1.19.4'
-          otp-version: '28.3'
+          otp-version: '27.3.4.19'
       - name: Clone and build Hypatia
         id: build
         continue-on-error: true
