@@ -30,7 +30,7 @@ mkdir -p "$bin_dir"
 if [[ ! -x "$bin_dir/mise" ]] || [[ $("$bin_dir/mise" --version) != "$version "* ]]; then
     tmp=$(mktemp -d)
     trap 'rm -rf "$tmp"' EXIT
-    curl --fail --location --retry 3 --connect-timeout 20 --max-time 300 \
+    curl --fail --proto '=https' --tlsv1.2 --location --retry 3 --connect-timeout 20 --max-time 300 \
         "https://github.com/jdx/mise/releases/download/v$version/mise-v$version-linux-$arch.tar.gz" \
         --output "$tmp/mise.tar.gz"
     printf '%s  %s\n' "$checksum" "$tmp/mise.tar.gz" | sha256sum --check --status
