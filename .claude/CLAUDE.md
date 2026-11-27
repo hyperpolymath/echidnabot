@@ -188,9 +188,10 @@ truth and update stragglers when you touch them.
 
 ### Commit hygiene
 
-- Commits are unsigned by default. Sign only with `CLAUDE_SIGNING_KEY`
-  (SSH, fingerprint `SHA256:ZpkuLBzl…`), and only a commit the owner
-  confirmed by selector (estate standing rule SR-011).
+- `main` has an active Require-Signed-Commits ruleset, so every commit on
+  a PR must be signed, or the PR cannot merge. Sign only with
+  `CLAUDE_SIGNING_KEY` (SSH, fingerprint `SHA256:ZpkuLBzl…`), and only a
+  commit the owner confirmed by selector (estate standing rule SR-011).
 - Conventional Commits format (`feat(scope): …`).
 - `CHANGELOG.md` regenerates from commits via
   `standards/changelog-reusable.yml` — **do not hand-edit**.
