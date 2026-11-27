@@ -188,17 +188,16 @@ truth and update stragglers when you touch them.
 
 ### Commit hygiene
 
-- All commits **GPG-signed** with key
-  `4A03639C1EB1F86C7F0C97A91835A14A2867091E`.
-- Author email `6759885+hyperpolymath@users.noreply.github.com`.
+- Commits are unsigned by default. Sign only with `CLAUDE_SIGNING_KEY`
+  (SSH, fingerprint `SHA256:ZpkuLBzl…`), and only a commit the owner
+  confirmed by selector (estate standing rule SR-011).
 - Conventional Commits format (`feat(scope): …`).
 - `CHANGELOG.md` regenerates from commits via
   `standards/changelog-reusable.yml` — **do not hand-edit**.
-- Co-author trailer: `Co-Authored-By: Claude <noreply@anthropic.com>`.
-  The line has no model name and no version, so that it is true for each
-  session.
-- PR strategy: open with `gh pr create`, then immediately
-  `gh pr merge <N> --auto --squash --delete-branch`.
+- No `Co-Authored-By` or `Claude-Session` trailers on commits or PRs
+  (estate standing rule SR-008).
+- PR strategy: open as a draft. Never auto-merge or merge; the owner
+  merges.
 
 
 ## Owner norms (2026-10-14)
